@@ -4,7 +4,7 @@
  * may continue inland with remaining skill in the same move.
  */
 import type { BuiltBattleland } from './battleland'
-import { battleNeighbors, canFlyOver, getEntryCost, IMPASSABLE_COST, meleeNeighbors } from './battleland'
+import { canFlyOver, getEntryCost, IMPASSABLE_COST, meleeNeighbors } from './battleland'
 import type { BattleState, BattleUnit, GameState } from './types'
 import { getUnitSkill, isUnitAlive } from './battleStrike'
 import type { CreatureType } from '../types/variant'
