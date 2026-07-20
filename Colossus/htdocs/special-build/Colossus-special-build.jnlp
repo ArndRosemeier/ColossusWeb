@@ -1,0 +1,23 @@
+<? header ("Content-Type: application/x-java-jnlp-file"); ?>
+<?xml version="1.0" encoding="utf-8"?>
+     <!-- JNLP File for Colossus -->
+     <jnlp
+       codebase="http://colossus.sf.net/"
+       href="special-build/Colossus-special-build.jnlp">
+       <application-desc main-class="net.sf.colossus.appmain.Start"/>
+       <information>
+         <title>Colossus (Special Build)</title>
+         <vendor>Colossus dev team</vendor>
+         <icon href="Colossus.gif"/>
+         <offline-allowed/>
+         <homepage href="index.html"/>
+       </information>
+       <resources>
+         <jar href="special-build/Colossus.jar"/>
+         <jar href="special-build/libs/jdom.jar"/>
+         <j2se version="1.7+" max-heap-size="256M"/>
+       </resources>
+       <security>
+           <all-permissions/>
+       </security>
+     </jnlp>

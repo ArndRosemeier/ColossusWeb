@@ -1,0 +1,113 @@
+#!/bin/sh
+
+#
+# This is a remote client for network/remote stresstesting.
+# To do network stresstesting, give -R option to stresstest.sh
+# (e.g. -R 2) and start in additional cmdline prompts as many of
+# this nw_stresstest_clients as the number given to -R was.
+
+# So, this script here will simply start a new client (with -g option)
+# as soon as the previous one finishes (sleeps some second in between).
+# It can, same as stresstest.sh itself, be stopped by creating
+# a file stop.flag (although, Ctrl-C would work too... but I think
+# this with the stop.flag file is "nicer").
+#
+# BTW, if stresstest.sh is started with -N option (e.g. -N 10,
+# meaning, do 10 rounds and exit then), it will create that stop.flag
+# then by itself so that, if stresstest.sh is run in same machine,
+# all the remote clients exit, too...
+#
+# @version: $Id$
+# @author: Clemens Katzer
+
+done=no
+
+
+while [ $# -gt 0 -a "$done" = "no" ]
+do
+  case $1 in
+    --cleansn*|-C)
+        echo "Setting delete_snaps to yes"
+        delete_snaps=yes
+        ;;
+    --player*|-m|-M)
+        shift
+        playername=$1
+        ;;
+    --)
+        done=yes
+        ;;
+    *)
+        echo "Option '$1' is not meaningful to stresstest script itself - aborting."
+        echo "Put options meant to starting Colossus.jar itself after a -- separator"
+        exit 1
+  esac
+  shift
+done
+
+if [ -n "$playername" ]
+then
+    echo "OK, playername was set to '$playername'."
+elif [ -n "$USERNAME" ]
+then
+    playername=$USERNAME
+elif [ -n "$USER" ]
+then
+    playername=$USER
+elif [ -n "$LOGNAME" ]
+then
+    playername=$LOGNAME
+else
+    echo "Can't determine a user name - use '-m' or set one of the environment variables!"
+    exit 1
+fi
+
+LOGPROPFILENAME=logging.properties.$playername
+
+if [ ! -e $LOGPROPFILENAME ]
+then
+    echo "Please create a logging properties file called '$LOGPROPFILENAME'!"
+    exit 1
+fi
+
+mkdir -p ./tmp/stresstest
+
+LOG=./tmp/stresstest/client.$playername.log
+
+# for stresstest, this should always be set, even if 1, 
+# so that client does not ask whether to dispose.
+INTERNALROUNDS="-Dnet.sf.colossus.stressTestRounds=1"
+
+# ----------------------------------------------------------------------
+# If on windows (e.g. Cygwin), create also Win-style (CR-LF) newlines into 
+# the log file (Java will print CR-LFs anyway, and if this script does not,
+# we end up with mixed style, and e.g. Emacs shows then those ugly ^M chats...)
+
+if expr "$OS" : "\(WIN\|Win\|win\)" >/dev/null
+then
+  CR="\r"
+else
+  CR=""
+fi
+
+rm -f $LOG
+
+
+while true
+do 
+    echo -e "\nStarting client $playername again\n" 
+    echo -e "$CR\nStarting client $playername again$CR" >> $LOG
+    CMD="java -Djava.util.logging.config.file=logging.properties.$playername $INTERNALROUNDS -Xmx256M -jar Colossus.jar -c -m $playername -g -q $1 $2 $3 $4 $5 $6 $7 $8 $9"
+    echo $CMD
+    echo $CMD >> $LOG 2>&1
+    $CMD      >> $LOG 2>&1
+    sleep 1
+    if [ -e stop.flag ]
+    then
+      echo -e "\nFlagfile stop.flag found - exiting..."
+      exit
+    fi
+    echo sleeping
+    sleep 2
+done
+

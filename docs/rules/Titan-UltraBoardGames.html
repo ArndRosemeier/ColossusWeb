@@ -1,0 +1,947 @@
+<!DOCTYPE html><html lang="en"><head><script>
+// templated by golang 
+function __setCMPv2RequestData() {
+    window._CMPv2RequestData = {
+	    "language": "en"
+    };
+}
+__setCMPv2RequestData();
+
+var gtagLoadBackoff = 50;
+function gtagLoadedCheck() {
+    if(typeof gtag == 'undefined') {
+        gtagLoadBackoff += 50;
+
+        return setTimeout(function(){
+            gtagLoadedCheck();
+        }, gtagLoadBackoff);
+    } else {
+        gtag('consent', 'default', {
+            'ad_storage': 'denied',
+            'ad_user_data': 'denied',
+            'ad_personalization': 'denied',
+            'analytics_storage': 'denied'
+        });
+    }
+}
+
+gtagLoadedCheck();</script>
+
+<script src="https://privacy.gatekeeperconsent.com/tcf2_stub.js" data-cfasync="false"></script><script>var __ezHttpConsent={setByCat:function(src,tagType,attributes,category,force,customSetScriptFn=null){var setScript=function(){if(force||window.ezTcfConsent[category]){if(typeof customSetScriptFn==='function'){customSetScriptFn();}else{var scriptElement=document.createElement(tagType);scriptElement.src=src;attributes.forEach(function(attr){for(var key in attr){if(attr.hasOwnProperty(key)){scriptElement.setAttribute(key,attr[key]);}}});var firstScript=document.getElementsByTagName(tagType)[0];firstScript.parentNode.insertBefore(scriptElement,firstScript);}}};if(force||(window.ezTcfConsent&&window.ezTcfConsent.loaded)){setScript();}else if(typeof getEzConsentData==="function"){getEzConsentData().then(function(ezTcfConsent){if(ezTcfConsent&&ezTcfConsent.loaded){setScript();}else{console.error("cannot get ez consent data");force=true;setScript();}});}else{force=true;setScript();console.error("getEzConsentData is not a function");}},};</script>
+<script>var ezTcfConsent=window.ezTcfConsent?window.ezTcfConsent:{loaded:false,store_info:false,develop_and_improve_services:false,measure_ad_performance:false,measure_content_performance:false,select_basic_ads:false,create_ad_profile:false,select_personalized_ads:false,create_content_profile:false,select_personalized_content:false,understand_audiences:false,use_limited_data_to_select_content:false,};function getEzConsentData(){return new Promise(function(resolve){document.addEventListener("ezConsentEvent",function(event){var ezTcfConsent=event.detail.ezTcfConsent;resolve(ezTcfConsent);});});}</script>
+<script>if(typeof _setEzCookies!=='function'){function _setEzCookies(ezConsentData){var cookies=window.ezCookieQueue;for(var i=0;i<cookies.length;i++){var cookie=cookies[i];if(ezConsentData&&ezConsentData.loaded&&ezConsentData[cookie.tcfCategory]){document.cookie=cookie.name+"="+cookie.value;}}}}
+window.ezCookieQueue=window.ezCookieQueue||[];if(typeof addEzCookies!=='function'){function addEzCookies(arr){window.ezCookieQueue=[...window.ezCookieQueue,...arr];}}
+addEzCookies([{name:"ezopvc_101158",value:"1; Path=/; Domain=ultraboardgames.com; Expires=Mon, 20 Jul 2026 08:13:03 UTC",tcfCategory:"understand_audiences",isEzoic:"true",},{name:"ezoab_101158",value:"mod59-c; Path=/; Domain=ultraboardgames.com; Max-Age=7200",tcfCategory:"store_info",isEzoic:"true",},{name:"active_template::101158",value:"pub_site.1784533383; Path=/; Domain=ultraboardgames.com; Expires=Wed, 22 Jul 2026 07:43:03 UTC",tcfCategory:"store_info",isEzoic:"true",},{name:"ezoadgid_101158",value:"-1; Path=/; Domain=ultraboardgames.com; Max-Age=1800",tcfCategory:"understand_audiences",isEzoic:"true",},{name:"ezoid",value:"69fb84f1-c19a-46a4-61ba-94b0d9c4c87d; Path=/; Domain=ezoic.net; Max-Age=31536000; SameSite=None; Secure; HttpOnly",tcfCategory:"store_info",isEzoic:"true",},{name:"ezoid",value:"69fb84f1-c19a-46a4-61ba-94b0d9c4c87d; Path=/; Max-Age=31536000; SameSite=None; Secure; HttpOnly",tcfCategory:"store_info",isEzoic:"true",}]);if(window.ezTcfConsent&&window.ezTcfConsent.loaded){_setEzCookies(window.ezTcfConsent);}else if(typeof getEzConsentData==="function"){getEzConsentData().then(function(ezTcfConsent){if(ezTcfConsent&&ezTcfConsent.loaded){_setEzCookies(window.ezTcfConsent);}else{console.error("cannot get ez consent data");_setEzCookies(window.ezTcfConsent);}});}else{console.error("getEzConsentData is not a function");_setEzCookies(window.ezTcfConsent);}</script><script type="text/javascript" data-ezscrex='false' data-cfasync='false'>window._ezaq = Object.assign({"edge_cache_status":32,"edge_response_time":431,"url":"https://www.ultraboardgames.com/titan/game-rules.php"}, typeof window._ezaq !== "undefined" ? window._ezaq : {});</script><script type="text/javascript" data-ezscrex='false' data-cfasync='false'>window._ezaq = Object.assign({"ab_test_id":"mod59-c"}, typeof window._ezaq !== "undefined" ? window._ezaq : {});window.__ez=window.__ez||{};window.__ez.tf={};window.__ez=window.__ez||{};window.__ez.fs={"AdaptiveExclusion":"true","AffiliateWidgets":"true","AnchorOverrideArmSplit":"control","DirectRenderBanditSplit":"true","DirectRenderDoseSplit":"off","EscalationDownround":"false","FloatingInterstitialBanditSplit":"true","FloorBanditSplit":"false","FloorEscalation":"true","FlyingCarpet":"false","HbFloorBanditSplit":"true","LazyloadBanditSplit":"true","OutstreamReserveBanditSplit":"true","RefreshFloorBanditSplit":"true","SizeBanditSplit":"true","TimeoutBanditSplit":"false"};window.__ez.fss='343920161';</script><script data-ezscrex='false' data-cfasync='false' data-pagespeed-no-defer>var __ez=__ez||{};__ez.stms=Date.now();__ez.evt={};__ez.script={};__ez.ck=__ez.ck||{};__ez.template={};__ez.template.isOrig=false;__ez.queue=__ez.queue||function(){var e=0,i=0,t=[],n=!1,o=[],r=[],s=!0,a=function(e,i,n,o,r,s,a){var l=arguments.length>7&&void 0!==arguments[7]?arguments[7]:window,d=this;this.name=e,this.funcName=i,this.parameters=null===n?null:w(n)?n:[n],this.isBlock=o,this.blockedBy=r,this.deleteWhenComplete=s,this.isError=!1,this.isComplete=!1,this.isInitialized=!1,this.proceedIfError=a,this.fWindow=l,this.isTimeDelay=!1,this.process=function(){f("... func = "+e),d.isInitialized=!0,d.isComplete=!0,f("... func.apply: "+e);var i=d.funcName.split("."),n=null,o=this.fWindow||window;i.length>3||(n=3===i.length?o[i[0]][i[1]][i[2]]:2===i.length?o[i[0]][i[1]]:o[d.funcName]),null!=n&&n.apply(null,this.parameters),!0===d.deleteWhenComplete&&delete t[e],!0===d.isBlock&&(f("----- F'D: "+d.name),p())}},l=function(e,i,t,n,o,r,s){var a=arguments.length>7&&void 0!==arguments[7]?arguments[7]:window,l=this;this.name=e,this.path=i,this.async=o,this.defer=r,this.isBlock=t,this.blockedBy=n,this.isInitialized=!1,this.isError=!1,this.isComplete=!1,this.proceedIfError=s,this.fWindow=a,this.isTimeDelay=!1,this.isPath=function(e){return"/"===e[0]&&"/"!==e[1]},this.getSrc=function(e){return void 0!==window.__ezScriptHost&&this.isPath(e)?window.__ezScriptHost+e:e},this.process=function(){l.isInitialized=!0,f("... file = "+e);var i=this.fWindow?this.fWindow.document:document,t=i.createElement("script");t.src=this.getSrc(this.path),!0===o?t.async=!0:!0===r&&(t.defer=!0),t.onerror=function(){var e={url:window.location.href,name:l.name,path:l.path,user_agent:window.navigator.userAgent};"undefined"!=typeof _ezaq&&(e.pageview_id=_ezaq.page_view_id);var i=encodeURIComponent(JSON.stringify(e)),t=new XMLHttpRequest;t.open("GET","//g.ezoic.net/ezqlog?d="+i,!0),t.send(),f("----- ERR'D: "+l.name),l.isError=!0,!0===l.isBlock&&p()},t.onreadystatechange=t.onload=function(){var e=t.readyState;f("----- F'D: "+l.name),e&&!/loaded|complete/.test(e)||(l.isComplete=!0,!0===l.isBlock&&p())},i.getElementsByTagName("head")[0].appendChild(t)}},d=function(e,i){this.name=e,this.path="",this.async=!1,this.defer=!1,this.isBlock=!1,this.blockedBy=[],this.isInitialized=!0,this.isError=!1,this.isComplete=i,this.proceedIfError=!1,this.isTimeDelay=!1,this.process=function(){}};function c(e,i,n,s,a,d,c,u,f){var p=new l(e,i,n,s,a,d,c,f);!0===u?o[e]=p:r[e]=p,t[e]=p,h(p)}function h(e){!0!==u(e)&&0!=s&&e.process()}function u(e){if(!0===e.isTimeDelay&&!1===n)return f(e.name+" blocked = TIME DELAY!"),!0;if(w(e.blockedBy))for(var i=0;i<e.blockedBy.length;i++){var o=e.blockedBy[i];if(!1===t.hasOwnProperty(o))return f(e.name+" blocked = "+o),!0;if(!0===e.proceedIfError&&!0===t[o].isError)return!1;if(!1===t[o].isComplete)return f(e.name+" blocked = "+o),!0}return!1}function f(e){var i=window.location.href,t=new RegExp("[?&]ezq=([^&#]*)","i").exec(i);"1"===(t?t[1]:null)&&console.debug(e)}function p(){++e>200||(f("let's go"),m(o),m(r))}function m(e){for(var i in e)if(!1!==e.hasOwnProperty(i)){var t=e[i];!0===t.isComplete||u(t)||!0===t.isInitialized||!0===t.isError?!0===t.isError?f(t.name+": error"):!0===t.isComplete?f(t.name+": complete already"):!0===t.isInitialized&&f(t.name+": initialized already"):t.process()}}function w(e){return"[object Array]"==Object.prototype.toString.call(e)}return window.addEventListener("load",(function(){setTimeout((function(){n=!0,f("TDELAY -----"),p()}),5e3)}),!1),{addFile:c,addFileOnce:function(e,i,n,o,r,s,a,l,d){t[e]||c(e,i,n,o,r,s,a,l,d)},addDelayFile:function(e,i){var n=new l(e,i,!1,[],!1,!1,!0);n.isTimeDelay=!0,f(e+" ...  FILE! TDELAY"),r[e]=n,t[e]=n,h(n)},addFunc:function(e,n,s,l,d,c,u,f,p,m){!0===c&&(e=e+"_"+i++);var w=new a(e,n,s,l,d,u,f,m);!0===p?o[e]=w:r[e]=w,t[e]=w,h(w)},addDelayFunc:function(e,i,n){var o=new a(e,i,n,!1,[],!0,!0);o.isTimeDelay=!0,f(e+" ...  FUNCTION! TDELAY"),r[e]=o,t[e]=o,h(o)},items:t,processAll:p,setallowLoad:function(e){s=e},markLoaded:function(e){if(e&&0!==e.length){if(e in t){var i=t[e];!0===i.isComplete?f(i.name+" "+e+": error loaded duplicate"):(i.isComplete=!0,i.isInitialized=!0)}else t[e]=new d(e,!0);f("markLoaded dummyfile: "+t[e].name)}},logWhatsBlocked:function(){for(var e in t)!1!==t.hasOwnProperty(e)&&u(t[e])}}}();__ez.evt.add=function(e,t,n){e.addEventListener?e.addEventListener(t,n,!1):e.attachEvent?e.attachEvent("on"+t,n):e["on"+t]=n()},__ez.evt.remove=function(e,t,n){e.removeEventListener?e.removeEventListener(t,n,!1):e.detachEvent?e.detachEvent("on"+t,n):delete e["on"+t]};__ez.script.add=function(e){var t=document.createElement("script");t.src=e,t.async=!0,t.type="text/javascript",document.getElementsByTagName("head")[0].appendChild(t)};__ez.dot=__ez.dot||{};__ez.queue.addFileOnce('/detroitchicago/boise.js', '/detroitchicago/boise.js?gcb=195-9&cb=5', true, [], true, false, true, false);__ez.queue.addFileOnce('/parsonsmaize/abilene.js', '/parsonsmaize/abilene.js?gcb=195-9&cb=37cb48c9b5', true, [], true, false, true, false);__ez.queue.addFileOnce('/parsonsmaize/mulvane.js', '/parsonsmaize/mulvane.js?gcb=195-9&cb=e75e48eec0', true, ['/parsonsmaize/abilene.js'], true, false, true, false);__ez.queue.addFileOnce('/detroitchicago/birmingham.js', '/detroitchicago/birmingham.js?gcb=195-9&cb=c4ed651ab8', true, ['/parsonsmaize/abilene.js'], true, false, true, false);</script>
+<script data-ezscrex="false" type="text/javascript" data-cfasync="false">window._ezaq = Object.assign({"ad_cache_level":1,"adpicker_placement_cnt":11,"ai_placeholder_cache_level":3,"ai_placeholder_placement_cnt":17,"domain":"ultraboardgames.com","domain_id":101158,"ezcache_level":1,"ezcache_skip_code":0,"has_bad_image":0,"has_bad_words":0,"is_sitespeed":0,"lt_cache_level":0,"response_size":42365,"response_size_orig":31791,"response_time_orig":476,"template_id":134,"url":"https://www.ultraboardgames.com/titan/game-rules.php","word_count":3702,"worst_bad_word_level":0}, typeof window._ezaq !== "undefined" ? window._ezaq : {});__ez.queue.markLoaded('ezaqBaseReady');</script>
+<link rel='preload' as='script' href='//securepubads.g.doubleclick.net/tag/js/gpt.js'>
+<link rel='preload' as='script' href='//go.ezodn.com/hb/dall.js?cb=195-9-191'>
+<script type="text/javascript">(function(){function storageAvailable(type){var storage;try{storage=window[type];var x='__storage_test__';storage.setItem(x,x);storage.removeItem(x);return true;}
+catch(e){return e instanceof DOMException&&(e.code===22||e.code===1014||e.name==='QuotaExceededError'||e.name==='NS_ERROR_DOM_QUOTA_REACHED')&&(storage&&storage.length!==0);}}
+function remove_ama_config(){if(storageAvailable('localStorage')){localStorage.removeItem("google_ama_config");}}
+remove_ama_config()})()</script>
+<script type="text/javascript">var ezoicTestActive = true</script>
+<script type='text/javascript' data-ezscrex='false' data-cfasync='false'>
+window.ezAnalyticsStatic = true;
+
+function analyticsAddScript(script) {
+	var ezDynamic = document.createElement('script');
+	ezDynamic.type = 'text/javascript';
+	ezDynamic.innerHTML = script;
+	document.head.appendChild(ezDynamic);
+}
+function getCookiesWithPrefix() {
+    var allCookies = document.cookie.split(';');
+    var cookiesWithPrefix = {};
+
+    for (var i = 0; i < allCookies.length; i++) {
+        var cookie = allCookies[i].trim();
+
+        for (var j = 0; j < arguments.length; j++) {
+            var prefix = arguments[j];
+            if (cookie.indexOf(prefix) === 0) {
+                var cookieParts = cookie.split('=');
+                var cookieName = cookieParts[0];
+                var cookieValue = cookieParts.slice(1).join('=');
+                cookiesWithPrefix[cookieName] = decodeURIComponent(cookieValue);
+                break; // Once matched, no need to check other prefixes
+            }
+        }
+    }
+
+    return cookiesWithPrefix;
+}
+function productAnalytics() {
+	var d = {"pr":[6,3,1],"aop":{"12":0,"13":0,"14":0,"2":0,"4":134},"omd5":"d2a53fcf2521d98e05b55ac9af210daa"};
+	d.u = _ezaq.url;
+	d.p = _ezaq.page_view_id;
+	d.v = _ezaq.visit_uuid;
+	d.ab = _ezaq.ab_test_id;
+	d.e = JSON.stringify(_ezaq);
+	d.ref = document.referrer;
+	d.dw = document.documentElement.clientWidth || window.innerWidth || 0;
+	d.dh = window.screen.height || 0;
+	d.vpw = window.innerWidth || document.documentElement.clientWidth || 0;
+	d.vph = window.innerHeight || document.documentElement.clientHeight || 0;
+	d.doch = Math.max((document.body && document.body.scrollHeight) || 0, (document.documentElement && document.documentElement.scrollHeight) || 0, (document.body && document.body.offsetHeight) || 0, (document.documentElement && document.documentElement.offsetHeight) || 0, (document.body && document.body.clientHeight) || 0, (document.documentElement && document.documentElement.clientHeight) || 0);
+	d.c = getCookiesWithPrefix('active_template', 'ez', 'lp_');
+	if(typeof ez_utmParams !== 'undefined') {
+		d.utm = ez_utmParams;
+	}
+	d.qs = window.location.search;
+
+	var dataText = JSON.stringify(d);
+	var xhr = new XMLHttpRequest();
+	xhr.open('POST','/ezais/analytics?cb=1', true);
+	xhr.onload = function () {
+		if (xhr.status!=200) {
+            return;
+		}
+
+        if(document.readyState !== 'loading') {
+            analyticsAddScript(xhr.response);
+            return;
+        }
+
+        var eventFunc = function() {
+            if(document.readyState === 'loading') {
+                return;
+            }
+            document.removeEventListener('readystatechange', eventFunc, false);
+            analyticsAddScript(xhr.response);
+        };
+
+        document.addEventListener('readystatechange', eventFunc, false);
+	};
+	xhr.setRequestHeader('Content-Type','text/plain');
+	xhr.send(dataText);
+}
+__ez.queue.addFunc("productAnalytics", "productAnalytics", null, true, ['ezaqBaseReady'], false, false, false, true);
+</script><script type="text/javascript" data-ezscrex="false" data-cfasync="false" async="">
+function productEzoicAds() {
+if(window.ezDisableAds === true) {
+	return;
+}
+window.google_reactive_ads_global_state = {
+                adCount: {},
+                floatingAdsStacking: { maxZIndexListeners: [], maxZIndexRestrictions: {}, nextRestrictionId: 0 },
+                messageValidationEnabled: false,
+                reactiveTypeDisabledByPublisher: {},
+                reactiveTypeEnabledInAsfe: {},
+                sideRailAvailableSpace: [],
+                sideRailOverlappableElements: [],
+                stateForType: {},
+                tagSpecificState: {},
+                wasPlaTagProcessed: true,
+                wasReactiveAdConfigReceived: { 1: true, 2: true, 8: true },
+                wasReactiveAdVisible: {},
+                wasReactiveTagRequestSent: true,
+                description: "Can't disable auto ads programmatically on the page, so here we are!"
+            };
+var d = {"ab":"","km":{},"pv":"","vu":"ee8f539d-add7-4249-7461-c9d0230f9996","r":{"r":[{"p":" ezoic_pub_ad_placeholder-101-top_of_page-728x90-101-nonexxxnonexxxxxxezmaxscaleval100 ","s":101,"h":100,"w":728,"r":true},{"p":" ezoic_pub_ad_placeholder-125-under_page_title-120x240-125-nonexxxnonexxxxxxezmaxscaleval100 ","s":125},{"p":" ezoic_pub_ad_placeholder-125-under_page_title-125x125-125-nonexxxnonexxxxxxezmaxscaleval100 ","s":125},{"p":" ezoic_pub_ad_placeholder-125-under_page_title-180x150-125-nonexxxnonexxxxxxezmaxscaleval100 ","s":125},{"p":" ezoic_pub_ad_placeholder-125-under_page_title-200x200-125-nonexxxnonexxxxxxezmaxscaleval100 ","s":125},{"p":" ezoic_pub_ad_placeholder-125-under_page_title-234x60-125-nonexxxnonexxxxxxezmaxscaleval100 ","s":125},{"p":" ezoic_pub_ad_placeholder-125-under_page_title-250x250-125-nonexxxnonexxxxxxezmaxscaleval100 ","s":125},{"p":" ezoic_pub_ad_placeholder-125-under_page_title-300x250-125-nonexxxnonexxxxxxezmaxscaleval100 ","s":125},{"p":" ezoic_pub_ad_placeholder-125-under_page_title-320x100-125-nonexxxnonexxxxxxezmaxscaleval100 ","s":125},{"p":" ezoic_pub_ad_placeholder-125-under_page_title-300x50v2-125-nonexxxnonexxxxxxezmaxscaleval100 ","s":125},{"p":" ezoic_pub_ad_placeholder-125-under_page_title-320x50-125-nonexxxnonexxxxxxezmaxscaleval100 ","s":125},{"p":" ezoic_pub_ad_placeholder-125-under_page_title-336x280-125-nonexxxnonexxxxxxezmaxscaleval100 ","s":125},{"p":" ezoic_pub_ad_placeholder-125-under_page_title-320x100v2-125-nonexxxnonexxxxxxezmaxscaleval100 ","s":125},{"p":" ezoic_pub_ad_placeholder-125-under_page_title-468x60-125-nonexxxnonexxxxxxezmaxscaleval100 ","s":125},{"p":" ezoic_pub_ad_placeholder-125-under_page_title-728x90-125-nonexxxnonexxxxxxezmaxscaleval100 ","s":125},{"p":" ezoic_pub_ad_placeholder-709-under_first_paragraph-250x250-709-nonexxxnonexxxxxxezmaxscaleval100 ","s":709},{"p":" ezoic_pub_ad_placeholder-709-under_first_paragraph-300x250-709-nonexxxnonexxxxxxezmaxscaleval100 ","s":709},{"p":" ezoic_pub_ad_placeholder-709-under_first_paragraph-320x100-709-nonexxxnonexxxxxxezmaxscaleval100 ","s":709},{"p":" ezoic_pub_ad_placeholder-709-under_first_paragraph-300x50v2-709-nonexxxnonexxxxxxezmaxscaleval100 ","s":709},{"p":" ezoic_pub_ad_placeholder-709-under_first_paragraph-320x50-709-nonexxxnonexxxxxxezmaxscaleval100 ","s":709},{"p":" ezoic_pub_ad_placeholder-709-under_first_paragraph-336x280-709-nonexxxnonexxxxxxezmaxscaleval100 ","s":709},{"p":" ezoic_pub_ad_placeholder-709-under_first_paragraph-320x100v2-709-nonexxxnonexxxxxxezmaxscaleval100 ","s":709},{"p":" ezoic_pub_ad_placeholder-709-under_first_paragraph-468x60-709-nonexxxnonexxxxxxezmaxscaleval100 ","s":709},{"p":" ezoic_pub_ad_placeholder-709-under_first_paragraph-580x400-709-nonexxxnonexxxxxxezmaxscaleval100 ","s":709},{"p":" ezoic_pub_ad_placeholder-709-under_first_paragraph-250x250x2-709-nonexxxnonexxxxxxezmaxscaleval100 ","s":709},{"p":" ezoic_pub_ad_placeholder-709-under_first_paragraph-728x90-709-nonexxxnonexxxxxxezmaxscaleval100 ","s":709},{"p":" ezoic_pub_ad_placeholder-113-under_first_paragraph-120x240-113-nonexxxnonexxxxxxezmaxscaleval100 ","s":113},{"p":" ezoic_pub_ad_placeholder-113-under_first_paragraph-125x125-113-nonexxxnonexxxxxxezmaxscaleval100 ","s":113},{"p":" ezoic_pub_ad_placeholder-113-under_first_paragraph-180x150-113-nonexxxnonexxxxxxezmaxscaleval100 ","s":113},{"p":" ezoic_pub_ad_placeholder-113-under_first_paragraph-200x200-113-nonexxxnonexxxxxxezmaxscaleval100 ","s":113},{"p":" ezoic_pub_ad_placeholder-113-under_first_paragraph-234x60-113-nonexxxnonexxxxxxezmaxscaleval100 ","s":113},{"p":" ezoic_pub_ad_placeholder-113-under_first_paragraph-250x250-113-nonexxxnonexxxxxxezmaxscaleval100 ","s":113},{"p":" ezoic_pub_ad_placeholder-113-under_first_paragraph-300x250-113-nonexxxnonexxxxxxezmaxscaleval100 ","s":113,"h":250,"w":728},{"p":" ezoic_pub_ad_placeholder-113-under_first_paragraph-320x100-113-nonexxxnonexxxxxxezmaxscaleval100 ","s":113},{"p":" ezoic_pub_ad_placeholder-113-under_first_paragraph-300x50v2-113-nonexxxnonexxxxxxezmaxscaleval100 ","s":113},{"p":" ezoic_pub_ad_placeholder-113-under_first_paragraph-320x50-113-nonexxxnonexxxxxxezmaxscaleval100 ","s":113},{"p":" ezoic_pub_ad_placeholder-113-under_first_paragraph-468x60-113-nonexxxnonexxxxxxezmaxscaleval100 ","s":113},{"p":" ezoic_pub_ad_placeholder-113-under_first_paragraph-728x90-113-nonexxxnonexxxxxxezmaxscaleval100 ","s":113},{"p":" ezoic_pub_ad_placeholder-129-under_second_paragraph-120x240-129-nonexxxnonexxxxxxezmaxscaleval100 ","s":129},{"p":" ezoic_pub_ad_placeholder-129-under_second_paragraph-125x125-129-nonexxxnonexxxxxxezmaxscaleval100 ","s":129},{"p":" ezoic_pub_ad_placeholder-129-under_second_paragraph-180x150-129-nonexxxnonexxxxxxezmaxscaleval100 ","s":129},{"p":" ezoic_pub_ad_placeholder-129-under_second_paragraph-200x200-129-nonexxxnonexxxxxxezmaxscaleval100 ","s":129},{"p":" ezoic_pub_ad_placeholder-129-under_second_paragraph-234x60-129-nonexxxnonexxxxxxezmaxscaleval100 ","s":129},{"p":" ezoic_pub_ad_placeholder-129-under_second_paragraph-250x250-129-nonexxxnonexxxxxxezmaxscaleval100 ","s":129},{"p":" ezoic_pub_ad_placeholder-129-under_second_paragraph-300x250-129-nonexxxnonexxxxxxezmaxscaleval100 ","s":129},{"p":" ezoic_pub_ad_placeholder-129-under_second_paragraph-336x280-129-nonexxxnonexxxxxxezmaxscaleval100 ","s":129},{"p":" ezoic_pub_ad_placeholder-129-under_second_paragraph-320x100v2-129-nonexxxnonexxxxxxezmaxscaleval100 ","s":129},{"p":" ezoic_pub_ad_placeholder-129-under_second_paragraph-468x60-129-nonexxxnonexxxxxxezmaxscaleval100 ","s":129},{"p":" ezoic_pub_ad_placeholder-129-under_second_paragraph-580x400-129-nonexxxnonexxxxxxezmaxscaleval100 ","s":129},{"p":" ezoic_pub_ad_placeholder-129-under_second_paragraph-250x250x2-129-nonexxxnonexxxxxxezmaxscaleval100 ","s":129},{"p":" ezoic_pub_ad_placeholder-129-under_second_paragraph-728x90-129-nonexxxnonexxxxxxezmaxscaleval100 ","s":129,"h":400,"w":728},{"p":" ezoic_pub_ad_placeholder-116-mid_content-120x240-116-nonexxxnonexxxxxxezmaxscaleval100 ","s":116},{"p":" ezoic_pub_ad_placeholder-116-mid_content-125x125-116-nonexxxnonexxxxxxezmaxscaleval100 ","s":116},{"p":" ezoic_pub_ad_placeholder-116-mid_content-180x150-116-nonexxxnonexxxxxxezmaxscaleval100 ","s":116},{"p":" ezoic_pub_ad_placeholder-116-mid_content-200x200-116-nonexxxnonexxxxxxezmaxscaleval100 ","s":116},{"p":" ezoic_pub_ad_placeholder-116-mid_content-234x60-116-nonexxxnonexxxxxxezmaxscaleval100 ","s":116},{"p":" ezoic_pub_ad_placeholder-116-mid_content-250x250-116-nonexxxnonexxxxxxezmaxscaleval100 ","s":116},{"p":" ezoic_pub_ad_placeholder-116-mid_content-300x250-116-nonexxxnonexxxxxxezmaxscaleval100 ","s":116},{"p":" ezoic_pub_ad_placeholder-116-mid_content-336x280-116-nonexxxnonexxxxxxezmaxscaleval100 ","s":116},{"p":" ezoic_pub_ad_placeholder-116-mid_content-320x100v2-116-nonexxxnonexxxxxxezmaxscaleval100 ","s":116},{"p":" ezoic_pub_ad_placeholder-116-mid_content-468x60-116-nonexxxnonexxxxxxezmaxscaleval100 ","s":116},{"p":" ezoic_pub_ad_placeholder-116-mid_content-580x400-116-nonexxxnonexxxxxxezmaxscaleval100 ","s":116},{"p":" ezoic_pub_ad_placeholder-116-mid_content-250x250x2-116-nonexxxnonexxxxxxezmaxscaleval100 ","s":116},{"p":" ezoic_pub_ad_placeholder-116-mid_content-728x90-116-nonexxxnonexxxxxxezmaxscaleval100 ","s":116},{"p":" ezoic_pub_ad_placeholder-109-long_content-234x60-109-nonexxxnonexxxxxxezmaxscaleval100 ","s":109},{"p":" ezoic_pub_ad_placeholder-109-long_content-468x60-109-nonexxxnonexxxxxxezmaxscaleval100 ","s":109},{"p":" ezoic_pub_ad_placeholder-109-long_content-580x400-109-nonexxxnonexxxxxxezmaxscaleval100 ","s":109},{"p":" ezoic_pub_ad_placeholder-109-long_content-250x250x2-109-nonexxxnonexxxxxxezmaxscaleval100 ","s":109},{"p":" ezoic_pub_ad_placeholder-109-long_content-728x90-109-nonexxxnonexxxxxxezmaxscaleval100 ","s":109},{"p":" ezoic_pub_ad_placeholder-109-long_content-970x250-109-nonexxxnonexxxxxxezmaxscaleval100 ","s":109},{"p":" ezoic_pub_ad_placeholder-109-long_content-300x250x3-109-nonexxxnonexxxxxxezmaxscaleval100 ","s":109},{"p":" ezoic_pub_ad_placeholder-109-long_content-970x90-109-nonexxxnonexxxxxxezmaxscaleval100 ","s":109,"h":400,"w":970},{"p":" ezoic_pub_ad_placeholder-115-mid_content-120x240-115-nonexxxnonexxxxxxezmaxscaleval100 ","s":115},{"p":" ezoic_pub_ad_placeholder-115-mid_content-125x125-115-nonexxxnonexxxxxxezmaxscaleval100 ","s":115},{"p":" ezoic_pub_ad_placeholder-115-mid_content-180x150-115-nonexxxnonexxxxxxezmaxscaleval100 ","s":115},{"p":" ezoic_pub_ad_placeholder-115-mid_content-200x200-115-nonexxxnonexxxxxxezmaxscaleval100 ","s":115},{"p":" ezoic_pub_ad_placeholder-115-mid_content-234x60-115-nonexxxnonexxxxxxezmaxscaleval100 ","s":115},{"p":" ezoic_pub_ad_placeholder-115-mid_content-250x250-115-nonexxxnonexxxxxxezmaxscaleval100 ","s":115},{"p":" ezoic_pub_ad_placeholder-115-mid_content-300x250-115-nonexxxnonexxxxxxezmaxscaleval100 ","s":115},{"p":" ezoic_pub_ad_placeholder-115-mid_content-336x280-115-nonexxxnonexxxxxxezmaxscaleval100 ","s":115,"h":280,"w":728},{"p":" ezoic_pub_ad_placeholder-115-mid_content-320x100v2-115-nonexxxnonexxxxxxezmaxscaleval100 ","s":115},{"p":" ezoic_pub_ad_placeholder-115-mid_content-468x60-115-nonexxxnonexxxxxxezmaxscaleval100 ","s":115},{"p":" ezoic_pub_ad_placeholder-115-mid_content-728x90-115-nonexxxnonexxxxxxezmaxscaleval100 ","s":115},{"p":" ezoic_pub_ad_placeholder-132-mid_content-120x240-132-nonexxxnonexxxxxxezmaxscaleval100 ","s":132},{"p":" ezoic_pub_ad_placeholder-132-mid_content-125x125-132-nonexxxnonexxxxxxezmaxscaleval100 ","s":132},{"p":" ezoic_pub_ad_placeholder-132-mid_content-180x150-132-nonexxxnonexxxxxxezmaxscaleval100 ","s":132},{"p":" ezoic_pub_ad_placeholder-132-mid_content-200x200-132-nonexxxnonexxxxxxezmaxscaleval100 ","s":132},{"p":" ezoic_pub_ad_placeholder-132-mid_content-234x60-132-nonexxxnonexxxxxxezmaxscaleval100 ","s":132},{"p":" ezoic_pub_ad_placeholder-132-mid_content-250x250-132-nonexxxnonexxxxxxezmaxscaleval100 ","s":132},{"p":" ezoic_pub_ad_placeholder-132-mid_content-300x250-132-nonexxxnonexxxxxxezmaxscaleval100 ","s":132},{"p":" ezoic_pub_ad_placeholder-132-mid_content-336x280-132-nonexxxnonexxxxxxezmaxscaleval100 ","s":132},{"p":" ezoic_pub_ad_placeholder-132-mid_content-320x100v2-132-nonexxxnonexxxxxxezmaxscaleval100 ","s":132},{"p":" ezoic_pub_ad_placeholder-132-mid_content-468x60-132-nonexxxnonexxxxxxezmaxscaleval100 ","s":132},{"p":" ezoic_pub_ad_placeholder-132-mid_content-580x400-132-nonexxxnonexxxxxxezmaxscaleval100 ","s":132},{"p":" ezoic_pub_ad_placeholder-132-mid_content-250x250x2-132-nonexxxnonexxxxxxezmaxscaleval100 ","s":132},{"p":" ezoic_pub_ad_placeholder-132-mid_content-728x90-132-nonexxxnonexxxxxxezmaxscaleval100 ","s":132},{"p":" ezoic_pub_ad_placeholder-710-under_second_paragraph-250x250-710-nonexxxnonexxxxxxezmaxscaleval100 ","s":710},{"p":" ezoic_pub_ad_placeholder-710-under_second_paragraph-300x250-710-nonexxxnonexxxxxxezmaxscaleval100 ","s":710},{"p":" ezoic_pub_ad_placeholder-710-under_second_paragraph-320x100-710-nonexxxnonexxxxxxezmaxscaleval100 ","s":710},{"p":" ezoic_pub_ad_placeholder-710-under_second_paragraph-300x50v2-710-nonexxxnonexxxxxxezmaxscaleval100 ","s":710},{"p":" ezoic_pub_ad_placeholder-710-under_second_paragraph-320x50-710-nonexxxnonexxxxxxezmaxscaleval100 ","s":710},{"p":" ezoic_pub_ad_placeholder-710-under_second_paragraph-336x280-710-nonexxxnonexxxxxxezmaxscaleval100 ","s":710},{"p":" ezoic_pub_ad_placeholder-710-under_second_paragraph-320x100v2-710-nonexxxnonexxxxxxezmaxscaleval100 ","s":710},{"p":" ezoic_pub_ad_placeholder-710-under_second_paragraph-468x60-710-nonexxxnonexxxxxxezmaxscaleval100 ","s":710},{"p":" ezoic_pub_ad_placeholder-710-under_second_paragraph-580x400-710-nonexxxnonexxxxxxezmaxscaleval100 ","s":710},{"p":" ezoic_pub_ad_placeholder-710-under_second_paragraph-250x250x2-710-nonexxxnonexxxxxxezmaxscaleval100 ","s":710},{"p":" ezoic_pub_ad_placeholder-710-under_second_paragraph-728x90-710-nonexxxnonexxxxxxezmaxscaleval100 ","s":710},{"p":" ezoic_pub_ad_placeholder-711-mid_content-250x250-711-nonexxxnonexxxxxxezmaxscaleval100 ","s":711},{"p":" ezoic_pub_ad_placeholder-711-mid_content-300x250-711-nonexxxnonexxxxxxezmaxscaleval100 ","s":711},{"p":" ezoic_pub_ad_placeholder-711-mid_content-320x100-711-nonexxxnonexxxxxxezmaxscaleval100 ","s":711},{"p":" ezoic_pub_ad_placeholder-711-mid_content-300x50v2-711-nonexxxnonexxxxxxezmaxscaleval100 ","s":711},{"p":" ezoic_pub_ad_placeholder-711-mid_content-320x50-711-nonexxxnonexxxxxxezmaxscaleval100 ","s":711},{"p":" ezoic_pub_ad_placeholder-711-mid_content-336x280-711-nonexxxnonexxxxxxezmaxscaleval100 ","s":711},{"p":" ezoic_pub_ad_placeholder-711-mid_content-320x100v2-711-nonexxxnonexxxxxxezmaxscaleval100 ","s":711},{"p":" ezoic_pub_ad_placeholder-711-mid_content-468x60-711-nonexxxnonexxxxxxezmaxscaleval100 ","s":711},{"p":" ezoic_pub_ad_placeholder-711-mid_content-580x400-711-nonexxxnonexxxxxxezmaxscaleval100 ","s":711},{"p":" ezoic_pub_ad_placeholder-711-mid_content-250x250x2-711-nonexxxnonexxxxxxezmaxscaleval100 ","s":711},{"p":" ezoic_pub_ad_placeholder-711-mid_content-728x90-711-nonexxxnonexxxxxxezmaxscaleval100 ","s":711},{"p":" ezoic_pub_ad_placeholder-712-long_content-250x250-712-nonexxxnonexxxxxxezmaxscaleval100 ","s":712},{"p":" ezoic_pub_ad_placeholder-712-long_content-300x250-712-nonexxxnonexxxxxxezmaxscaleval100 ","s":712},{"p":" ezoic_pub_ad_placeholder-712-long_content-320x100-712-nonexxxnonexxxxxxezmaxscaleval100 ","s":712},{"p":" ezoic_pub_ad_placeholder-712-long_content-300x50v2-712-nonexxxnonexxxxxxezmaxscaleval100 ","s":712},{"p":" ezoic_pub_ad_placeholder-712-long_content-320x50-712-nonexxxnonexxxxxxezmaxscaleval100 ","s":712},{"p":" ezoic_pub_ad_placeholder-712-long_content-336x280-712-nonexxxnonexxxxxxezmaxscaleval100 ","s":712},{"p":" ezoic_pub_ad_placeholder-712-long_content-320x100v2-712-nonexxxnonexxxxxxezmaxscaleval100 ","s":712},{"p":" ezoic_pub_ad_placeholder-712-long_content-468x60-712-nonexxxnonexxxxxxezmaxscaleval100 ","s":712},{"p":" ezoic_pub_ad_placeholder-712-long_content-580x400-712-nonexxxnonexxxxxxezmaxscaleval100 ","s":712},{"p":" ezoic_pub_ad_placeholder-712-long_content-250x250x2-712-nonexxxnonexxxxxxezmaxscaleval100 ","s":712},{"p":" ezoic_pub_ad_placeholder-712-long_content-728x90-712-nonexxxnonexxxxxxezmaxscaleval100 ","s":712},{"p":" ezoic_pub_ad_placeholder-713-longer_content-250x250-713-nonexxxnonexxxxxxezmaxscaleval100 ","s":713},{"p":" ezoic_pub_ad_placeholder-713-longer_content-300x250-713-nonexxxnonexxxxxxezmaxscaleval100 ","s":713},{"p":" ezoic_pub_ad_placeholder-713-longer_content-320x100-713-nonexxxnonexxxxxxezmaxscaleval100 ","s":713},{"p":" ezoic_pub_ad_placeholder-713-longer_content-300x50v2-713-nonexxxnonexxxxxxezmaxscaleval100 ","s":713},{"p":" ezoic_pub_ad_placeholder-713-longer_content-320x50-713-nonexxxnonexxxxxxezmaxscaleval100 ","s":713},{"p":" ezoic_pub_ad_placeholder-713-longer_content-336x280-713-nonexxxnonexxxxxxezmaxscaleval100 ","s":713},{"p":" ezoic_pub_ad_placeholder-713-longer_content-320x100v2-713-nonexxxnonexxxxxxezmaxscaleval100 ","s":713},{"p":" ezoic_pub_ad_placeholder-713-longer_content-468x60-713-nonexxxnonexxxxxxezmaxscaleval100 ","s":713},{"p":" ezoic_pub_ad_placeholder-713-longer_content-580x400-713-nonexxxnonexxxxxxezmaxscaleval100 ","s":713},{"p":" ezoic_pub_ad_placeholder-713-longer_content-250x250x2-713-nonexxxnonexxxxxxezmaxscaleval100 ","s":713},{"p":" ezoic_pub_ad_placeholder-713-longer_content-728x90-713-nonexxxnonexxxxxxezmaxscaleval100 ","s":713},{"p":" ezoic_pub_ad_placeholder-714-longest_content-250x250-714-nonexxxnonexxxxxxezmaxscaleval100 ","s":714},{"p":" ezoic_pub_ad_placeholder-714-longest_content-300x250-714-nonexxxnonexxxxxxezmaxscaleval100 ","s":714},{"p":" ezoic_pub_ad_placeholder-714-longest_content-320x100-714-nonexxxnonexxxxxxezmaxscaleval100 ","s":714},{"p":" ezoic_pub_ad_placeholder-714-longest_content-300x50v2-714-nonexxxnonexxxxxxezmaxscaleval100 ","s":714},{"p":" ezoic_pub_ad_placeholder-714-longest_content-320x50-714-nonexxxnonexxxxxxezmaxscaleval100 ","s":714},{"p":" ezoic_pub_ad_placeholder-714-longest_content-336x280-714-nonexxxnonexxxxxxezmaxscaleval100 ","s":714},{"p":" ezoic_pub_ad_placeholder-714-longest_content-320x100v2-714-nonexxxnonexxxxxxezmaxscaleval100 ","s":714},{"p":" ezoic_pub_ad_placeholder-714-longest_content-468x60-714-nonexxxnonexxxxxxezmaxscaleval100 ","s":714},{"p":" ezoic_pub_ad_placeholder-714-longest_content-580x400-714-nonexxxnonexxxxxxezmaxscaleval100 ","s":714},{"p":" ezoic_pub_ad_placeholder-714-longest_content-250x250x2-714-nonexxxnonexxxxxxezmaxscaleval100 ","s":714},{"p":" ezoic_pub_ad_placeholder-714-longest_content-728x90-714-nonexxxnonexxxxxxezmaxscaleval100 ","s":714},{"p":" ezoic_pub_ad_placeholder-118-longest_content-120x240-118-nonexxxnonexxxxxxezmaxscaleval100 ","s":118},{"p":" ezoic_pub_ad_placeholder-118-longest_content-125x125-118-nonexxxnonexxxxxxezmaxscaleval100 ","s":118},{"p":" ezoic_pub_ad_placeholder-118-longest_content-180x150-118-nonexxxnonexxxxxxezmaxscaleval100 ","s":118},{"p":" ezoic_pub_ad_placeholder-118-longest_content-200x200-118-nonexxxnonexxxxxxezmaxscaleval100 ","s":118},{"p":" ezoic_pub_ad_placeholder-118-longest_content-234x60-118-nonexxxnonexxxxxxezmaxscaleval100 ","s":118},{"p":" ezoic_pub_ad_placeholder-118-longest_content-250x250-118-nonexxxnonexxxxxxezmaxscaleval100 ","s":118},{"p":" ezoic_pub_ad_placeholder-118-longest_content-300x250-118-nonexxxnonexxxxxxezmaxscaleval100 ","s":118},{"p":" ezoic_pub_ad_placeholder-118-longest_content-320x100-118-nonexxxnonexxxxxxezmaxscaleval100 ","s":118},{"p":" ezoic_pub_ad_placeholder-118-longest_content-300x50v2-118-nonexxxnonexxxxxxezmaxscaleval100 ","s":118},{"p":" ezoic_pub_ad_placeholder-118-longest_content-320x50-118-nonexxxnonexxxxxxezmaxscaleval100 ","s":118},{"p":" ezoic_pub_ad_placeholder-118-longest_content-336x280-118-nonexxxnonexxxxxxezmaxscaleval100 ","s":118,"h":400,"w":728},{"p":" ezoic_pub_ad_placeholder-118-longest_content-320x100v2-118-nonexxxnonexxxxxxezmaxscaleval100 ","s":118},{"p":" ezoic_pub_ad_placeholder-118-longest_content-468x60-118-nonexxxnonexxxxxxezmaxscaleval100 ","s":118},{"p":" ezoic_pub_ad_placeholder-118-longest_content-580x400-118-nonexxxnonexxxxxxezmaxscaleval100 ","s":118},{"p":" ezoic_pub_ad_placeholder-118-longest_content-250x250x2-118-nonexxxnonexxxxxxezmaxscaleval100 ","s":118},{"p":" ezoic_pub_ad_placeholder-118-longest_content-728x90-118-nonexxxnonexxxxxxezmaxscaleval100 ","s":118},{"p":" ezoic_pub_ad_placeholder-110-longer_content-580x400-110-nonexxxnonexxxxxxezmaxscaleval100 ","s":110},{"p":" ezoic_pub_ad_placeholder-110-longer_content-250x250x2-110-nonexxxnonexxxxxxezmaxscaleval100 ","s":110},{"p":" ezoic_pub_ad_placeholder-110-longer_content-728x90-110-nonexxxnonexxxxxxezmaxscaleval100 ","s":110},{"p":" ezoic_pub_ad_placeholder-110-longer_content-970x250-110-nonexxxnonexxxxxxezmaxscaleval100 ","s":110},{"p":" ezoic_pub_ad_placeholder-110-longer_content-300x250x3-110-nonexxxnonexxxxxxezmaxscaleval100 ","s":110},{"p":" ezoic_pub_ad_placeholder-110-longer_content-970x90-110-nonexxxnonexxxxxxezmaxscaleval100 ","s":110},{"p":" ezoic_pub_ad_placeholder-717-incontent_7-250x250-717-nonexxxnonexxxxxxezmaxscaleval100 ","s":717},{"p":" ezoic_pub_ad_placeholder-717-incontent_7-300x250-717-nonexxxnonexxxxxxezmaxscaleval100 ","s":717},{"p":" ezoic_pub_ad_placeholder-717-incontent_7-320x100-717-nonexxxnonexxxxxxezmaxscaleval100 ","s":717},{"p":" ezoic_pub_ad_placeholder-717-incontent_7-300x50v2-717-nonexxxnonexxxxxxezmaxscaleval100 ","s":717},{"p":" ezoic_pub_ad_placeholder-717-incontent_7-320x50-717-nonexxxnonexxxxxxezmaxscaleval100 ","s":717},{"p":" ezoic_pub_ad_placeholder-717-incontent_7-336x280-717-nonexxxnonexxxxxxezmaxscaleval100 ","s":717,"h":400,"w":728},{"p":" ezoic_pub_ad_placeholder-717-incontent_7-320x100v2-717-nonexxxnonexxxxxxezmaxscaleval100 ","s":717},{"p":" ezoic_pub_ad_placeholder-717-incontent_7-468x60-717-nonexxxnonexxxxxxezmaxscaleval100 ","s":717},{"p":" ezoic_pub_ad_placeholder-717-incontent_7-580x400-717-nonexxxnonexxxxxxezmaxscaleval100 ","s":717},{"p":" ezoic_pub_ad_placeholder-717-incontent_7-250x250x2-717-nonexxxnonexxxxxxezmaxscaleval100 ","s":717},{"p":" ezoic_pub_ad_placeholder-717-incontent_7-728x90-717-nonexxxnonexxxxxxezmaxscaleval100 ","s":717},{"p":" ezoic_pub_ad_placeholder-715-incontent_5-250x250-715-nonexxxnonexxxxxxezmaxscaleval100 ","s":715},{"p":" ezoic_pub_ad_placeholder-715-incontent_5-300x250-715-nonexxxnonexxxxxxezmaxscaleval100 ","s":715},{"p":" ezoic_pub_ad_placeholder-715-incontent_5-320x100-715-nonexxxnonexxxxxxezmaxscaleval100 ","s":715},{"p":" ezoic_pub_ad_placeholder-715-incontent_5-300x50v2-715-nonexxxnonexxxxxxezmaxscaleval100 ","s":715},{"p":" ezoic_pub_ad_placeholder-715-incontent_5-320x50-715-nonexxxnonexxxxxxezmaxscaleval100 ","s":715},{"p":" ezoic_pub_ad_placeholder-715-incontent_5-336x280-715-nonexxxnonexxxxxxezmaxscaleval100 ","s":715},{"p":" ezoic_pub_ad_placeholder-715-incontent_5-320x100v2-715-nonexxxnonexxxxxxezmaxscaleval100 ","s":715},{"p":" ezoic_pub_ad_placeholder-715-incontent_5-468x60-715-nonexxxnonexxxxxxezmaxscaleval100 ","s":715},{"p":" ezoic_pub_ad_placeholder-715-incontent_5-580x400-715-nonexxxnonexxxxxxezmaxscaleval100 ","s":715},{"p":" ezoic_pub_ad_placeholder-715-incontent_5-250x250x2-715-nonexxxnonexxxxxxezmaxscaleval100 ","s":715},{"p":" ezoic_pub_ad_placeholder-715-incontent_5-728x90-715-nonexxxnonexxxxxxezmaxscaleval100 ","s":715,"h":400,"w":728},{"p":" ezoic_pub_ad_placeholder-719-incontent_9-250x250-719-nonexxxnonexxxxxxezmaxscaleval100 ","s":719},{"p":" ezoic_pub_ad_placeholder-719-incontent_9-300x250-719-nonexxxnonexxxxxxezmaxscaleval100 ","s":719},{"p":" ezoic_pub_ad_placeholder-719-incontent_9-320x100-719-nonexxxnonexxxxxxezmaxscaleval100 ","s":719},{"p":" ezoic_pub_ad_placeholder-719-incontent_9-300x50v2-719-nonexxxnonexxxxxxezmaxscaleval100 ","s":719},{"p":" ezoic_pub_ad_placeholder-719-incontent_9-320x50-719-nonexxxnonexxxxxxezmaxscaleval100 ","s":719},{"p":" ezoic_pub_ad_placeholder-719-incontent_9-336x280-719-nonexxxnonexxxxxxezmaxscaleval100 ","s":719},{"p":" ezoic_pub_ad_placeholder-719-incontent_9-320x100v2-719-nonexxxnonexxxxxxezmaxscaleval100 ","s":719},{"p":" ezoic_pub_ad_placeholder-719-incontent_9-468x60-719-nonexxxnonexxxxxxezmaxscaleval100 ","s":719},{"p":" ezoic_pub_ad_placeholder-719-incontent_9-580x400-719-nonexxxnonexxxxxxezmaxscaleval100 ","s":719},{"p":" ezoic_pub_ad_placeholder-719-incontent_9-250x250x2-719-nonexxxnonexxxxxxezmaxscaleval100 ","s":719},{"p":" ezoic_pub_ad_placeholder-719-incontent_9-728x90-719-nonexxxnonexxxxxxezmaxscaleval100 ","s":719},{"p":" ezoic_pub_ad_placeholder-117-longer_content-120x240-117-nonexxxnonexxxxxxezmaxscaleval100 ","s":117},{"p":" ezoic_pub_ad_placeholder-117-longer_content-125x125-117-nonexxxnonexxxxxxezmaxscaleval100 ","s":117},{"p":" ezoic_pub_ad_placeholder-117-longer_content-180x150-117-nonexxxnonexxxxxxezmaxscaleval100 ","s":117},{"p":" ezoic_pub_ad_placeholder-117-longer_content-200x200-117-nonexxxnonexxxxxxezmaxscaleval100 ","s":117},{"p":" ezoic_pub_ad_placeholder-117-longer_content-234x60-117-nonexxxnonexxxxxxezmaxscaleval100 ","s":117},{"p":" ezoic_pub_ad_placeholder-117-longer_content-250x250-117-nonexxxnonexxxxxxezmaxscaleval100 ","s":117},{"p":" ezoic_pub_ad_placeholder-117-longer_content-300x250-117-nonexxxnonexxxxxxezmaxscaleval100 ","s":117},{"p":" ezoic_pub_ad_placeholder-117-longer_content-336x280-117-nonexxxnonexxxxxxezmaxscaleval100 ","s":117},{"p":" ezoic_pub_ad_placeholder-117-longer_content-320x100v2-117-nonexxxnonexxxxxxezmaxscaleval100 ","s":117},{"p":" ezoic_pub_ad_placeholder-117-longer_content-468x60-117-nonexxxnonexxxxxxezmaxscaleval100 ","s":117},{"p":" ezoic_pub_ad_placeholder-117-longer_content-580x400-117-nonexxxnonexxxxxxezmaxscaleval100 ","s":117,"h":400,"w":728},{"p":" ezoic_pub_ad_placeholder-117-longer_content-250x250x2-117-nonexxxnonexxxxxxezmaxscaleval100 ","s":117},{"p":" ezoic_pub_ad_placeholder-117-longer_content-728x90-117-nonexxxnonexxxxxxezmaxscaleval100 ","s":117},{"p":" ezoic_pub_ad_placeholder-716-incontent_6-250x250-716-nonexxxnonexxxxxxezmaxscaleval100 ","s":716},{"p":" ezoic_pub_ad_placeholder-716-incontent_6-300x250-716-nonexxxnonexxxxxxezmaxscaleval100 ","s":716},{"p":" ezoic_pub_ad_placeholder-716-incontent_6-320x100-716-nonexxxnonexxxxxxezmaxscaleval100 ","s":716},{"p":" ezoic_pub_ad_placeholder-716-incontent_6-300x50v2-716-nonexxxnonexxxxxxezmaxscaleval100 ","s":716},{"p":" ezoic_pub_ad_placeholder-716-incontent_6-320x50-716-nonexxxnonexxxxxxezmaxscaleval100 ","s":716},{"p":" ezoic_pub_ad_placeholder-716-incontent_6-336x280-716-nonexxxnonexxxxxxezmaxscaleval100 ","s":716},{"p":" ezoic_pub_ad_placeholder-716-incontent_6-320x100v2-716-nonexxxnonexxxxxxezmaxscaleval100 ","s":716},{"p":" ezoic_pub_ad_placeholder-716-incontent_6-468x60-716-nonexxxnonexxxxxxezmaxscaleval100 ","s":716},{"p":" ezoic_pub_ad_placeholder-716-incontent_6-580x400-716-nonexxxnonexxxxxxezmaxscaleval100 ","s":716},{"p":" ezoic_pub_ad_placeholder-716-incontent_6-250x250x2-716-nonexxxnonexxxxxxezmaxscaleval100 ","s":716},{"p":" ezoic_pub_ad_placeholder-716-incontent_6-728x90-716-nonexxxnonexxxxxxezmaxscaleval100 ","s":716},{"p":" ezoic_pub_ad_placeholder-718-incontent_8-250x250-718-nonexxxnonexxxxxxezmaxscaleval100 ","s":718},{"p":" ezoic_pub_ad_placeholder-718-incontent_8-300x250-718-nonexxxnonexxxxxxezmaxscaleval100 ","s":718},{"p":" ezoic_pub_ad_placeholder-718-incontent_8-320x100-718-nonexxxnonexxxxxxezmaxscaleval100 ","s":718},{"p":" ezoic_pub_ad_placeholder-718-incontent_8-300x50v2-718-nonexxxnonexxxxxxezmaxscaleval100 ","s":718},{"p":" ezoic_pub_ad_placeholder-718-incontent_8-320x50-718-nonexxxnonexxxxxxezmaxscaleval100 ","s":718},{"p":" ezoic_pub_ad_placeholder-718-incontent_8-336x280-718-nonexxxnonexxxxxxezmaxscaleval100 ","s":718},{"p":" ezoic_pub_ad_placeholder-718-incontent_8-320x100v2-718-nonexxxnonexxxxxxezmaxscaleval100 ","s":718},{"p":" ezoic_pub_ad_placeholder-718-incontent_8-468x60-718-nonexxxnonexxxxxxezmaxscaleval100 ","s":718},{"p":" ezoic_pub_ad_placeholder-718-incontent_8-580x400-718-nonexxxnonexxxxxxezmaxscaleval100 ","s":718},{"p":" ezoic_pub_ad_placeholder-718-incontent_8-250x250x2-718-nonexxxnonexxxxxxezmaxscaleval100 ","s":718},{"p":" ezoic_pub_ad_placeholder-718-incontent_8-728x90-718-nonexxxnonexxxxxxezmaxscaleval100 ","s":718},{"p":" ezoic_pub_ad_placeholder-112-bottom_of_page-970x90-112-nonexxxnonexxxxxxezmaxscaleval100 ","s":112,"h":280,"w":970,"r":true},{"p":" ezoic_pub_ad_placeholder-119-sidebar-300x250-119-nonexxxnonexxxxxxezmaxscaleval100 ","s":119,"h":1050,"w":320,"r":true},{"p":" ezoic_pub_ad_placeholder-103-sidebar_bottom-336x280-103-nonexxxnonexxxxxxezmaxscaleval100 ","s":103,"h":1050,"w":336,"r":true},{"p":" ezoic_pub_ad_placeholder-139-sidebar_floating_1-300x600-139-nonexxxnonexxxxxxezmaxscaleval100 ","s":139,"h":600,"w":300,"r":true},{"p":" ezoic_pub_ad_placeholder-100-bottom_floating-970x90-100-nonexxxnonexxxxxxezmaxscaleval100 ","s":100,"h":90,"w":970,"r":true},{"p":" ezoic_pub_ad_placeholder-141-edge-160x600-141-nonexxxnonexxxxxxezmaxscaleval100 ","s":141,"h":600,"w":160,"r":true},{"p":" ezoic_pub_ad_placeholder-976-edge_2-160x600-976-nonexxxnonexxxxxxezmaxscaleval100 ","s":976,"h":600,"w":160}],"a":{"100":true,"101":true,"102":true,"103":true,"109":true,"110":true,"112":true,"113":true,"115":true,"116":true,"117":true,"118":true,"119":true,"12":true,"123":true,"124":true,"125":true,"129":true,"132":true,"139":true,"141":true,"6":true,"700":true,"702":true,"707":true,"709":true,"710":true,"711":true,"712":true,"713":true,"714":true,"715":true,"716":true,"717":true,"718":true,"719":true,"976":true},"g":-1,"l":{"0":90,"1":3,"2":2,"3":1,"4":-1,"5":-1},"m":{"0":90,"1":3,"2":2,"3":1,"4":-1,"5":-1},"v":0,"ve":false,"hr":false,"sa":false},"cr":"","tid":134,"tn":"pub_site","url":"","wc":3702,"ff":1,"dhh":"","dw":0,"dh":0,"vpw":0,"vph":0,"doch":0};
+d.ab = _ezaq.ab_test_id;
+d.pv = _ezaq.page_view_id;
+d.vu = _ezaq.visit_uuid;
+d.url = window.location.href;
+d.dw = document.documentElement.clientWidth || window.innerWidth || 0;
+d.dh = window.screen.height || 0;
+d.vpw = window.innerWidth || document.documentElement.clientWidth || 0;
+d.vph = window.innerHeight || document.documentElement.clientHeight || 0;
+d.doch = Math.max((document.body && document.body.scrollHeight) || 0, (document.documentElement && document.documentElement.scrollHeight) || 0, (document.body && document.body.offsetHeight) || 0, (document.documentElement && document.documentElement.offsetHeight) || 0, (document.body && document.body.clientHeight) || 0, (document.documentElement && document.documentElement.clientHeight) || 0);
+var dynamicAddScript = function(script) {
+	if(window.ezFinishedStatic === true) {
+		console.error("attempted to load dynamic script again");
+		return;
+	}
+	var errorMessages = [];
+	function errorHandler(event) {
+	  var errorObj = event.error;
+	  if (errorObj && errorObj.stack && errorObj.stack.indexOf('dynamicAddScript') !== -1) {
+		var errorMessage = {
+		  Message: event.message,
+		  LineNo: event.lineno,
+		  ColumnNo: event.colno,
+		  Stack: errorObj.stack
+		};
+		errorMessages.push(errorMessage);
+	  }
+
+	  if (typeof window.onerror === 'function') {
+		window.onerror.apply(this, arguments);
+	  }
+	}
+ 	window.addEventListener('error', errorHandler);
+
+	var ezDynamic = document.createElement('script');
+	ezDynamic.type = 'text/javascript';
+	ezDynamic.innerHTML = script;
+	document.head.appendChild(ezDynamic);
+
+	window.removeEventListener('error', errorHandler);
+	if (window.ezFinishedStatic !== true || typeof window.ezstaticerrors !== 'undefined') {
+		d.Script = script;
+		d.ErrorMessages = JSON.stringify(errorMessages);
+		d.ErrorStaticMessages = window.ezstaticerrors || '';
+		var dataTxt = JSON.stringify(d);
+		if (dataTxt.length > 0) {
+			var logXHR = new XMLHttpRequest();
+			logXHR.open('POST','/ezais/log?cb=1', true);
+			logXHR.setRequestHeader('Content-Type','application/json');
+			logXHR.send(dataTxt);
+		}
+	}
+};
+function collectFP(cb) {
+	var lib = (typeof ce !== "undefined") ? ce : (typeof FingerprintJS !== "undefined" ? FingerprintJS : null);
+	if (!lib) { cb(); return; }
+	try {
+		lib.load().then(function(agent) { return agent.get(); }).then(function(res) {
+			try {
+				var c = res.components || {};
+				d.fp = {
+					pr: window.devicePixelRatio || 0,
+					hc: (c.hardwareConcurrency && c.hardwareConcurrency.value) ? c.hardwareConcurrency.value : (navigator.hardwareConcurrency || 0),
+					dm: navigator.deviceMemory || 0,
+					ch: c.canvas && c.canvas.value && c.canvas.value.text ? c.canvas.value.text : '',
+					wr: c.webGlBasics && c.webGlBasics.value ? (c.webGlBasics.value.rendererUnmasked || c.webGlBasics.value.renderer || '') : '',
+					wv: c.webGlBasics && c.webGlBasics.value ? (c.webGlBasics.value.vendorUnmasked || c.webGlBasics.value.vendor || '') : '',
+					af: c.audio && c.audio.value !== undefined ? String(c.audio.value) : '',
+					ft: c.fonts && c.fonts.value ? c.fonts.value.join(',') : ''
+				};
+			} catch(e) {}
+			cb();
+		}).catch(function() { cb(); });
+	} catch(e) { cb(); }
+}
+function persistAdDemoCookie() {
+	try {
+		var params = new URLSearchParams(window.location.search);
+		var cookieName = "ez_ad_demo_101158";
+		var state = {};
+		var current = document.cookie.match(new RegExp('(?:^|; )' + cookieName.replace(/([.$?*|{}()\[\]\\\/\+^])/g, '\\$1') + '=([^;]*)'));
+		if (current && current[1]) {
+			current[1].split(',').forEach(function(part) {
+				var idx = part.indexOf('=');
+				if (idx > 0) {
+					state[part.slice(0, idx)] = part.slice(idx + 1);
+				}
+			});
+		}
+		var changed = false;
+		var maxAds = params.get('ez_ad_demo');
+		if (maxAds !== null && /^[0-9]+$/.test(maxAds)) {
+			state.m = maxAds;
+			state.q = '0';
+			state.s = '0';
+			state.i = '0';
+			changed = true;
+		}
+		var anchor = params.get('ez_ad_demo_anchor');
+		if (anchor === '0' || anchor === '1') {
+			state.a = anchor;
+			changed = true;
+		}
+		var outstream = params.get('ez_ad_demo_outstream');
+		if (outstream === '0' || outstream === '1') {
+			state.o = outstream;
+			changed = true;
+		}
+		var qubit = params.get('ez_ad_demo_qubit');
+		if (qubit === '0' || qubit === '1') {
+			state.q = qubit;
+			changed = true;
+		}
+		if (!changed) {
+			return;
+		}
+		var parts = [];
+		if (state.m !== undefined) { parts.push('m=' + state.m); }
+		if (state.a !== undefined) { parts.push('a=' + state.a); }
+		if (state.o !== undefined) { parts.push('o=' + state.o); }
+		if (state.s !== undefined) { parts.push('s=' + state.s); }
+		if (state.i !== undefined) { parts.push('i=' + state.i); }
+		if (state.q !== undefined) { parts.push('q=' + state.q); }
+		document.cookie = cookieName + '=' + parts.join(',') + '; path=/; max-age=86400; SameSite=Lax';
+	} catch(e) {}
+}
+persistAdDemoCookie();
+collectFP(function() {
+var dataText = JSON.stringify(d);
+if (dataText.length > 0) {
+	var startTime = Date.now() - __ez.stms;
+
+	var xhr = new XMLHttpRequest();
+	xhr.open('POST','/ezais/dynamic?cb=1', true);
+	xhr.onload = function () {
+		if (xhr.status!=200) {
+            return;
+		}
+
+        if(document.readyState !== 'loading') {
+            dynamicAddScript(xhr.response);
+            return;
+        }
+
+        var eventFunc = function() {
+            if(document.readyState === 'loading') {
+                return;
+            }
+            document.removeEventListener('readystatechange', eventFunc, false);
+            dynamicAddScript(xhr.response);
+        };
+
+        document.addEventListener('readystatechange', eventFunc, false);
+	};
+	xhr.setRequestHeader('Content-Type','text/plain');
+	xhr.send(dataText);
+}
+});
+}
+
+function callDynamicAfterConsent() {
+	if (window.__tcfapi) {
+		window.__tcfapi("addEventListener", 2, function (tcdata, success) {
+			if (success) {
+				if(tcdata.gdprApplies == true) {
+					if(tcdata.eventStatus === "useractioncomplete" || tcdata.eventStatus === "tcloaded") {
+						__ez.queue.addFunc("productEzoicAds", "productEzoicAds", null, true, ['ezaqReady'], false, false, false, true);
+					}
+				} else {
+					__ez.queue.addFunc("productEzoicAds", "productEzoicAds", null, true, ['ezaqReady'], false, false, false, true);
+				}
+			}
+		});
+	} else {
+		__ez.queue.addFunc("productEzoicAds", "productEzoicAds", null, true, ['ezaqReady'], false, false, false, true);
+	}
+}
+
+
+if (window.__tcfapi) {
+	callDynamicAfterConsent();
+} else {
+	if (typeof window.ezCMPQueue !== "undefined") {
+		window.ezCMPQueue.push(callDynamicAfterConsent);
+	} else {
+		__ez.queue.addFunc("productEzoicAds", "productEzoicAds", null, true, ['ezaqReady'], false, false, false, true);
+	}
+}
+</script><base href="https://www.ultraboardgames.com/titan/game-rules.php"/>
+ <title>How to play Titan | Official Rules | UltraBoardGames</title>
+    
+ <meta charset="utf-8"/>
+ <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+ <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+ <meta name="keywords" content="board game, boardgames, boardgame, board, games, game, hobby"/>
+ <meta name="description" content="All information about boardgames. Reviews, tips, game rules, videos and links to the best board games, tabletop and card games."/>
+ <meta name="author" content=""/>
+    
+
+ <link rel="shortcut icon" href="../img/favicon.ico"/>	
+
+<link rel="preconnect" href="//pagead2.googlesyndication.com" crossorigin=""/>
+<link rel="preconnect" href="//images-na.ssl-images-amazon.com" crossorigin=""/>
+<link rel="preconnect" href="//z-na.amazon-adsystem.com" crossorigin=""/>
+<link rel="preconnect" href="//go.ezoic.net" crossorigin=""/>
+
+<link rel="preload" as="font" type="font/woff2" href="../css/fonts/roboto.woff2" crossorigin=""/>
+<link rel="preload" as="font" type="font/woff2" href="../css/fonts/pt-serif.woff2" crossorigin=""/>
+
+<link href="../plugins/font-awesome/css/font-awesome.min.css" rel="stylesheet" crossorigin=""/> 
+
+<link rel="canonical" href="https://www.ultraboardgames.com/titan/game-rules.php"/>
+
+<link href="../css/ub.css?v=12500" rel="stylesheet"/> 
+
+
+
+ 
+
+    
+
+<script data-ezscrex="false">window.QubitCssExclusions = ["nav",".entry-summary",".excerpt",".entry-actions",".widget-area",".site-footer"];</script><script async data="qubit" src="//www.ezojs.com/ezoic/sa.min.js?q=1"></script>
+<script>
+  window.ezstandalone = window.ezstandalone || {};
+  ezstandalone.cmd = ezstandalone.cmd || [];
+</script><script>(function () {
+    if (document.getElementById('qubit-js-ezoic')) {
+        return;
+    }
+
+    var start = Date.now();
+    var delay = 50;
+
+    function loadQubitScript() {
+    
+        if (window.QubitInstantRemove) {
+            if(typeof ezstandalone !== 'undefined' && typeof ezstandalone.CleanupGhostPlaceholders === 'function') {ezstandalone.CleanupGhostPlaceholders();}
+        }
+
+        var s = document.createElement('script');
+        s.id = 'qubit-js-ezoic';
+        s.src = 'https://g.ezoic.net/porpoiseant/qubit.js?v=2&did=101158';
+        s.async = true;
+        document.head.appendChild(s);
+    }
+
+    function waitForStandalone() {
+    
+        var timeElapsed = Date.now() - start;
+
+
+        if (window.ezstandalone && typeof window.ezstandalone.GetGeneratedId === 'function') {
+            var isPlacementService = typeof window.productEzoicAds === "function" || !!document.querySelector('[data-method="placement-service"]');
+            if(window.QubitInstantRemove) {isPlacementService = false;}
+            if (isPlacementService && window.ezFinishedStatic || isPlacementService && timeElapsed > 10000 || !isPlacementService) {
+                loadQubitScript();
+                return;
+            }
+        }
+
+        if (timeElapsed >= 30000) {
+            console.error('ezstandalone not ready after 30s, skipping qubit load');
+            return;
+        }
+
+        setTimeout(waitForStandalone, delay);
+
+        delay = Math.min(Math.floor(delay * 1.02), 500);
+    }
+
+    waitForStandalone();
+})();
+</script>
+<script type='text/javascript'>
+var ezoTemplate = 'pub_site';
+var ezouid = '1';
+var ezoFormfactor = '1';
+</script><script data-ezscrex="false" type='text/javascript'>
+var soc_app_id = '0';
+var did = 101158;
+var ezdomain = 'ultraboardgames.com';
+var ezoicSearchable = 1;
+</script>
+<script async data-ezscrex="false" data-cfasync="false" src="//open.video/video.js"></script>
+<script type='text/javascript' style='display:none;' async>if (typeof window.__ez !== 'undefined' && window.__ez?.queue?.addFileOnce) {window.__ez.queue.addFileOnce('identity', 'https://go.ezodn.com/detroitchicago/indy.js?cb=143&gcb=0', true, [], true, false, false, true);} </script><script type="text/javascript">var cmpIsOn = true;</script></head>
+
+
+<body class="fixed-header"><script>var ezCmpChangeLogId=2007163;var ezCmpCacheBusterId=469</script><script src="https://the.gatekeeperconsent.com/v2/cmp.js?v=469" id="cmpjs" async="true"></script>
+ <header> 
+
+
+<nav id="navheader" class="navbar navbar-expand-md navbar-dark  fixed-top">
+ <div class="container">
+   
+      <a class="navbar-brand" href="../index.php"><img src="../img/logo.png" alt=""/></a>
+      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>  
+      </button>
+      
+      <span class="navbar-toggler" aria-expanded="false">
+       <a href="#" data-toggle="modal-search">      
+        <i class="fa fa-search"></i>
+      </a>
+      </span>
+
+      <div class="collapse navbar-collapse" id="navbarCollapse">
+
+        <ul class="navbar-nav mr-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="../blog/">Blog</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="../games.php">Games</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="../category/">Categories</a>
+          </li>
+<!--          
+          <li class="nav-item"><a class="nav-link" href="../play-online.php">Play</a></li>          
+          <li class="nav-item"><a class="nav-link" href="../deals.php">Deals</a></li>
+-->          
+          <li class="nav-item"><a class="nav-link" href="../online-shops/">Shops</a></li>          
+        </ul>
+
+      <div class="nav-right">
+        <form method="post" action="../search.php">
+          <div class="form-group input-icon-left" id="search1">          
+           <i class="fa fa-search"></i>
+            <input type="text" class="form-control" size="16" name="search" placeholder="Search Board Game"/>
+          </div>
+          <a href="#" data-toggle="modal-search" id="searchtoggle1">
+           <i class="fa fa-search"></i>
+          </a>
+          <input type="submit" name="searchsubmit" class="submitbutton"/>
+        </form>
+      </div>
+
+      </div>
+
+</div>  
+    </nav>
+
+
+<div class="modal-search">
+    <div class="container">
+      <form method="post" action="../search.php">
+       <input type="text" class="form-control" id="search2" name="search" placeholder="Type Board Game to search..."/>
+       <i class="fa fa-times close"></i>
+       <input type="submit" name="searchsubmit" class="submitbutton"/>
+      </form>
+    </div>
+</div>
+
+</header>  
+ 
+<div id="wrapper">
+
+<section class="bg-grey-50 border-bottom-1 border-grey-300"><div class="container"><ol class="breadcrumb"> <li><a href="../index.php">Home</a></li> <li><a href="../games.php"><nobr>Games</nobr></a></li> <li><a href="../titan/"><nobr>Titan</nobr></a></li> <li class="active"><nobr>Game Rules</nobr></li></ol></div><span id="ezoic-pub-ad-placeholder-700" data-method="ai-placeholders" class="ezoic-autoinsert-ad"></span></section>
+
+<section class="padding-top-30 padding-bottom-50 padding-top-sm-20"><div class="container"><div class="row"><div class="col-xl-9 col-lg-10 col-md-12 "><div class="row"><div class="col-xl-2 col-lg-2 col-md-12"><div class="splitmenu"><div class="widget widget-list">
+<div class="title">Menu</div>
+<ul class="center">
+<li><h4 class="widget-list-title"><a href="index.php">Overview</a></h4></li>
+<li><h4 class="widget-list-title"><a href="game-rules.php">Basic Game Rules</a></h4></li>
+<li><h4 class="widget-list-title"><a href="game-elements.php">Game Elements</a></h4></li>
+<li><h4 class="widget-list-title"><a href="engagements.php">Engagements</a></h4></li>
+<li><h4 class="widget-list-title"><a href="variants.php">Variants</a></h4></li>
+<li><h4 class="widget-list-title"><a href="buy-titan.php">Buy Titan</a></h4></li>
+<li><h4 class="widget-list-title"><a href="videos.php">Videos</a></h4></li>
+<li><h4 class="widget-list-title"><a href="links.php">Links</a></h4></li>
+<li><h4 class="widget-list-title"><a href="../">Other Games</a></h4></li>
+</ul>
+</div>
+
+</div></div>
+<div class="col-xl-10 col-lg-10 col-md-12"><div id="main" class="post post-single"><span id="ezoic-pub-ad-placeholder-101"></span><span data-ez-ph-id="101" style="padding:0;float:none !important;margin-top:30px !important;margin-right:auto !important;margin-bottom:15px !important;margin-left:auto !important;display:block !important;text-align:center !important;min-width:728px;box-sizing:content-box;min-height:90px;max-width:100% !important;line-height:0px;"></span><div class="post-header post-author"><div class="post-title"><h1>Titan Game Rules</h1></div></div>
+
+<div class="post-thumbnail"><img src="../img/slideshow/titan.jpg" alt=""/><span id="ezoic-pub-ad-placeholder-125" class="ezoic-adpicker-ad"></span><span data-ez-ph-id="125"></span></div><style>
+</style>
+
+
+<div class="box silver2_bg">
+
+<p>TITAN is a fantasy war game for two to six players. Each player will move, muster, and engage in combat with his forces of monstrous characters. The core of each player&#39;s forces is the Titan.</p>
+
+<p>Each player receives only one Titan, and if it is lost the player is out of the game and all of his forces are removed from play. The object of the game is to have the only Titan left in play, all the others having been eliminated.</p>
+
+</div>
+
+<br/><span id="ezoic-pub-ad-placeholder-709" data-method="ai-placeholders" class="ezoic-autoinsert-ad"></span><span data-ez-ph-id="709"></span>
+<h2>Components</h2>
+
+<img src="gfx/components.jpg" class="floatr"/>
+<ul>
+<li>One Masterboard (mounted game mapboard).</li>
+<li>One TITAN (rulebook).</li>
+<li>13 Counter Sheets (572 pieces).</li>
+<li>Six Battleland Cards.</li>
+<li>20 Six-Sided Dice.</li>
+<li>1 Scoring Track and 18 player counters (3 in each player color)</li>
+<li>1 Turn Marker</li>
+<li>Inareuxrionba</li>
+</ul>
+
+<br/>
+<h2>Introduction</h2>
+
+<div class="box silver_bg">
+
+<p>TITAN involves two areas of player interaction: Masterplay and Battle. The strategic area, Masterplay, involves the movement of each play- er&#39;s forces from Land to Land on the Masterboard (game mapboard).</p>
+
+<p>Character counters are moved about the Masterboard, grouped into Legions. When a Legion is moved into a Land that contains another player&#39;s Legion, the two Legions are locked in an Engagement.</p>
+
+<p>An Engagement must result in the complete elimination of at least one of the involved Legions, either through an agreement (see 9.3) or through a tactical battle which is held on a Battleland that corresponds to the type of terrain on the Masterboard where the Legions engaged.</p>
+
+<p>TITAN is played in a series of Game-Turns. During each turn, one player gets a chance to move his Legions on the Masterboard, battle other players&#39; Legions in Engagements, and muster new characters to increase the size and strength of his Legions.</p>
+
+</div>
+
+<br/>
+<h2>Setup</h2>
+
+<p>Place the Masterboard in the center of the table. Each player takes a set of 12 Legion Markers and the Titan counter of the same color. One player should be selected to act as the caretaker; he will distribute the character counters, as they are required.</p>
+
+<p>The counters should be sorted by character and stacked nearby so as to be visible to all players. The Battlelands can be set aside until they are needed to resolve an Engagement. Another player should be selected as the scorekeeper, and will need pen and paper.</p>
+
+<p>Each player rolls one die to determine which Tower Land his Legions will begin in. If players roll the same number or roll the number of a Tower Land already assigned to another player, they must roll again. (Note that the Tower Lands are numbered in multiples of 100, but for determination the zeros are ignored). The player assigned the highest-numbered Tower will play first.<span id="ezoic-pub-ad-placeholder-113" class="ezoic-adpicker-ad"></span><span data-ez-ph-id="113"></span></p>
+
+<p>Each player begins the game with two Legions, both of which must start on the assigned Tower Land. The player&#39;s Titan is placed in one Legion and an Angel is placed in the other. Each player also receives two of each of the Tower Creatures (those listed under Tower on the Masterchart: Centaurs, Gargoyles, and Ogres).</p>
+
+<p>Three Creatures and one Lord must be placed in each Legion. These initial assignments of characters are confidential, and should not be revealed to the other players. These beginning Legions may not be split until the player&#39;s second Game-Turn.</p>
+
+<br/>
+<h2>Game Play</h2>
+
+<img src="gfx/game22.jpg" class="floatr"/>
+
+<p>TITAN is played in a series of Game-Turns, beginning with the first player and proceeding clockwise around the table until the game ends. The player who is taking his turn is known as the Mover.<span id="ezoic-pub-ad-placeholder-129" class="ezoic-adpicker-ad"></span><span data-ez-ph-id="129"></span></p>
+
+<p>Each Game-Turn consists of four phases: Commencement, Movement, Engagement, and Enlistment. The different activities of these phases are meant to take place in their prescribed order, and all the activity of a particular phase must be completed before proceeding to the next phase.</p>
+
+<p>Players who forget to do something should not be allowed to do it out of sequence later, except in the instance of an unresolved Engagement, which MUST be resolved as soon as it is discovered. Activity that takes place out of order is invalid, but if another Game-Turn has begun since it occurred, the activity should be allowed to stand.</p>
+
+<p>During the <b>Commencement Phase</b>, the Mover may split new Legions from his existing Legions. This is the only method of bringing more Legions onto the Masterboard. To speed play, players should plan and arrange their splits ahead of time so that they can immediately begin when the player moving before them finishes.</p>
+
+<p>At the start of his <b>Movement Phase,</b> the Mover rolls a single die for his Movement Roll. Once this roll is made, he cannot create any new Legions this Game-Turn. During the Movement Phase, he must move at least one of his Legions. A moving Legion must move as many Lands as the number rolled on the die, or until it enters a Land occupied by an opposing Legion, whichever comes first.</p>
+
+<p>An Engagement will take place in every land occupied by an opposing Legion that one of the Mover&#39;s Legions enters. He may move all or only some of his Legions, but must move at least one. Only the Mover&#39;s Legions may be moved at this time, and only the Mover may move them.</p>
+
+<p>During the <b>Engagement Phase</b>, every Engagement initiated by the Mover during the preceding Movement Phase must be resolved by the complete elimination of at least one of the two engaged Legions. If more than one Engagement has occurred, the Mover determines the order of their Resolution, and each Engagement must be fully resolved before starting another.<span id="ezoic-pub-ad-placeholder-116" class="ezoic-adpicker-ad"></span><span data-ez-ph-id="116"></span></p>
+
+<p>During the <b>Enlistment Phase</b>, each of the Mover&#39;s Legions that was moved in the Movement Phase and survived the Engagement Phase may muster a new character, provided it is not Full at this time.</p>
+
+<p>The mechanics of mustering are explained in section 18. Note, however, that Legions DEFENDING successfully in Engagements have first call on any characters that may be running low in the caretaker&#39;s stacks. Also, a moving legion which normally could not muster because it is full, may have an Angel summoned out of the Legion during the Engagement Phase, thereby allowing it to muster.</p>
+
+<p>When a player&#39;s Game-Turn ends, he should announce this fact so that the next player knows to begin his turn, and the former Mover can make no further actions.</p>
+
+<br/>
+
+<span id="ezoic-pub-ad-placeholder-109"></span><span data-ez-ph-id="109"></span>
+<br/><span id="ezoic-pub-ad-placeholder-115" class="ezoic-adpicker-ad"></span><span data-ez-ph-id="115"></span>
+<h2>Moving Legions</h2>
+
+<p>Each Legion must be moved individually and completely before another Legion is moved. No Legion may be moved more than once per Movement Phase. Characters cannot be dropped off or moved separately on the Masterboard.</p>
+
+<p>As each Legion is moved, its marker should be flipped over to indicate that this Legion is finished moving. During the Enlistment Phase, the Mover can flip the marker back upright as he determines whether or not that Legion will muster a Creature.</p>
+
+<p>A Legion may be moved through a Land occupied by another of the Mover&#39;s Legions, but may not end its move on such a Land. Each Legion moved must travel the full count of the Movement Roll, unless another player&#39;s Legion is encountered in the moving Legion&#39;s path, in which case its move ends there and those two Legions are locked in an Engagement.</p>
+
+<p>No further movement is allowed into or across the Land of an Engagement during that turn (except Teleportation). A Legion whose move would end on a Land occupied by another of the Mover&#39;s Legions may not make that move unless the second Legion is also capable of moving and moves beforehand.</p>
+
+<p>All moves must follow the Signs from Land to adjacent Land according to the count of the Movement Roll, except when the Movement Roll is a 6 and a Legion is eligible for teleportation.<span id="ezoic-pub-ad-placeholder-132" class="ezoic-adpicker-ad"></span><span data-ez-ph-id="132"></span></p>
+
+<img src="gfx/game16.jpg"/><br/><span id="ezoic-pub-ad-placeholder-710" data-method="ai-placeholders" class="ezoic-autoinsert-ad"></span><span data-ez-ph-id="710"></span><br/>
+
+<p>The Signs are of four types: Blocks, Spheres, Arrows, and Triple Arrows. The top of each Sign touches the Land toward which it points. The single-symbol Signs (Blocks, Arches, and Arrows) exist only in pairs pointing in opposite directions. The Signs are explained on the following Movement Chart.</p>
+
+<br/>
+
+<h3>Movement Chart</h3>
+
+<h4>Effects on Movement</h4>
+
+<img src="gfx/game17.jpg" class="floatr"/>
+
+<p>A Legion whose last move ended on a Land from which a Block points MUST begin its next move in that direction. This is the case no matter what else is on an edge.</p>
+
+<br class="break"/><span id="ezoic-pub-ad-placeholder-711" data-method="ai-placeholders" class="ezoic-autoinsert-ad"></span><span data-ez-ph-id="711"></span>
+
+<img src="gfx/game18.jpg" class="floatr"/>
+
+<p>A Legion whose last move ended on a Land from which an Sphere points MAY begin its next move in that direction.</p>
+
+<br class="break"/>
+
+<img src="gfx/game19.jpg" class="floatr"/>
+
+<ol type="a">
+<li><p>A Legion standing on a Tower Land MAY begin its next move in the direction of any of that Tower&#39;s Arrows.</p></li>
+
+<li><p>A Legion that moves into a Land from which single Arrows point MAY continue its move in one of those directions, but it MAY NOT backtrack,</p></li>
+</ol>
+
+<br/><span id="ezoic-pub-ad-placeholder-712" data-method="ai-placeholders" class="ezoic-autoinsert-ad"></span><span data-ez-ph-id="712"></span>
+
+<img src="gfx/game20.jpg" class="floatr"/>
+
+<ol type="a">
+<li><p>A Legion whose last move ended on a Land from which a Triple Arrow points MAY begin its next move in that direction unless the Land also contains a Block. (See above)</p></li>
+
+<li><p>A Legion that moves into a Land from which a Triple Arrow points MUST move in that direction if it continues moving.</p></li>
+</ol>
+
+<br/>
+
+<p>Note that Blocks and Spheres apply only to a Legion&#39;s initial direction of movement (the first Land it moves to from its starting point); they have no effect upon Legions passing through Lands which contain either of these Signs. Arrows and Triple Arrows may guide initial directions and thereafter regulate the execution of movement.</p>
+<ul>
+<li>
+
+<img src="gfx/game2.jpg"/><br/>
+
+<p>Red has rolled a one. He may either move through the circle or triple arrow side.</p>
+
+<img src="gfx/game2_.jpg"/><br/>
+
+<p>Grey has rolled a two. If he wishes to move this legion, he must move through the block side. He then must then continue through the triple arrow towards the woods.</p>
+</li>
+<li>
+
+<img src="gfx/game3.jpg"/><br/>
+
+<p>Red has rolled a one. He may either move through the circle or triple arrow side.</p>
+
+<img src="gfx/game4.jpg"/><br/>
+
+<p>Gray has rolled a two. If he wishes to move this legion, he must move through the block to the mountain. From there, he may go either left or right.</p>
+</li>
+<li>
+
+<img src="gfx/game5.jpg"/><br/>
+
+<p>Grey has rolled a two. If he wishes to move this legion, he must move through the block side. He then must then continue through the triple arrow towards the woods.</p>
+
+<img src="gfx/game6.jpg"/><br/>
+
+<p>Gray may begin its move from the tower to any of the adjacent spaces.</p>
+
+</li>
+</ul>
+
+<br/><span id="ezoic-pub-ad-placeholder-713" data-method="ai-placeholders" class="ezoic-autoinsert-ad"></span><span data-ez-ph-id="713"></span>
+
+<p><i>First Move Mulligan:</i> Because the first turn Movement Roll can be crucial, each player is allowed a second roll if not satisfied with the first. The second roll is then binding. A player may do this only on his very first Game-Tu+rn, and if he chooses not to, he does not have the option of doing it later.</p>
+
+<br/>
+<h2>Teleportation</h2>
+
+<p>Teleportation is a special type of movement requiring the presence of Lords, which allows the moving forces to disregard the normal movement rules. There are three types of Teleportation: Tower Teleportation, Titan Teleportation, and the Summoning of Angels. (See section 15 for the mechanics of Summoning Angels).</p>
+
+<p>Tower and Titan Teleportations take place on the Masterboard during the Movement Phase and involve the movement of Legions. Only one Legion can be teleported per Movement Phase, and only one Angel can be summoned per Engagement Phase.</p>
+
+<img src="gfx/game7.jpg"/><br/><br/>
+
+<p>A Legion containing one or more Lords that begins its move in a Tower Land may perform a Tower Teleportation only when the Movement Roll is a 6. From that Tower Land, it may be teleported to a vacant Tower Land anywhere on the Master- board, or to any vacant Land up to six Lands distant from the Tower Land it began in. (Ignore movement signs).</p>
+
+<p>The teleporting Legion moves along the Lands, ignoring all Signs and enemy Legions (engaged or not). The Mover must reveal to all other players the identity of the Lord in the Legion that allows such a move.</p>
+
+<img src="gfx/game8.jpg"/><br/><br/><span id="ezoic-pub-ad-placeholder-714" data-method="ai-placeholders" class="ezoic-autoinsert-ad"></span><span data-ez-ph-id="714"></span>
+
+<p>Once a player has attained a score of 400+ points (and his Titan has a Power-factor of 10 or better), he may perform Titan Teleportation with his Titan Legion (the Legion containing his Titan).<span id="ezoic-pub-ad-placeholder-118" class="ezoic-adpicker-ad"></span><span data-ez-ph-id="118"></span></p>
+
+<p>On a Movement Roll of 6, the Titan Legion may teleport from whatever Land it occupies to any Land (regardless of distance) that contains another player&#39;s Legion and engage it in Battle. A Legion moved by Titan Teleportation may not stop on a vacant Land; it must initiate an Engagement. The Mover must show that the Legion contains his Titan.</p>
+
+<p>Teleportation is optional and Legions able to teleport have the option of moving normally or not moving at all.</p>
+
+<br/>
+<h2>Engagements</h2>
+
+<div class="box black_border">
+
+<p>Check here <a href="engagements.php">all details information about Engagements, Battles, Maneuvers, Strikes and reinforcements</a>.</p>
+
+</div>
+
+<br/>
+
+<span id="ezoic-pub-ad-placeholder-110"></span><span data-ez-ph-id="110"></span>
+<br/>
+<h2>Acquiring Angels</h2>
+
+<p>Each time a player&#39;s score attains any multiple of 100 points due to adding the value earned in a victorious Engagement, the player may add an Angel to the Legion that won that Engagement. Such an Angel must be added immediately, and only to the winning Legion, or it cannot be taken.</p>
+
+<p>A Legion may not add an Angel if it presently contains seven characters or if there are no Angels available in the caretaker&#39;s stacks. Added Angels are placed directly into their Legion&#39;s stack and are also immediately available to be summoned to another Battle.</p>
+
+<p>If adding the value of an Engagement to a player&#39;s score raises the score beyond more than one multiple of 100, the player may add one Angel for each extra multiple of 100 attained, provided they are available and that the winning Legion can fit them in.</p>
+
+<img src="gfx/game21.jpg"/><br/><br/><span id="ezoic-pub-ad-placeholder-717" data-method="ai-placeholders" class="ezoic-autoinsert-ad"></span><span data-ez-ph-id="717"></span>
+
+<p>Archangels are Lords acquired when a player&#39;s score attains a multiple of 500. An Archangel is acquired instead of an Angel, not in addition to it. If no Archangel is available from the caretaker&#39;s stacks, the player may take an Angel.</p>
+
+<p>The mechanics of acquiring an Archangel are the same as for Angels. Like Angels, Archangels may be summoned into Battle, are returned to the caretaker&#39;s stacks when slain, and may perform Tower Teleportation.</p>
+
+<p>The addition of an Angel to a victorious and otherwise eligible Legion is optional. For example, a player with a Legion containing six characters may have the choice of taking an Angel which he is due for having just won a Battle and scoring enough points, or of mustering an important Creature for which he is eligible and qualified.</p>
+
+<p>The player has the option of taking the Angel, or taking the Creature, or of taking neither. If the victorious Legion has fewer than six characters, the owning player has the option of taking both the Angel and mustering a Creature.</p>
+
+<br/>
+<h2>Mustering</h2>
+
+<p>Mustering is the voluntary process by which a Legion adds new Creatures and Demi-Lords, and is the main way by which the players increase the quantity and quality of their forces.</p>
+
+<p>To muster, a Legion must be both eligible and qualified to do so. The types of Creatures and Demi-Lords that can possibly be mustered to the various terrains are listed on the Mastercharts placed on the player reference card.</p>
+
+<p>When a player wishes to muster a character into an eligible Legion, he must reveal to the other players the character(s) that qualifies the Legion to do so. The caretaker then gives the player the newly mustered character from his stacks and the player places it under his Legion Marker.</p>
+
+<p>No Legion may ever muster more than one character per Game Turn. (Note that muster and summoning Angels are separate acts).</p>
+
+<img src="gfx/game15.jpg" class="round"/><br/><span id="ezoic-pub-ad-placeholder-715" data-method="ai-placeholders" class="ezoic-autoinsert-ad"></span><span data-ez-ph-id="715"></span><br/>
+
+<p>A Legion is only eligible to muster after moving in a Movement Phase (and surviving any ensuing Engagement) or when defending in Battle (see 14. Reinforcements). Legions which don&#39;t move, are not defending in Battle, or presently contain seven characters cannot muster.</p>
+
+<p>Creatures are listed on the Mastercharts beneath the terrains where they are found. They are listed according to their values, with the lesser Creatures listed first. The numbers in parentheses are the Creatures&#39; Battle-factors. The numbers to left of the character&#39;s name indicate how many of that type a Legion must already contain to be qualified to muster a Creature of the next larger size.</p><span id="ezoic-pub-ad-placeholder-719" data-method="ai-placeholders" class="ezoic-autoinsert-ad"></span><span data-ez-ph-id="719"></span>
+
+<p>A Legion is qualified to muster a Creature if it contains any Creature listed on the Masterchart beneath the terrain on which it stands. A Creature may muster a &#34;like&#34; Creature (identical to one in that Legion) or any lesser Creature of that terrain.</p>
+
+<p>Remember that eliminated creatures are removed from the game. If the caretaker&#39;s stacks are empty of a specific creature, the player is allowed to choose any legal mustering alternatives if his first choice of creature is not available. It is possible that a player cannot muster anything, even though he meets the requirements.</p>
+
+<p>Several Creatures of the same type may muster the next high- est Creature. Intermediate steps in the progression on the Masterchart cannot be skipped. For example, a Legion containing an Ogre could muster an Ogre from a Marsh Land; if it contained a Troll it could take either a Troll or an Ogre.</p>
+
+<p>A Legion in the Marsh could reveal two Ogres to muster a Troll. A Legion in the Mountains could reveal two Lions to muster a Minotaur, however, Lions are not sufficient to muster a Dragon; the Legion must contain two Minotaurs, a Dragon, or a Colossus to be qualified to muster another Dragon.</p>
+
+<p>(A Colossus in a Legion in the Mountains would qualify it to muster a Colossus, Dragon, Minotaur, or Lion). A Legion does not have to muster and does not have to take the highest Creature for which it qualifies. No Legion can muster a Creature not listed beneath the terrain in which that Legion stands.</p>
+
+<p>A Legion that can muster a character in more than one way can muster that character in either way (the player only has to show any character(s) that is sufficient to qualify, not all the characters). For example, a Legion with two Ogres and one Troll can muster a Troll by showing either both Ogres or one Troll.</p>
+
+<p>Tower Lands are unique for mustering purposes. Any eligible Legion on a Tower Land may muster any one of the three Tower Creatures (Centaurs, Gargoyles, and Ogres), regardless of what Creatures it currently contains. Or, eligible Legions in Tower Lands may be qualified to muster one of the two types of Demi-Lords: Warlocks and Guardians.</p>
+
+<p>A Legion is qualified to muster a Warlock if it contains the player&#39;s Titan (which must be revealed as usual), or if it presently contains a Warlock. A Legion containing any three identical Creatures (three Trolls for example) is qualified to muster a Guardian. A Legion containing a Guardian can muster another Guardian.</p>
+
+<br/>
+
+<span id="ezoic-pub-ad-placeholder-117"></span><span data-ez-ph-id="117"></span>
+<br/>
+<h2>Titans</h2>
+
+<img src="gfx/titans.jpg"/><br/><span id="ezoic-pub-ad-placeholder-716" data-method="ai-placeholders" class="ezoic-autoinsert-ad"></span><span data-ez-ph-id="716"></span><br/>
+
+<p>Each player has one Titan piece in play which represents the game player personally. When a Titan is slain, the owning player is out of the game. As a player wins Battles, the Power of his Titan piece will increase, and it will eventually gain the capability of Titan Teleportation if it survives.</p>
+
+<p>For each 100 points that a player scores, his Titan increases its Power-factor by 1. All Titans begin the game with a Power- factor of 6. To calculate its current Power-factor, determine the number of times that 100 can be divided into the player&#39;s score, rounding down, and add this number to 6.</p>
+
+<p>For example, a player with a score of 327 would have a Titan with a Power factor of 9. (327 divided by 100 = 3, added to the original strength of 6).</p>
+
+<p>A player with a score of 1,163 would have a Titan with a Pow- er-factor of 17.</p>
+
+<p>When a Titan reaches a Power-factor of 10 (by the owning player scoring 400+ points), it gains the capability of Titan Teleportation.</p>
+
+<p>If a player&#39;s Titan is slain in Battle, it waits until the end of the Strike Phase to be eliminated, just like other characters. When it is eliminated, so is the player and the Battle immediately ends.</p>
+
+<p>Following the end of the Strike Phase in which the Titan was slain, add up the value of the Titan and all of the other characters in the Titan&#39;s Legion which had also been slain up to that point. Any characters from the Titan&#39;s Legion which were still alive after the Titan was eliminated, are momentarily set aside and do not count toward the score of this Battle.</p>
+
+<p>If the player who slew the Titan still has characters remaining in the Battle, the value of the Titan and its supporting characters also slain are added to his score. Any Angels due to the victor because of the addition of these points may be taken now. If the Legion which slew the Titan was also eliminated, the slaying player does not get the points from the Battle.</p>
+
+<p>After scoring the Battle in which the Titan was slain, remove all of the eliminated player&#39;s Legions currently on the Masterboard (including any remnants of the Titan Legion still engaged) and any that would have been involved in other Engagements this turn.</p>
+
+<p>Removed legions score half points to the player with whom they were engaged or to the player who slew the Titan if the Legion is not engaged. Points scored in this manner add to the respective Titan&#39;s Power-factor, but will not add Angels (and the winning Legions may not recruit reinforcements) regardless of the multiples of 100 points attained.</p>
+
+<p>(Players will have only one running score, and only under the special circumstances detailed above will multiples of 100 not add Angels). The player who eliminated the Titan is passed the loser&#39;s Legion Markers, which he may now use in addition to his own.</p>
+
+<br/>
+<h2>The Law of Titan</h2>
+
+<div class="box grey5_bg">
+
+<p>A die that rolls off the table, lands more than slightly cocked, or goes into a glass, ashtray, etc., should simply be re-rolled.</p>
+
+<p>If a player mistakenly rolls more dice than he was due, he must re-roll with the correct number.</p>
+
+<p>The second roll, in this case, may only count hits equal to or less than those achieved by the first roll, all additional hits being ignored. (Note, this is a long-standing &#34;tradition&#34; among Titan devotees).</p>
+
+</div>
+
+<br class="break"/>
+<a href="game-elements.php" class="nextpage">Continue Reading</a>
+
+<div id="recommended_posts"></div>
+
+
+<br/><span id="ezoic-pub-ad-placeholder-718" data-method="ai-placeholders" class="ezoic-autoinsert-ad"></span><span data-ez-ph-id="718"></span><br/>
+<span id="ezoic-pub-ad-placeholder-102"></span><div id="ezoic-pub-ad-placeholder-135"></div></div><span id="ezoic-pub-ad-placeholder-112" class="ezoic-adpicker-ad"></span><span data-ez-ph-id="112" style="box-sizing:content-box;margin-right:auto !important;margin-bottom:0px !important;margin-left:auto !important;min-height:90px;padding:0;margin-top:0px !important;display:block !important;text-align:center !important;min-width:970px;max-width:100% !important;line-height:0px;float:none !important;"></span></div>
+</div>
+</div>
+
+
+
+<!-- Column --><div class="col-xl-3 col-lg-2 "><span id="ezoic-pub-ad-placeholder-124"></span><br/><div class="widget widget-list"><span id="ezoic-pub-ad-placeholder-119" class="ezoic-adpicker-ad"></span><span data-ez-ph-id="119" style="text-align:center !important;min-height:250px;padding:0;float:none !important;margin-top:30px !important;margin-bottom:30px !important;flex-direction:column !important;align-items:center;min-width:320px;margin-right:auto !important;display:flex !important;max-width:100% !important;box-sizing:content-box;margin-left:auto !important;line-height:0px;"></span>
+<div class="row deals">
+
+<div class="col-xl-12 col-lg-12 col-md-4 col-sm-4 col-xs-12"><div class="card"><a href="https://www.amazon.com/Valley-Games-004VLY-Titan/dp/1427616493?tag=ultrstra-20" target="_blank" data-price="123155">
+<div class="card-img"><img src="https://images-na.ssl-images-amazon.com/images/I/616YKsaJKFL._SL160_.jpg" alt="" style="height:140px"/>
+</div><div class="caption" style="height:100px"><h3 class="card-title">Titan</h3></div><span class="card-price">Price: <b>$999.99</b></span></a></div><span id="ezoic-pub-ad-placeholder-123" class="ezoic-adpicker-ad"></span></div>
+
+</div>
+
+
+</div>
+
+<span id="ezoic-pub-ad-placeholder-103"></span><span data-ez-ph-id="103" style="min-width:336px;float:none !important;box-sizing:content-box;margin-right:auto !important;flex-direction:column !important;margin-left:auto !important;align-items:center;line-height:0px;padding:0;min-height:250px;margin-bottom:15 !important;display:flex !important;text-align:center !important;margin-top:15 !important;max-width:100% !important;"></span><span id="ezoic-pub-ad-placeholder-139" class="ezoic-adpicker-ad"></span><span data-ez-ph-id="139" style="float:none !important;display:flex !important;margin-top:15px !important;margin-right:auto !important;margin-left:auto !important;align-items:center;min-width:300px;min-height:250px;box-sizing:content-box;margin-bottom:15px !important;max-width:100% !important;line-height:0px;padding:0;text-align:center !important;flex-direction:column !important;"></span><span id="ezoic-pub-ad-placeholder-707" data-method="ai-placeholders" class="ezoic-autoinsert-ad"></span></div></div></div>
+</section>
+
+
+
+</div>
+<!-- /#wrapper -->
+ 
+<a href="#" id="totop" onclick="topFunction()"><i class="fa fa-chevron-up"></i></a>
+
+
+<div class="bg-danger" style="height:30px"></div>
+
+
+<footer>
+ <div class="container">
+ <div class="widget row">
+ 
+   <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+ 	 <h4><i class="fa fa-codepen"></i> Ultra <span style="color:#fe4229">BoardGames</span></h4>
+	 <p>This site is dedicated to promoting board games. Through extensive research, we bring everything you need to know about board games.</p>
+   <p>Our mission is to produce engaging articles like reviews, tips and tricks, game rules, strategies, etc.  If you like the content of a board game on this site, please consider to buy the game. These games deserve it.</p>
+   </div>
+
+   <div class="col-lg-2 col-md-2"></div>
+                
+   <div class="col-lg-3 col-md-3 col-sm-12 col-xs-12">        
+     <p><a href="../contact.php" rel="nofollow">Contact</a></p>
+     <p><a href="../privacy.php">Privacy &amp; Disclaimer</a></p>         
+   </div>
+        			
+ </div>
+ </div>
+		
+ <span id="ezoic-pub-ad-placeholder-702" data-method="ai-placeholders" class="ezoic-autoinsert-ad"></span><div class="footer-bottom">
+	<div class="container">© 2020 Ultra BoardGames. All rights reserved.</div>
+ </div>
+</footer>	
+
+<div class="sticky-stopper"></div>
+
+<div id="amzn-assoc-ad-7388e448-f41a-4173-bb40-bb3f004ca399"></div>
+
+
+<script src="../css/app.js?v=15"></script>
+
+<script src="../css/bootstrap.js"></script>
+
+
+
+
+
+<script>loadRecommandedPosts(626,9968);</script>    
+<script>
+
+
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+ m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+ })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ ga('create', 'UA-38157590-25', 'ultraboardgames.com');  
+ dir='../';page_id=9968;ga('set', 'contentGroup3', '2019');ga('set', 'contentGroup1', '19mar'); ga('send', 'pageview');
+
+	
+</script>
+
+
+
+<!--[selectrongo:done]--><span id="ezoic-pub-ad-placeholder-100"></span><span data-ez-ph-id="100" style="padding:0;float:none !important;min-width:0px;max-width:100% !important;line-height:0px;box-sizing:content-box;display:inline-block;min-height:0px;"></span><div id="ez-sidebar-wall-left" class="ez-sidebar-wall" style="left: 0px;">
+	<div class="ez-sidebar-wall-ad">
+		<span id="ezoic-pub-ad-placeholder-141"></span><span data-ez-ph-id="141" style="margin-right:0px !important;margin-bottom:0px !important;display:inline-block;min-height:600px;line-height:0px;padding:0;box-sizing:content-box;margin-left:0px !important;min-width:160px;max-width:100% !important;float:none !important;margin-top:0px !important;"></span>
+		<span class="ez-rail-close" id="ez-rail-close-left" style="top: -18px; left: 0; display: none;" aria-label="Close side rail ad" title="Close" onclick="__ez_close_rail(this.parentElement.parentElement.id)">×</span>
+	</div>
+</div><div id="ez-sidebar-wall-right" class="ez-sidebar-wall" style="right: 0px;">
+	<div class="ez-sidebar-wall-ad">
+		<span id="ezoic-pub-ad-placeholder-976"></span><span data-ez-ph-id="976"></span>
+		<span class="ez-rail-close" id="ez-rail-close-right" style="top: -18px; right: 0; display: none;" aria-label="Close side rail ad" title="Close" onclick="__ez_close_rail(this.parentElement.parentElement.id)">×</span>
+	</div>
+</div><script>!function(){function t(t,r){var n="undefined"!=typeof Symbol&&t[Symbol.iterator]||t["@@iterator"];if(!n){if(Array.isArray(t)||(n=function(t,r){if(t){if("string"==typeof t)return e(t,r);var n=Object.prototype.toString.call(t).slice(8,-1);return"Object"===n&&t.constructor&&(n=t.constructor.name),"Map"===n||"Set"===n?Array.from(t):"Arguments"===n||/^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)?e(t,r):void 0}}(t))||r&&t&&"number"==typeof t.length){n&&(t=n);var a=0,o=function(){};return{s:o,n:function(){return a>=t.length?{done:!0}:{done:!1,value:t[a++]}},e:function(t){throw t},f:o}}throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.")}var i,u=!0,s=!1;return{s:function(){n=n.call(t)},n:function(){var t=n.next();return u=t.done,t},e:function(t){s=!0,i=t},f:function(){try{u||null==n.return||n.return()}finally{if(s)throw i}}}}function e(t,e){(null==e||e>t.length)&&(e=t.length);for(var r=0,n=new Array(e);r<e;r++)n[r]=t[r];return n}!function(){var e=function(t){var e=getComputedStyle(t);if(-1===parseInt(e.bottom,10)){var r=t.offsetHeight||300;t.style.bottom=-r+"px"}};function r(){return document.querySelector('ins[data-anchor-shown="true"][data-anchor-status="displayed"]')}function n(t){var e=t.querySelector("iframe");e&&requestAnimationFrame((function(){var r=parseFloat(getComputedStyle(e).height);isNaN(r)||t.style.setProperty("height","".concat(r+5,"px"),"important")}))}function a(t){t.style.setProperty("width","100%","important"),t.style.maxWidth="none"}function o(t){var e=t.querySelector("iframe");e&&(e.style.setProperty("display","block","important"),e.style.setProperty("margin","0 auto","important"));var r=t.querySelector("[id$='__container__']");r&&r.style.setProperty("display","contents","important")}new MutationObserver((function(r){var n,a=t(r);try{for(a.s();!(n=a.n()).done;){var o=n.value;if("attributes"===o.type){var i=o.target;i.matches("[data-anchor-status]")&&("data-anchor-status"===o.attributeName&&"dismissed"===i.getAttribute("data-anchor-status")&&e(i),"style"===o.attributeName&&"dismissed"===i.getAttribute("data-anchor-status")&&e(i))}}}catch(t){a.e(t)}finally{a.f()}})).observe(document.documentElement,{subtree:!0,attributes:!0,attributeFilter:["style","data-anchor-status"]});var i=new WeakSet;function u(e){e&&(i.has(e)||(i.add(e),new MutationObserver((function(r){var i,u=t(r);try{for(u.s();!(i=u.n()).done;){var s=i.value;"style"===s.attributeName?(n(e),a(e),o(e)):"attributes"===s.type&&"data-google-query-id"===s.attributeName&&o(e)}}catch(t){u.e(t)}finally{u.f()}})).observe(e,{attributes:!0,attributeFilter:["style","data-google-query-id"]})))}!function(){var t=r();if(t)return n(t),a(t),o(t),void u(t);var e=new MutationObserver((function(){var t=r();t&&(n(t),a(t),o(t),u(t),e.disconnect())}));e.observe(document.body,{attributes:!0,subtree:!0,childList:!0})}()}()}();</script>
+<script data-ezscrex="false" data-cfasync="false">
+		window.humixPlayers = window.humixPlayers || [];
+		window.humixPlayers.push({ target: 'autoinsert', isGenerated: true });
+	</script>
+<script type='text/javascript'>__ez.evt.add(window,"load",function(){var a="",b="false",c="right";if(1==ezoFormfactor&&"true"===b){var d=document.createElement("script");d.async=!0,d.onload=function(){ezExcludeDoctor={addthis:1},addthis.layers(function(a){a.destroy("share")}),setTimeout(function(){addthis.layers({share:{position:""==c?"left":c,responsive:!1}})},0)},d.setAttribute("src","https://s7.addthis.com/js/300/addthis_widget.js#pubid="+(""!=a?a:"ra-57054ddedfb1b3c2")),document.body.appendChild(d)}});</script><script type='text/javascript'>var __ez_rp_opts={activeLayoutTester:!1,isOn:"false",showImages:"",theme:"light",locations:"",title:"Related Articles on this Site",showSocial:"false",fbURL:"http://www.facebook.com/sharer.php?u=https%3A%2F%2Fwww.ultraboardgames.com%2Ftitan%2Fgame-rules.php",twitterURL:"https://twitter.com/share?url=https%3A%2F%2Fwww.ultraboardgames.com%2Ftitan%2Fgame-rules.php",gplusURL:"https://plus.google.com/share?url=https%3A%2F%2Fwww.ultraboardgames.com%2Ftitan%2Fgame-rules.php",contentURL:"https://www.ultraboardgames.com/titan/game-rules.php",swipe:"false"},__ez_rp_script=document.createElement("script");__ez_rp_script.setAttribute("async",""),__ez_rp_script.setAttribute("src","/utilcave_com/apps/js/recommended_pages.js?cb=7"),document.getElementsByTagName("head")[0].appendChild(__ez_rp_script),function(b){var b=b,c=b.document,d=b.screen;b.touchSwipeListener=function(f){var g={startX:0,endX:0},h={moveHandler:function(){},redirectHandler:function(){},endHandler:function(){},startHandler:function(){},scrollEndHandler:function(){},minLengthRatio:0.2},i=function(){return g.endX>g.startX?"prev":"next"},j=function(){var m=Math.ceil(d.width*f.minLengthRatio);return Math.abs(g.endX-g.startX)>m},l={scrollEnd:function(){var n="innerHeight"in b?b.innerHeight:c.documentElement.offsetHeight,o=c.body,p=c.documentElement,q=Math.max(o.scrollHeight,o.offsetHeight,p.clientHeight,p.scrollHeight,p.offsetHeight);windowBottom=n+b.pageYOffset,windowBottom>=q&&q>n+400&&f.scrollEndHandler()},touchStart:function(m){0<m.touches.length&&(g.startX=m.touches[0].pageX,f.startHandler(i()))},touchMove:function(m){0<m.touches.length&&(g.endX=m.touches[0].pageX,f.moveHandler(i(),j()))},touchEnd:function(m){var n=m.changedTouches||m.touches;0<n.length&&(g.endX=n[0].pageX,j()&&f.redirectHandler(i())),f.endHandler(i())}};return function(){for(var m in h)h.hasOwnProperty(m)&&(f[m]||(f[m]=h[m]))}(),c.addEventListener?{on:function(){c.addEventListener("touchstart",l.touchStart,!1),c.addEventListener("touchmove",l.touchMove,!1),c.addEventListener("touchend",l.touchEnd,!1),b.addEventListener("scroll",l.scrollEnd,!1)},off:function(){c.removeEventListener("touchstart",l.touchStart),c.removeEventListener("touchmove",l.touchMove),c.removeEventListener("touchend",l.touchEnd),b.removeEventListener("scroll",l.scrollEnd)}}:{on:function(){},off:function(){}}}}(window),function(b){var c=b.document,d=function(){var h,i,e={},f={prev:null,next:null},g={prev:null,next:null};return{init:function(){this.retrievePageSiblings();f.next&&(this.renderArrows(),this.syncUI())},syncUI:function(){var j=this;h=new b.touchSwipeListener({moveHandler:function(k,l){l?g[k]&&f[k]&&g[k].classList.add("visible"):g[k].classList.remove("visible")},scrollEndHandler:function(){},startHandler:function(){i&&clearTimeout(i),e.classList.add("visible")},endHandler:function(){g.next.classList.remove("visible"),g.prev.classList.remove("visible"),i=setTimeout(function(){e.classList.remove("visible")},1500)},redirectHandler:function(k){j[k]&&j[k]()}}),h.on()},retrievePageSiblings:function(){f.prev=c.querySelector("head > link[rel=prev]"),f.next=c.querySelector("head > link[rel=next]")},renderArrows:function(){var k=function(l){var m=c.createElement("span");m.className="icon-wrap "+l;var n=c.createElement("div"),o=c.createElement("a");return o.href="prev"===l?"javascript:window.history.go(-1);":f[l].href,o.className=l,o.appendChild(m),o.appendChild(n),o};g.next=k("next"),g.prev=k("prev"),e=function(l,m){var n=c.createElement("nav");return n.className="nav-multithumb",n.appendChild(m),n.appendChild(l),c.getElementsByTagName("body")[0].appendChild(n),n}(g.next,g.prev)},showLoadingScreen:function(){b.scrollTo(0,0);var j=c.createElement("div");j.className="spn-freezing-overlay",c.getElementsByTagName("body")[0].appendChild(j)},prev:function(){this.showLoadingScreen(),setTimeout(function(){b.location.href=b.history.go(-1)},1e3)},next:function(){f.next&&(this.showLoadingScreen(),setTimeout(function(){b.location.href=f.next.href},1e3))}}}();b.swipePageNav=d}(window);</script><script data-cfasync="false">function _emitEzConsentEvent(){var customEvent=new CustomEvent("ezConsentEvent",{detail:{ezTcfConsent:window.ezTcfConsent},bubbles:true,cancelable:true,});document.dispatchEvent(customEvent);}
+(function(window,document){function _setAllEzConsentTrue(){window.ezTcfConsent.loaded=true;window.ezTcfConsent.store_info=true;window.ezTcfConsent.develop_and_improve_services=true;window.ezTcfConsent.measure_ad_performance=true;window.ezTcfConsent.measure_content_performance=true;window.ezTcfConsent.select_basic_ads=true;window.ezTcfConsent.create_ad_profile=true;window.ezTcfConsent.select_personalized_ads=true;window.ezTcfConsent.create_content_profile=true;window.ezTcfConsent.select_personalized_content=true;window.ezTcfConsent.understand_audiences=true;window.ezTcfConsent.use_limited_data_to_select_content=true;window.ezTcfConsent.select_personalized_content=true;}
+function _clearEzConsentCookie(){document.cookie="ezCMPCookieConsent=tcf2;Domain=.ultraboardgames.com;Path=/;expires=Thu, 01 Jan 1970 00:00:00 GMT";}
+_clearEzConsentCookie();if(typeof window.__tcfapi!=="undefined"){window.ezgconsent=false;var amazonHasRun=false;function _ezAllowed(tcdata,purpose){return(tcdata.purpose.consents[purpose]||tcdata.purpose.legitimateInterests[purpose]);}
+function _handleConsentDecision(tcdata){window.ezTcfConsent.loaded=true;if(!tcdata.vendor.consents["347"]&&!tcdata.vendor.legitimateInterests["347"]){window._emitEzConsentEvent();return;}
+window.ezTcfConsent.store_info=_ezAllowed(tcdata,"1");window.ezTcfConsent.develop_and_improve_services=_ezAllowed(tcdata,"10");window.ezTcfConsent.measure_content_performance=_ezAllowed(tcdata,"8");window.ezTcfConsent.select_basic_ads=_ezAllowed(tcdata,"2");window.ezTcfConsent.create_ad_profile=_ezAllowed(tcdata,"3");window.ezTcfConsent.select_personalized_ads=_ezAllowed(tcdata,"4");window.ezTcfConsent.create_content_profile=_ezAllowed(tcdata,"5");window.ezTcfConsent.measure_ad_performance=_ezAllowed(tcdata,"7");window.ezTcfConsent.use_limited_data_to_select_content=_ezAllowed(tcdata,"11");window.ezTcfConsent.select_personalized_content=_ezAllowed(tcdata,"6");window.ezTcfConsent.understand_audiences=_ezAllowed(tcdata,"9");window._emitEzConsentEvent();}
+function _handleGoogleConsentV2(tcdata){if(!tcdata||!tcdata.purpose||!tcdata.purpose.consents){return;}
+var googConsentV2={};if(tcdata.purpose.consents[1]){googConsentV2.ad_storage='granted';googConsentV2.analytics_storage='granted';}
+if(tcdata.purpose.consents[3]&&tcdata.purpose.consents[4]){googConsentV2.ad_personalization='granted';}
+if(tcdata.purpose.consents[1]&&tcdata.purpose.consents[7]){googConsentV2.ad_user_data='granted';}
+if(googConsentV2.analytics_storage=='denied'){gtag('set','url_passthrough',true);}
+gtag('consent','update',googConsentV2);}
+__tcfapi("addEventListener",2,function(tcdata,success){if(!success||!tcdata){window._emitEzConsentEvent();return;}
+if(!tcdata.gdprApplies){_setAllEzConsentTrue();window._emitEzConsentEvent();return;}
+if(tcdata.eventStatus==="useractioncomplete"||tcdata.eventStatus==="tcloaded"){if(typeof gtag!='undefined'){_handleGoogleConsentV2(tcdata);}
+_handleConsentDecision(tcdata);if(tcdata.purpose.consents["1"]===true&&tcdata.vendor.consents["755"]!==false){window.ezgconsent=true;(adsbygoogle=window.adsbygoogle||[]).pauseAdRequests=0;}
+if(window.__ezconsent){__ezconsent.setEzoicConsentSettings(ezConsentCategories);}
+__tcfapi("removeEventListener",2,function(success){return null;},tcdata.listenerId);if(!(tcdata.purpose.consents["1"]===true&&_ezAllowed(tcdata,"2")&&_ezAllowed(tcdata,"3")&&_ezAllowed(tcdata,"4"))){if(typeof __ez=="object"&&typeof __ez.bit=="object"&&typeof window["_ezaq"]=="object"&&typeof window["_ezaq"]["page_view_id"]=="string"){__ez.bit.Add(window["_ezaq"]["page_view_id"],[new __ezDotData("non_personalized_ads",true),]);}}}});}else{_setAllEzConsentTrue();window._emitEzConsentEvent();}})(window,document);</script></body></html>

@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!-- $Id$ -->
+<html>
+  <head>
+    <meta name="generator"
+    content="HTML Tidy for Linux/x86 (vers 1st July 2002), see www.w3.org" />
+    <title>Building Colossus</title>
+  </head>
+  <body>
+    <h1>Building Colossus</h1>
+    <p>Sorry this is so longwinded; we&#39;re trying to be thorough in case
+    someone who&#39;s not a Java programmer wants to make a small change. (If
+    you already know C++ you can learn basic Java in a weekend; the hard part is
+    learning all the tools.)</p>
+    <h2>Tools needed</h2>
+    <p>All of these tools are free downloads, and we need to avoid making the
+    game depend on tools that aren&#39;t.</p>
+    <p>Where practical (a combination of friendly licensing and reasonably small
+    size), we now put the tools in SVN, in the libs/ subdirectory.  If you
+    add $COLOSSUS_HOME/libs to your CLASSPATH, you can use these tools without
+    further configuration.
+    <h4>Java development kit</h4>
+    <p>You need a 
+    <a href="http://java.sun.com/j2se">JDK</a>,
+    which includes a javac compiler, a Java runtime environment, and various
+    utilities like jar and javadoc. The game should work with Java 
+    version 1.5.0 or newer; thay are nowadays named e.g. "JDK 5.0". 
+    Currently downloadable is update 14 ("Java Development Kit 5.0 Update 14")
+    which would present itself then as something like "1.5.0_14".
+    Unless you have a great net connection,
+    also download the JDK docs, which are packaged separately.</p>
+    <p>Sun maintains the best-known (and IMO best) 
+    <a href="http://java.sun.com/j2se">JDK</a>
+     for MS Windows, Solaris Sparc and x86, and x86 Linux.</p>
+    <p>The 
+    <a href="http://blackdown.org">Blackdown JDK</a>
+     is the original port of Sun&#39;s Solaris JDK to Linux. Sun&#39;s Linux
+    JDK in turn now uses Blackdown code. So the two are very close cousins. If
+    you have a non-x86 Linux box, you want Blackdown.</p>
+    <p>If you use MacOS, you want the 
+    <a href="http://apple.com/java">Apple JDK</a>.
+    </p>
+    <p>Unfortunately, the free gcj and kaffe projects don&#39;t yet have enough
+    GUI support yet to be useful for Colossus. Maybe someday.</p>
+    <p>If your platform is not listed above, a starting point for finding a JDK
+    is 
+    <a
+    href="http://java.sun.com/cgi-bin/java-ports.cgi">java.sun.com/cgi-bin/java-ports.cgi</a>
+    </p>
+    <p>Once you have installed your JDK, you probably want to set an
+    environment variable called 
+    <b>JAVA_HOME</b>
+     that points to its base directory. Then you want to put 
+    <b>$JAVA_HOME/bin</b>
+     in your 
+    <b>PATH</b>
+     . You also want to set 
+    <b>CLASSPATH</b>
+     to include 
+    <b>.</b>
+     (the current directory); you&#39;ll add stuff to it later as you add Java
+    tools. A few tools directly use JAVA_HOME. It also lets you easily switch
+    JDKs by changing one environment variable.</p>
+    <h4>Build tools</h4>
+    <a href="http://jakarta.apache.org/ant/">Ant</a>
+     is a newer cross-platform build tool used by many Java projects. It&#39;s
+    fairly fast because all compiles are done in one Java process. It uses a 
+    file called 
+    <b>build.xml</b>
+     . You need version 1.5 or newer. You&#39;ll need to set 
+    <b>ANT_HOME</b>
+     to its install directory, and you&#39;ll want 
+    <b>$ANT_HOME}/bin</b>
+     in your 
+    <b>PATH</b>
+     .</p>
+    <h4>Source code control</h4>
+    <p>We use 
+    <a href="http://subversion.tigris.org">Subversion</a>
+     , with the repository hosted on 
+    <a href="http://sf.net">SourceForge</a>
+     .</p>
+    <p>SourceForge requires using 
+    <a href="http://www.openssh.com">ssh</a>
+     as a transport mechanism, which complicates setup a bit. There are a lot 
+     of svn + ssh setup directions on 
+    <a href="http://sourceforge.net/docman/?group_id=1">SF</a>
+     . If you can&#39;t get it to work, ask for help.</p>
+    <p>If you&#39;re using Windows try 
+    <a href="http://www.chiark.greenend.org.uk/~sgtatham/putty/">PuTTY</a>
+     for a good free SSH/Telnet client.  If you're using anything else, use
+     <a href="http://www.openssh.com">OpenSSH</a>, which should already be installed.
+    <h4>Java Web Start</h4>
+    <p>If your JDK didn&#39;t include 
+    <a href="http://java.sun.com/products/javawebstart/">Java Web Start</a>
+     , you want that too, so that you can test that you haven&#39;t broken JWS
+    compatibility. (This is way too easy to do when you add resources.) Add 
+    <b>javaws</b>
+     to your 
+    <b>PATH</b>
+     .</p>
+    <h4>jar</h4>
+    <p>Jar is the standard java archive format. It basically uses the
+    compression algorithm from zip with command line syntax similar to tar. If
+    you need to uncompress a jar file on a machine with no jar, try your
+    favorite unzip tool. (But this may mess up permissions on a Unix box.) Jar
+    comes with the JDK.</p>
+    <h4><a name="keytool">keytool</a></h4>
+    <p>Part of the JDK, keytool is need to generate a keystore that will contain
+    your personal keys used to sign jars.</p>
+    <p>The Ant build.xml file has been configured to use a keystore named
+    <b>${user.name}Keystore</b> which must contain an alias <b>${user.name}</b>.</p>
+    <p>The keystore password will be loaded from the <b>local_build.properties</b>
+    key <b>storepass</b>.</p>
+    <p>To create the keystore file open a command prompt in the Colossus directory
+    and run the following:</p>
+    <pre>
+      keytool -genkey -alias %USERNAME% -validity 999 -keyStore %USERNAME%Keystore -storepass pick_a_password
+    </pre>
+    <p>Follow the prompts to answer the questions and you will have a keystore setup</p>
+    <p>If you are testing locally then a default keystore has been provided 
+    and will be used to dummy sign the jars.</p>
+    <p>The web deployed files must be signed with your keys (and not the dummy ones).</p>  
+    <h4>jarsigner</h4>
+    <p>Jars can be signed. Jars 
+    <b>must</b>
+     be signed to work over Java Web Start. But note that you can use
+    &quot;test&quot; keys -- you don&#39;t actually have to pay money to a
+    certifying authority and get a &quot;real&quot; key that actually
+    &quot;proves&quot; that you are who you say you are. The jarsigner tool
+    comes with the JDK. To use it, you need to create a personal authentication
+    key, and put it in a keystore file (See <a href="#keytool">keytool</a> above).</p>
+    <h4>zip and unzip tools</h4>
+    <p>You need something that can work with the standard zip format. WinZip,
+    Info-Zip, PKZip, etc. Info-Zip is free -- most of the others are shareware.
+    In a pinch you can use jar to manipulate zip files.</p>
+    <h4>Text editors</h4>
+    <p>Your choice. It&#39;s a matter of taste. I recommend choosing something
+    that autoconverts tabs to the right number of spaces on the fly. (Tab
+    characters in code are 
+    <b>evil</b>
+     ; this is 
+    <b>not</b>
+     a matter of taste.) and can save files using Unix newline and end-of-file
+    conventions. If your editor can&#39;t do these, then you&#39;ll need to run
+    
+    <b>ant fix</b>
+     on your code before checking it into SVN, to avoid creating whole-file
+    false diffs or files that look awful if someone has different tab stop
+    settings than yours. (Yes, cross-platform development adds a few wrinkles.)
+    Two popular, powerful, free, portable editors are 
+    <a href="http://vim.org">Vim</a>
+     and 
+    <a href="http://xemacs.org">XEmacs</a>
+     Xemacs can use the 
+    <a href="http://jdee.sunsite.dk/rootpage.html">Java Development Environment
+    for Emacs (JDE)</a>
+    </p>
+    <h2>Optional tools</h2>
+    <h4>Debuggers</h4>
+    <p>(As any experienced programmer can tell you, the general problem with
+    debuggers is that they work great with simple code but tend to fall over
+    with complex, multithreaded, distributed code. So don&#39;t expect too
+    much.)</p>
+    <p>
+    <a href="http://www.bluemarsh.com/java/jswat/">JSwat</a>
+     is free and pretty good.</p>
+    <p>
+    <a href="http://www.lambdacs.com/debugger/debugger.html">ODB</a>
+     is new and still somewhat rough, but looks very promising.</p>
+    <h4>Profilers</h4>
+    <p>You can use 
+    <b>java -Xprof</b>
+     .</p>
+    <p>Or maybe try 
+    <a
+    href="http://www.hp.com/products1/unix/java/hpjmeter/index.html">HPjmeter</a>
+    </p>
+    <p>I tried
+    <a href="http://ejp.sf.net">Extensible Java Profiler</a> Very nice interface, 
+    but it was way too slow to be usable for Colossus, presumably because it
+    records every instruction rather than a sample.
+    </p>
+    <h4>Image editors</h4>
+    <p>Currently all images used in Colossus are GIFs or PNGs.  JPEGs are great for 
+    photos but not optimal for simple drawings. Any image editor that can save to 
+    standard formats is fine. If you don&#39;t have one, 
+    <a href="http://www.gimp.org">The Gimp</a>
+     is good and free, but has a steep learning curve.</p>
+    <p>
+    <b>TODO</b>
+     Find a lighter-weight, easier-to-learn, free image editor.</p>
+    <h4>Testing tools</h4>
+    <p>We&#39;ve added a few unit tests using 
+    <a href="http://junit.org">JUnit</a>
+     . We need to add more. The JUnit test classes are the ones named
+    <b>*Test.java</b>
+     The ant <b>test</b>
+     target runs all tests, using the JUnit text UI.  We now include junit.jar
+     in the libs subdirectory, so it should be easier to add tests.</p>
+    <h2>Build process</h2>
+    <p>Once you have the tools set up, Colossus basically builds itself.</p>
+    <p>First you need all the source files. Snag the latest zip file from 
+    <a
+    href="http://colossus.sf.net/download">http://colossus.sf.net/download/</a>
+     or (to get the newest possible code) pull from SVN.</p>
+    <p>If you just type 
+    <b>ant</b>
+     from the project base directory, then you get the default target, which
+     will compile all the .java files into .class files with javac, then make an
+     unsigned executable jar file.</p>
+    <p>Other interesting targets include 
+    <b>clean</b>
+     and 
+    <b>fullyclean</b>
+     (delete stuff, useful if you want to clean up or make sure that you fully
+    rebuild all your class files), 
+    <b>fix</b>
+     (does a bit of text reformatting on java source files), 
+    <b>tools</b>
+     (builds standalone tools), 
+    <b>sign</b>
+     (signs a jarfile), and 
+    <b>dist</b>
+     (makes a zip file).</p>
+    <p>There are also some targets that automate installing the package onto a
+    web site -- these are designed for maintaining the SF site rather than
+    general use.</p>
+    <p>Basically, skim through 
+    <b>build.xml</b>
+     .</p>
+  </body>
+</html>
+

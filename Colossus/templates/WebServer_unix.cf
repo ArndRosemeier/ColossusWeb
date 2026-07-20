@@ -1,0 +1,39 @@
+# Template WebServer.cf file, for unix;
+# For usage:
+# - copy this file to WebServer.cf and adjust pathnames
+# - copy example.users.dat e.g. to users.dat and/or change name in
+#   UsersFile line below
+#
+# @author Clemens Katzer
+#
+ServerPort=26766
+SocketQueueLen=5
+MaxClients=50
+MaxUsers=500
+PortRangeFrom=26767
+AvailablePorts=20
+
+JavaCommand=/usr/bin/java
+ColossusJar=/opt/colossus/Colossus.jar
+LogPropTemplate=/opt/colossus/logging.properties
+
+DataDirectory=/var/colossus/data
+UsersFile=/var/colossus/data/example.users.dat
+GamesFile=/var/colossus/data/games.dat
+LoginMessageFile=/var/colossus/data/loginmessage.txt
+WorkFilesBaseDir=/var/colossus/games
+StatisticsBaseDir=/var/colossus/games
+
+MailServer=localhost
+MailReallyMail=false
+MailToFile=/tmp/colossusMailFile.txt
+MailFromName=Some Colossus Server Registration Service
+MailFromAddress=registration@somedomain.net
+ThisServer=Some Colossus Server
+ContactEmail=some.user@somedomain.net
+ContactWWW=www.somedomain.net:/colossus/contact.html
+
+ContactAdminFromName=System
+ContactAdminFromMail=system@somedomain.net
+ContactAdminToName=Admin
+ContactAdminToMail=admin@somedomain.net

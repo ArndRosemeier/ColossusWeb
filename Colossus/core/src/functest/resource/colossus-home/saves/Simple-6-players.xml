@@ -1,0 +1,1256 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ColossusSnapshot version="14">
+    <Variant dir="Abyssal6" file="Abyssal6Var.xml" name="Abyssal6" ></Variant>
+    <TurnNumber>7</TurnNumber>
+    <CurrentPlayer>2</CurrentPlayer>
+    <CurrentPhase>1</CurrentPhase>
+    <Caretaker>
+        <Creature name="AirElemental" remaining="21" dead="0" />
+        <Creature name="Angel" remaining="12" dead="0" />
+        <Creature name="Archangel" remaining="6" dead="0" />
+        <Creature name="Balrog" remaining="1" dead="0" />
+        <Creature name="Behemoth" remaining="18" dead="0" />
+        <Creature name="Centaur" remaining="5" dead="2" />
+        <Creature name="Chimera" remaining="6" dead="0" />
+        <Creature name="Colossus" remaining="10" dead="0" />
+        <Creature name="Cyclops" remaining="17" dead="0" />
+        <Creature name="Dragon" remaining="18" dead="0" />
+        <Creature name="Druid" remaining="15" dead="0" />
+        <Creature name="EarthElemental" remaining="18" dead="0" />
+        <Creature name="Ent" remaining="8" dead="0" />
+        <Creature name="FireElemental" remaining="12" dead="0" />
+        <Creature name="Gargoyle" remaining="9" dead="1" />
+        <Creature name="Giant" remaining="18" dead="0" />
+        <Creature name="Gorgon" remaining="24" dead="0" />
+        <Creature name="Griffon" remaining="18" dead="0" />
+        <Creature name="Guardian" remaining="6" dead="0" />
+        <Creature name="Hydra" remaining="10" dead="0" />
+        <Creature name="Jabberwok" remaining="8" dead="0" />
+        <Creature name="Knight" remaining="6" dead="0" />
+        <Creature name="Lion" remaining="19" dead="0" />
+        <Creature name="Mammoth" remaining="4" dead="0" />
+        <Creature name="Manticore" remaining="14" dead="0" />
+        <Creature name="Minotaur" remaining="21" dead="0" />
+        <Creature name="Ogre" remaining="2" dead="2" />
+        <Creature name="Ranger" remaining="27" dead="0" />
+        <Creature name="Salamander" remaining="10" dead="0" />
+        <Creature name="Serpent" remaining="10" dead="0" />
+        <Creature name="Troll" remaining="18" dead="0" />
+        <Creature name="Unicorn" remaining="12" dead="0" />
+        <Creature name="Warbear" remaining="21" dead="0" />
+        <Creature name="Warlock" remaining="4" dead="0" />
+        <Creature name="WaterElemental" remaining="15" dead="0" />
+        <Creature name="Wraith" remaining="2" dead="0" />
+        <Creature name="Wyvern" remaining="18" dead="0" />
+        <Creature name="Titan" remaining="0" dead="0" />
+    </Caretaker>
+    <Player name="Blue" type="net.sf.colossus.ai.CowardSimpleAI" color="Blue" startingTower="600" score="12" dead="false" mulligansLeft="1" colorsElim="" movementRoll="2" teleported="false" summoned="false">
+        <Legion name="Bu06" currentHex="31" startingHex="31" moved="false" entrySide="1" parent="null" recruitName="null" battleTally="0">
+            <Creature name="Angel" />
+            <Creature name="Cyclops" />
+            <Creature name="Cyclops" />
+            <Creature name="Cyclops" />
+            <Creature name="Lion" />
+            <Creature name="Lion" />
+            <Creature name="Gorgon" />
+        </Legion>
+        <Legion name="Bu08" currentHex="42" startingHex="42" moved="false" entrySide="3" parent="Bu06" recruitName="null" battleTally="0">
+            <Creature name="Titan" />
+            <Creature name="Warlock" />
+            <Creature name="Troll" />
+            <Creature name="Troll" />
+            <Creature name="Centaur" />
+            <Creature name="Troll" />
+        </Legion>
+        <Legion name="Bu01" currentHex="37" startingHex="37" moved="false" entrySide="5" parent="Bu06" recruitName="null" battleTally="0">
+            <Creature name="Gargoyle" />
+            <Creature name="Gargoyle" />
+            <Creature name="Ogre" />
+            <Creature name="Ogre" />
+        </Legion>
+        <Legion name="Bu12" currentHex="4" startingHex="4" moved="false" entrySide="5" parent="Bu08" recruitName="null" battleTally="0">
+            <Creature name="Ogre" />
+            <Creature name="Ogre" />
+            <Creature name="Ogre" />
+        </Legion>
+    </Player>
+    <Player name="Black" type="net.sf.colossus.ai.CowardSimpleAI" color="Black" startingTower="500" score="12" dead="false" mulligansLeft="1" colorsElim="" movementRoll="4" teleported="false" summoned="false">
+        <Legion name="Bk07" currentHex="128" startingHex="128" moved="false" entrySide="1" parent="null" recruitName="null" battleTally="0">
+            <Creature name="Angel" />
+            <Creature name="Troll" />
+            <Creature name="Centaur" />
+            <Creature name="Ogre" />
+            <Creature name="Ogre" />
+            <Creature name="Ogre" />
+        </Legion>
+        <Legion name="Bk11" currentHex="129" startingHex="129" moved="false" entrySide="5" parent="Bk07" recruitName="null" battleTally="0">
+            <Creature name="Titan" />
+            <Creature name="Cyclops" />
+            <Creature name="Lion" />
+            <Creature name="Gargoyle" />
+            <Creature name="Centaur" />
+            <Creature name="Centaur" />
+            <Creature name="Lion" />
+        </Legion>
+        <Legion name="Bk08" currentHex="30" startingHex="30" moved="false" entrySide="5" parent="Bk07" recruitName="null" battleTally="0">
+            <Creature name="Centaur" />
+            <Creature name="Centaur" />
+            <Creature name="Centaur" />
+        </Legion>
+        <Legion name="Bk09" currentHex="131" startingHex="131" moved="false" entrySide="5" parent="Bk11" recruitName="null" battleTally="0">
+            <Creature name="Druid" />
+            <Creature name="Gargoyle" />
+        </Legion>
+    </Player>
+    <Player name="nowyoudie" type="net.sf.colossus.ai.Human" color="Brown" startingTower="400" score="0" dead="false" mulligansLeft="1" colorsElim="" movementRoll="0" teleported="false" summoned="false">
+        <Legion name="Br04" currentHex="121" startingHex="121" moved="false" entrySide="1" parent="null" recruitName="null" battleTally="0">
+            <Creature name="Angel" />
+            <Creature name="Cyclops" />
+            <Creature name="Cyclops" />
+            <Creature name="Centaur" />
+            <Creature name="Centaur" />
+            <Creature name="Cyclops" />
+        </Legion>
+        <Legion name="Br01" currentHex="2" startingHex="2" moved="false" entrySide="5" parent="Br04" recruitName="null" battleTally="0">
+            <Creature name="Titan" />
+            <Creature name="Troll" />
+            <Creature name="Troll" />
+            <Creature name="Centaur" />
+            <Creature name="Ogre" />
+            <Creature name="Centaur" />
+        </Legion>
+        <Legion name="Br08" currentHex="25" startingHex="25" moved="false" entrySide="5" parent="Br04" recruitName="null" battleTally="0">
+            <Creature name="Gargoyle" />
+            <Creature name="Gargoyle" />
+        </Legion>
+    </Player>
+    <Player name="Gold" type="net.sf.colossus.ai.RationalAI" color="Gold" startingTower="300" score="0" dead="false" mulligansLeft="1" colorsElim="" movementRoll="6" teleported="false" summoned="false">
+        <Legion name="Gd08" currentHex="117" startingHex="117" moved="false" entrySide="3" parent="null" recruitName="null" battleTally="0">
+            <Creature name="Angel" />
+            <Creature name="Lion" />
+            <Creature name="Ogre" />
+            <Creature name="Ogre" />
+            <Creature name="Troll" />
+        </Legion>
+        <Legion name="Gd05" currentHex="13" startingHex="13" moved="false" entrySide="5" parent="Gd08" recruitName="null" battleTally="0">
+            <Creature name="Titan" />
+            <Creature name="Warlock" />
+            <Creature name="Cyclops" />
+            <Creature name="Ogre" />
+            <Creature name="Ogre" />
+            <Creature name="Troll" />
+        </Legion>
+        <Legion name="Gd11" currentHex="17" startingHex="17" moved="false" entrySide="3" parent="Gd08" recruitName="null" battleTally="0">
+            <Creature name="Centaur" />
+            <Creature name="Centaur" />
+            <Creature name="Centaur" />
+        </Legion>
+        <Legion name="Gd03" currentHex="114" startingHex="114" moved="false" entrySide="1" parent="Gd05" recruitName="null" battleTally="0">
+            <Creature name="Gargoyle" />
+            <Creature name="Gargoyle" />
+        </Legion>
+    </Player>
+    <Player name="katzer" type="net.sf.colossus.ai.Human" color="Red" startingTower="200" score="0" dead="false" mulligansLeft="1" colorsElim="" movementRoll="2" teleported="false" summoned="false">
+        <Legion name="Rd12" currentHex="138" startingHex="138" moved="false" entrySide="5" parent="null" recruitName="null" battleTally="0">
+            <Creature name="Angel" />
+            <Creature name="Lion" />
+            <Creature name="Lion" />
+            <Creature name="Ogre" />
+            <Creature name="Ogre" />
+            <Creature name="Ranger" />
+        </Legion>
+        <Legion name="Rd11" currentHex="112" startingHex="112" moved="false" entrySide="1" parent="Rd12" recruitName="null" battleTally="0">
+            <Creature name="Titan" />
+            <Creature name="Cyclops" />
+            <Creature name="Gargoyle" />
+            <Creature name="Ogre" />
+            <Creature name="Ogre" />
+            <Creature name="Troll" />
+        </Legion>
+        <Legion name="Rd02" currentHex="140" startingHex="140" moved="false" entrySide="6" parent="Rd12" recruitName="null" battleTally="0">
+            <Creature name="Centaur" />
+            <Creature name="Centaur" />
+        </Legion>
+    </Player>
+    <Player name="Green" type="net.sf.colossus.ai.SimpleAI" color="Green" startingTower="100" score="13" dead="false" mulligansLeft="1" colorsElim="" movementRoll="5" teleported="false" summoned="false">
+        <Legion name="Gr07" currentHex="108" startingHex="108" moved="false" entrySide="5" parent="null" recruitName="null" battleTally="0">
+            <Creature name="Angel" />
+            <Creature name="Lion" />
+            <Creature name="Lion" />
+            <Creature name="Ogre" />
+            <Creature name="Ogre" />
+            <Creature name="Troll" />
+        </Legion>
+        <Legion name="Gr04" currentHex="102" startingHex="102" moved="false" entrySide="1" parent="Gr07" recruitName="null" battleTally="0">
+            <Creature name="Titan" />
+            <Creature name="Cyclops" />
+            <Creature name="Druid" />
+            <Creature name="Gargoyle" />
+            <Creature name="Ogre" />
+            <Creature name="Ogre" />
+            <Creature name="Cyclops" />
+        </Legion>
+        <Legion name="Gr06" currentHex="103" startingHex="103" moved="false" entrySide="6" parent="Gr04" recruitName="null" battleTally="0">
+            <Creature name="Druid" />
+            <Creature name="Gargoyle" />
+        </Legion>
+        <Legion name="Gr01" currentHex="11" startingHex="11" moved="false" entrySide="6" parent="Gr07" recruitName="null" battleTally="0">
+            <Creature name="Centaur" />
+            <Creature name="Centaur" />
+        </Legion>
+    </Player>
+    <History>
+        <Reveal markerId="Bu06" allPlayers="true" turn="1">
+            <creatures>
+                <creature>Titan</creature>
+                <creature>Angel</creature>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Bk07" allPlayers="true" turn="1">
+            <creatures>
+                <creature>Titan</creature>
+                <creature>Angel</creature>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Br04" allPlayers="true" turn="1">
+            <creatures>
+                <creature>Titan</creature>
+                <creature>Angel</creature>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Gd08" allPlayers="true" turn="1">
+            <creatures>
+                <creature>Titan</creature>
+                <creature>Angel</creature>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Rd12" allPlayers="true" turn="1">
+            <creatures>
+                <creature>Titan</creature>
+                <creature>Angel</creature>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Gr07" allPlayers="true" turn="1">
+            <creatures>
+                <creature>Titan</creature>
+                <creature>Angel</creature>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+            </creatures>
+        </Reveal>
+        <Split parentId="Bu06" childId="Bu08" turn="1">
+            <splitoffs>
+                <creature>Titan</creature>
+                <creature>Centaur</creature>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </splitoffs>
+        </Split>
+        <Reveal markerId="Bu06" allPlayers="false" turn="1">
+            <viewers>
+                <viewer>Blue</viewer>
+            </viewers>
+            <creatures>
+                <creature>Angel</creature>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Bu08" allPlayers="false" turn="1">
+            <viewers>
+                <viewer>Blue</viewer>
+            </viewers>
+            <creatures>
+                <creature>Titan</creature>
+                <creature>Centaur</creature>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Bu08" allPlayers="true" turn="1">
+            <creatures>
+                <creature>Titan</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Bu08" allPlayers="true" turn="1">
+            <creatures>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bu08" creatureName="Troll" turn="1" />
+        <Reveal markerId="Bu06" allPlayers="true" turn="1">
+            <creatures>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bu06" creatureName="Centaur" turn="1" />
+        <Split parentId="Bk07" childId="Bk11" turn="1">
+            <splitoffs>
+                <creature>Titan</creature>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+                <creature>Centaur</creature>
+            </splitoffs>
+        </Split>
+        <Reveal markerId="Bk07" allPlayers="false" turn="1">
+            <viewers>
+                <viewer>Black</viewer>
+            </viewers>
+            <creatures>
+                <creature>Angel</creature>
+                <creature>Centaur</creature>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Bk11" allPlayers="false" turn="1">
+            <viewers>
+                <viewer>Black</viewer>
+            </viewers>
+            <creatures>
+                <creature>Titan</creature>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Bk11" allPlayers="true" turn="1">
+            <creatures>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bk11" creatureName="Cyclops" turn="1" />
+        <Reveal markerId="Bk07" allPlayers="true" turn="1">
+            <creatures>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bk07" creatureName="Centaur" turn="1" />
+        <Split parentId="Br04" childId="Br01" turn="1">
+            <splitoffs>
+                <creature>Titan</creature>
+                <creature>Centaur</creature>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </splitoffs>
+        </Split>
+        <Reveal markerId="Br04" allPlayers="false" turn="1">
+            <viewers>
+                <viewer>nowyoudie</viewer>
+            </viewers>
+            <creatures>
+                <creature>Angel</creature>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Br01" allPlayers="false" turn="1">
+            <viewers>
+                <viewer>nowyoudie</viewer>
+            </viewers>
+            <creatures>
+                <creature>Titan</creature>
+                <creature>Centaur</creature>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Br01" allPlayers="true" turn="1">
+            <creatures>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Br01" creatureName="Troll" turn="1" />
+        <Reveal markerId="Br04" allPlayers="true" turn="1">
+            <creatures>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Br04" creatureName="Cyclops" turn="1" />
+        <Split parentId="Gd08" childId="Gd05" turn="1">
+            <splitoffs>
+                <creature>Titan</creature>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+                <creature>Ogre</creature>
+            </splitoffs>
+        </Split>
+        <Reveal markerId="Gd08" allPlayers="false" turn="1">
+            <viewers>
+                <viewer>Gold</viewer>
+            </viewers>
+            <creatures>
+                <creature>Angel</creature>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Gd05" allPlayers="false" turn="1">
+            <viewers>
+                <viewer>Gold</viewer>
+            </viewers>
+            <creatures>
+                <creature>Titan</creature>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Gd08" allPlayers="true" turn="1">
+            <creatures>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Gd08" creatureName="Lion" turn="1" />
+        <Reveal markerId="Gd05" allPlayers="true" turn="1">
+            <creatures>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Gd05" creatureName="Cyclops" turn="1" />
+        <Split parentId="Rd12" childId="Rd11" turn="1">
+            <splitoffs>
+                <creature>Titan</creature>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+                <creature>Ogre</creature>
+            </splitoffs>
+        </Split>
+        <Reveal markerId="Rd12" allPlayers="false" turn="1">
+            <viewers>
+                <viewer>katzer</viewer>
+            </viewers>
+            <creatures>
+                <creature>Angel</creature>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Rd11" allPlayers="false" turn="1">
+            <viewers>
+                <viewer>katzer</viewer>
+            </viewers>
+            <creatures>
+                <creature>Titan</creature>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Rd11" allPlayers="true" turn="1">
+            <creatures>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Rd11" creatureName="Cyclops" turn="1" />
+        <Reveal markerId="Rd12" allPlayers="true" turn="1">
+            <creatures>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Rd12" creatureName="Lion" turn="1" />
+        <Split parentId="Gr07" childId="Gr04" turn="1">
+            <splitoffs>
+                <creature>Titan</creature>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+                <creature>Ogre</creature>
+            </splitoffs>
+        </Split>
+        <Reveal markerId="Gr07" allPlayers="false" turn="1">
+            <viewers>
+                <viewer>Green</viewer>
+            </viewers>
+            <creatures>
+                <creature>Angel</creature>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Gr04" allPlayers="false" turn="1">
+            <viewers>
+                <viewer>Green</viewer>
+            </viewers>
+            <creatures>
+                <creature>Titan</creature>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Gr04" allPlayers="true" turn="1">
+            <creatures>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Gr04" creatureName="Cyclops" turn="1" />
+        <Reveal markerId="Gr07" allPlayers="true" turn="1">
+            <creatures>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Gr07" creatureName="Lion" turn="1" />
+        <Reveal markerId="Bu08" allPlayers="true" turn="2">
+            <creatures>
+                <creature>Troll</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bu08" creatureName="Troll" turn="2" />
+        <Reveal markerId="Bu06" allPlayers="true" turn="2">
+            <creatures>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bu06" creatureName="Cyclops" turn="2" />
+        <Reveal markerId="Bk11" allPlayers="true" turn="2">
+            <creatures>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bk11" creatureName="Centaur" turn="2" />
+        <Reveal markerId="Bk07" allPlayers="true" turn="2">
+            <creatures>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bk07" creatureName="Centaur" turn="2" />
+        <Reveal markerId="Br01" allPlayers="true" turn="2">
+            <creatures>
+                <creature>Troll</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Br01" creatureName="Troll" turn="2" />
+        <Reveal markerId="Gd05" allPlayers="true" turn="2">
+            <creatures>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Gd05" creatureName="Ogre" turn="2" />
+        <Reveal markerId="Rd12" allPlayers="true" turn="2">
+            <creatures>
+                <creature>Lion</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Rd12" creatureName="Lion" turn="2" />
+        <Reveal markerId="Gr04" allPlayers="true" turn="2">
+            <creatures>
+                <creature>Titan</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Gr04" creatureName="Druid" turn="2" />
+        <Reveal markerId="Bu06" allPlayers="true" turn="3">
+            <creatures>
+                <creature>Cyclops</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bu06" creatureName="Cyclops" turn="3" />
+        <Reveal markerId="Bk11" allPlayers="true" turn="3">
+            <creatures>
+                <creature>Titan</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bk11" creatureName="Druid" turn="3" />
+        <Reveal markerId="Bk07" allPlayers="true" turn="3">
+            <creatures>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bk07" creatureName="Troll" turn="3" />
+        <Reveal markerId="Br04" allPlayers="true" turn="3">
+            <creatures>
+                <creature>Cyclops</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Br04" creatureName="Cyclops" turn="3" />
+        <Reveal markerId="Gd08" allPlayers="true" turn="3">
+            <creatures>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Gd08" creatureName="Ogre" turn="3" />
+        <Reveal markerId="Gd05" allPlayers="true" turn="3">
+            <creatures>
+                <creature>Titan</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Gd05" creatureName="Warlock" turn="3" />
+        <Reveal markerId="Rd11" allPlayers="true" turn="3">
+            <creatures>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Rd11" creatureName="Ogre" turn="3" />
+        <Reveal markerId="Gr04" allPlayers="true" turn="3">
+            <creatures>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Gr04" creatureName="Ogre" turn="3" />
+        <Reveal markerId="Gr07" allPlayers="true" turn="3">
+            <creatures>
+                <creature>Lion</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Gr07" creatureName="Lion" turn="3" />
+        <Split parentId="Bu06" childId="Bu01" turn="4">
+            <splitoffs>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+            </splitoffs>
+        </Split>
+        <Reveal markerId="Bu06" allPlayers="false" turn="4">
+            <viewers>
+                <viewer>Blue</viewer>
+            </viewers>
+            <creatures>
+                <creature>Angel</creature>
+                <creature>Cyclops</creature>
+                <creature>Cyclops</creature>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Bu01" allPlayers="false" turn="4">
+            <viewers>
+                <viewer>Blue</viewer>
+            </viewers>
+            <creatures>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Bu06" allPlayers="true" turn="4">
+            <creatures>
+                <creature>Cyclops</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bu06" creatureName="Cyclops" turn="4" />
+        <Split parentId="Bk07" childId="Bk08" turn="4">
+            <splitoffs>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </splitoffs>
+        </Split>
+        <Reveal markerId="Bk07" allPlayers="false" turn="4">
+            <viewers>
+                <viewer>Black</viewer>
+            </viewers>
+            <creatures>
+                <creature>Angel</creature>
+                <creature>Troll</creature>
+                <creature>Centaur</creature>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Bk08" allPlayers="false" turn="4">
+            <viewers>
+                <viewer>Black</viewer>
+            </viewers>
+            <creatures>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Br01" allPlayers="true" turn="4">
+            <creatures>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Br01" creatureName="Ogre" turn="4" />
+        <Reveal markerId="Br04" allPlayers="true" turn="4">
+            <creatures>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Br04" creatureName="Centaur" turn="4" />
+        <Split parentId="Gd08" childId="Gd11" turn="4">
+            <splitoffs>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </splitoffs>
+        </Split>
+        <Reveal markerId="Gd08" allPlayers="false" turn="4">
+            <viewers>
+                <viewer>Gold</viewer>
+            </viewers>
+            <creatures>
+                <creature>Angel</creature>
+                <creature>Lion</creature>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Gd11" allPlayers="false" turn="4">
+            <viewers>
+                <viewer>Gold</viewer>
+            </viewers>
+            <creatures>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <Split parentId="Gd05" childId="Gd03" turn="4">
+            <splitoffs>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+            </splitoffs>
+        </Split>
+        <Reveal markerId="Gd05" allPlayers="false" turn="4">
+            <viewers>
+                <viewer>Gold</viewer>
+            </viewers>
+            <creatures>
+                <creature>Titan</creature>
+                <creature>Warlock</creature>
+                <creature>Cyclops</creature>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Gd03" allPlayers="false" turn="4">
+            <viewers>
+                <viewer>Gold</viewer>
+            </viewers>
+            <creatures>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Rd11" allPlayers="true" turn="4">
+            <creatures>
+                <creature>Titan</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Rd11" creatureName="Druid" turn="4" />
+        <Split parentId="Gr04" childId="Gr06" turn="4">
+            <splitoffs>
+                <creature>Druid</creature>
+                <creature>Gargoyle</creature>
+            </splitoffs>
+        </Split>
+        <Reveal markerId="Gr04" allPlayers="false" turn="4">
+            <viewers>
+                <viewer>Green</viewer>
+            </viewers>
+            <creatures>
+                <creature>Titan</creature>
+                <creature>Cyclops</creature>
+                <creature>Gargoyle</creature>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Gr06" allPlayers="false" turn="4">
+            <viewers>
+                <viewer>Green</viewer>
+            </viewers>
+            <creatures>
+                <creature>Druid</creature>
+                <creature>Gargoyle</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Gr04" allPlayers="true" turn="4">
+            <creatures>
+                <creature>Titan</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Gr04" creatureName="Druid" turn="4" />
+        <Reveal markerId="Gr07" allPlayers="true" turn="4">
+            <creatures>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Gr07" creatureName="Ogre" turn="4" />
+        <Reveal markerId="Bu08" allPlayers="true" turn="5">
+            <creatures>
+                <creature>Titan</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bu08" creatureName="Warlock" turn="5" />
+        <Reveal markerId="Bu06" allPlayers="true" turn="5">
+            <creatures>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bu06" creatureName="Lion" turn="5" />
+        <AddCreature markerId="Bu01" creatureName="Ogre" turn="5" />
+        <Reveal markerId="Bk07" allPlayers="true" turn="5">
+            <creatures>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bk07" creatureName="Ogre" turn="5" />
+        <Reveal markerId="Bk08" allPlayers="true" turn="5">
+            <creatures>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bk08" creatureName="Centaur" turn="5" />
+        <Split parentId="Br01" childId="Br12" turn="5">
+            <splitoffs>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </splitoffs>
+        </Split>
+        <Reveal markerId="Br01" allPlayers="false" turn="5">
+            <viewers>
+                <viewer>nowyoudie</viewer>
+            </viewers>
+            <creatures>
+                <creature>Titan</creature>
+                <creature>Troll</creature>
+                <creature>Troll</creature>
+                <creature>Centaur</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Br12" allPlayers="false" turn="5">
+            <viewers>
+                <viewer>nowyoudie</viewer>
+            </viewers>
+            <creatures>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Split parentId="Br04" childId="Br08" turn="5">
+            <splitoffs>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+            </splitoffs>
+        </Split>
+        <Reveal markerId="Br04" allPlayers="false" turn="5">
+            <viewers>
+                <viewer>nowyoudie</viewer>
+            </viewers>
+            <creatures>
+                <creature>Angel</creature>
+                <creature>Cyclops</creature>
+                <creature>Cyclops</creature>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Br08" allPlayers="false" turn="5">
+            <viewers>
+                <viewer>nowyoudie</viewer>
+            </viewers>
+            <creatures>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Br01" allPlayers="true" turn="5">
+            <creatures>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Br01" creatureName="Centaur" turn="5" />
+        <Reveal markerId="Br04" allPlayers="true" turn="5">
+            <creatures>
+                <creature>Cyclops</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Br04" creatureName="Cyclops" turn="5" />
+        <Reveal markerId="Gd08" allPlayers="true" turn="5">
+            <creatures>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Gd08" creatureName="Troll" turn="5" />
+        <Reveal markerId="Gd05" allPlayers="true" turn="5">
+            <creatures>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Gd05" creatureName="Troll" turn="5" />
+        <Reveal markerId="Gd11" allPlayers="true" turn="5">
+            <creatures>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Gd11" creatureName="Centaur" turn="5" />
+        <Split parentId="Rd11" childId="Rd03" turn="5">
+            <splitoffs>
+                <creature>Druid</creature>
+                <creature>Gargoyle</creature>
+            </splitoffs>
+        </Split>
+        <Reveal markerId="Rd11" allPlayers="false" turn="5">
+            <viewers>
+                <viewer>katzer</viewer>
+            </viewers>
+            <creatures>
+                <creature>Titan</creature>
+                <creature>Cyclops</creature>
+                <creature>Gargoyle</creature>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Rd03" allPlayers="false" turn="5">
+            <viewers>
+                <viewer>katzer</viewer>
+            </viewers>
+            <creatures>
+                <creature>Druid</creature>
+                <creature>Gargoyle</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Rd12" allPlayers="true" turn="5">
+            <creatures>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Rd12" creatureName="Ogre" turn="5" />
+        <Split parentId="Bu06" childId="Bu03" turn="6">
+            <splitoffs>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </splitoffs>
+        </Split>
+        <Reveal markerId="Bu06" allPlayers="false" turn="6">
+            <viewers>
+                <viewer>Blue</viewer>
+            </viewers>
+            <creatures>
+                <creature>Angel</creature>
+                <creature>Cyclops</creature>
+                <creature>Cyclops</creature>
+                <creature>Cyclops</creature>
+                <creature>Lion</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Bu03" allPlayers="false" turn="6">
+            <viewers>
+                <viewer>Blue</viewer>
+            </viewers>
+            <creatures>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Bu01" allPlayers="false" turn="6">
+            <viewers>
+                <viewer>nowyoudie</viewer>
+            </viewers>
+            <creatures>
+                <creature>Gargoyle</creature>
+                <creature>Gargoyle</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Br12" allPlayers="false" turn="6">
+            <viewers>
+                <viewer>Blue</viewer>
+            </viewers>
+            <creatures>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Br12" allPlayers="true" turn="6">
+            <creatures>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <RemoveCreature markerId="Br12" creatureName="Ogre" turn="6" />
+        <RemoveCreature markerId="Br12" creatureName="Ogre" turn="6" />
+        <Reveal markerId="Bu06" allPlayers="true" turn="6">
+            <creatures>
+                <creature>Lion</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bu06" creatureName="Lion" turn="6" />
+        <Reveal markerId="Bu01" allPlayers="true" turn="6">
+            <creatures>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bu01" creatureName="Ogre" turn="6" />
+        <Split parentId="Bk11" childId="Bk09" turn="6">
+            <splitoffs>
+                <creature>Druid</creature>
+                <creature>Gargoyle</creature>
+            </splitoffs>
+        </Split>
+        <Reveal markerId="Bk11" allPlayers="false" turn="6">
+            <viewers>
+                <viewer>Black</viewer>
+            </viewers>
+            <creatures>
+                <creature>Titan</creature>
+                <creature>Cyclops</creature>
+                <creature>Gargoyle</creature>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Bk09" allPlayers="false" turn="6">
+            <viewers>
+                <viewer>Black</viewer>
+            </viewers>
+            <creatures>
+                <creature>Druid</creature>
+                <creature>Gargoyle</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Bk11" allPlayers="false" turn="6">
+            <viewers>
+                <viewer>Blue</viewer>
+            </viewers>
+            <creatures>
+                <creature>Titan</creature>
+                <creature>Cyclops</creature>
+                <creature>Gargoyle</creature>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Bu03" allPlayers="false" turn="6">
+            <viewers>
+                <viewer>Black</viewer>
+            </viewers>
+            <creatures>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Bu03" allPlayers="true" turn="6">
+            <creatures>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <RemoveCreature markerId="Bu03" creatureName="Centaur" turn="6" />
+        <RemoveCreature markerId="Bu03" creatureName="Centaur" turn="6" />
+        <Reveal markerId="Bk11" allPlayers="true" turn="6">
+            <creatures>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bk11" creatureName="Lion" turn="6" />
+        <Split parentId="Rd12" childId="Rd02" turn="6">
+            <splitoffs>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </splitoffs>
+        </Split>
+        <Reveal markerId="Rd12" allPlayers="false" turn="6">
+            <viewers>
+                <viewer>katzer</viewer>
+            </viewers>
+            <creatures>
+                <creature>Angel</creature>
+                <creature>Lion</creature>
+                <creature>Lion</creature>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Rd02" allPlayers="false" turn="6">
+            <viewers>
+                <viewer>katzer</viewer>
+            </viewers>
+            <creatures>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Rd11" allPlayers="true" turn="6">
+            <creatures>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Rd11" creatureName="Troll" turn="6" />
+        <Reveal markerId="Rd12" allPlayers="true" turn="6">
+            <creatures>
+                <creature>Lion</creature>
+                <creature>Lion</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Rd12" creatureName="Ranger" turn="6" />
+        <Split parentId="Gr07" childId="Gr01" turn="6">
+            <splitoffs>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </splitoffs>
+        </Split>
+        <Reveal markerId="Gr07" allPlayers="false" turn="6">
+            <viewers>
+                <viewer>Green</viewer>
+            </viewers>
+            <creatures>
+                <creature>Angel</creature>
+                <creature>Lion</creature>
+                <creature>Lion</creature>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Gr01" allPlayers="false" turn="6">
+            <viewers>
+                <viewer>Green</viewer>
+            </viewers>
+            <creatures>
+                <creature>Centaur</creature>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Gr07" allPlayers="false" turn="6">
+            <viewers>
+                <viewer>katzer</viewer>
+            </viewers>
+            <creatures>
+                <creature>Angel</creature>
+                <creature>Lion</creature>
+                <creature>Lion</creature>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Rd03" allPlayers="false" turn="6">
+            <viewers>
+                <viewer>Green</viewer>
+            </viewers>
+            <creatures>
+                <creature>Druid</creature>
+                <creature>Gargoyle</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Rd03" allPlayers="true" turn="6">
+            <creatures>
+                <creature>Druid</creature>
+                <creature>Gargoyle</creature>
+            </creatures>
+        </Reveal>
+        <RemoveCreature markerId="Rd03" creatureName="Druid" turn="6" />
+        <RemoveCreature markerId="Rd03" creatureName="Gargoyle" turn="6" />
+        <Reveal markerId="Gr04" allPlayers="true" turn="6">
+            <creatures>
+                <creature>Cyclops</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Gr04" creatureName="Cyclops" turn="6" />
+        <Reveal markerId="Gr07" allPlayers="true" turn="6">
+            <creatures>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Gr07" creatureName="Troll" turn="6" />
+        <Split parentId="Bu08" childId="Bu12" turn="7">
+            <splitoffs>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </splitoffs>
+        </Split>
+        <Reveal markerId="Bu08" allPlayers="false" turn="7">
+            <viewers>
+                <viewer>Blue</viewer>
+            </viewers>
+            <creatures>
+                <creature>Titan</creature>
+                <creature>Warlock</creature>
+                <creature>Troll</creature>
+                <creature>Troll</creature>
+                <creature>Centaur</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Bu12" allPlayers="false" turn="7">
+            <viewers>
+                <viewer>Blue</viewer>
+            </viewers>
+            <creatures>
+                <creature>Ogre</creature>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <Reveal markerId="Bu08" allPlayers="true" turn="7">
+            <creatures>
+                <creature>Troll</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bu08" creatureName="Troll" turn="7" />
+        <Reveal markerId="Bu06" allPlayers="true" turn="7">
+            <creatures>
+                <creature>Cyclops</creature>
+                <creature>Cyclops</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bu06" creatureName="Gorgon" turn="7" />
+        <Reveal markerId="Bu12" allPlayers="true" turn="7">
+            <creatures>
+                <creature>Ogre</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bu12" creatureName="Ogre" turn="7" />
+        <Reveal markerId="Bk11" allPlayers="true" turn="7">
+            <creatures>
+                <creature>Lion</creature>
+            </creatures>
+        </Reveal>
+        <AddCreature markerId="Bk11" creatureName="Lion" turn="7" />
+    </History>
+    <Redo>
+    </Redo>
+</ColossusSnapshot>
+

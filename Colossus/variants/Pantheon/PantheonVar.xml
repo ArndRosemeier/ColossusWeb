@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<variant name="Pantheon">
+    <strategic_map filename="PantheonMap.xml" />
+    <creatures filename="PantheonCre.xml" />
+    <terrain_recruits filename="PantheonTer.xml" />
+    <depends>
+        <!-- for some images, ExtTitan -->
+        <depend variant="ExtTitan" />
+        <!-- many Battlelabds from Abyssal6 -->
+        <depend variant="Abyssal6" />
+    </depends>
+    <hint classname="Pantheon.PantheonHint" />
+</variant>

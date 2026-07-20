@@ -1,0 +1,43 @@
+{
+  "terrain": "Woods",
+  "tower": false,
+  "subtitle": null,
+  "hexes": [
+    {
+      "x": 0,
+      "y": 2,
+      "terrain": "Tree",
+      "elevation": 1,
+      "borders": []
+    },
+    {
+      "x": 2,
+      "y": 3,
+      "terrain": "Tree",
+      "elevation": 1,
+      "borders": []
+    },
+    {
+      "x": 3,
+      "y": 5,
+      "terrain": "Tree",
+      "elevation": 1,
+      "borders": []
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "terrain": "Tree",
+      "elevation": 1,
+      "borders": []
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "terrain": "Tree",
+      "elevation": 1,
+      "borders": []
+    }
+  ],
+  "startlist": []
+}

@@ -1,0 +1,350 @@
+Colossus XML network / savegame event format
+
+$Id$
+
+Conventions
+-----------
+
+Everything is case sensitive, unless stated otherwise.
+
+[name]:         A string of up to 30 characters.
+[player]:       The name of a player currently in the game
+[colorName]:    One of "Black", "Brown", ...
+[legion]:       A marker id like "Bk01".
+[creature]:     A complete creature name like "Behemoth".
+[creatures]:    One or more of [creature].
+[land]:         A number of a masterboard hex, like "127".
+[number]:       A number like "3".
+[battleHex]:    A battle hex identifier like "C1"
+[entrySide]:    "right", "left", or "bottom"
+[bool]:         "true" or "false"
+
+
+Requests (client to server)
+--------
+
+<join name="[name]">
+    Join the game and pick a name.  Note that if multiple players pick the
+    same name, the server may change it.  If no name is chosen, the server
+    will pick one.
+
+<observe name="[name]">
+    Join as an observer.
+
+<color color="[colorName]">
+    Choose a color.
+
+<start>
+    Starts the game. No more players can connect.
+
+<split parent=[legion] child=[legion]>
+    <creatures>
+        <creature name="[creature1]">
+        <creature name="[creatureN]">
+    </creatures>
+</split>
+    Split off [creatures] from [legion1] to a new legion with marker
+    [legion2].
+
+<merge parent=[legion] child=[legion]>
+    Merge all creatures from child legion back into parent legion.
+    Used to cancel a split before movement is rolled, or just before
+    donewithmoves if neither legion can move.
+
+<roll />
+    Finish splitting and wait for the movement roll.
+
+<mulligan />
+    Re-roll movement.
+
+<move legion="[legion]" hex="[land]" {entrySide="[entryside]" 
+      teleport="[bool"]} />
+    Move [legion] to masterboard hex [land] entering on side
+    [entryside].  If [entryside] is omitted, the server picks.
+    If the legion can both teleport and move without teleporting and 
+    teleport is omitted, the server picks.
+
+<undoMove legion="[legion]" />
+    Move [legion] back to its previous location.
+
+<recruit legion="[legion]" recruit="[creature]" {recruiter="[creature]"}
+    Muster a recruit using the right number of recruiter.  If recruiter 
+    is not set then the server picks.
+
+<undoRecruit legion="[legion]" />
+    [legion] undoes its last recruit. 
+
+<engage hex="[land]" />
+    Resolve the engagement in [land].
+
+<flee legion="[legion]" />
+    [legion] flees.
+
+<doNotFlee legion="[legion]" />
+    [legion] does not flee.
+
+<concede legion="[legion]" />
+    [legion] concedes the battle.
+
+<doNotConcede legion="[legion]" />
+    [legion] does not concede the battle.
+
+<negotiate hex="[land]" survivor="[legion]">
+    <creatures>
+        <creature name="[creature1]">
+        <creature name="[creatureN]">
+    </creatures>
+</negotiate>
+    Offer a negotiated settlement to the engagement in [land] where 
+    survivor wins, and is left with creatures.  If survivor or 
+    creatures is missing or empty, offer mutual destruction.
+
+<accept hex="[land]" survivor="[legion]">
+    <losses legion="[legion]">
+        <creature name="[creature1]">
+        <creature name="[creatureN]">
+    </losses>
+    <losses legion="[legion]">
+        <creature name="[creature1]">
+        <creature name="[creatureN]">
+    </losses>
+</accept>
+    Accept a settlement proposed by the other player.
+
+<fight hex="[land]" />
+    Cease negotiations in [land] and fight a battle.
+
+<enter creature="[creature]" hex="[battleHex]" />
+    Move creature from offboard to hex.
+
+<maneuver startHex="[battleHex]" endHex="[battleHex]" />
+    Move creature in startHex to endHex.
+
+<undoManeuver hex="[battleHex]" />
+    Move creature in hex back to its previous location.
+
+<doneManeuvering />
+    All battle moves are finished.  Move on to strike phase, or the
+    opponent's battle turn, as appropriate.
+
+<strike strikerHex="[battleHex]" targetHex="[battleHex]" 
+        dice="[number]" strike="[number]" />
+    Creature in strikerhex strikes creature in targethex, rolling dice 
+    against the given strike number.  The server will assign dice and 
+    strike if missing.
+
+<carry targetHex="[battleHex]" hits="[number]" />
+    Carry hits to the creature in targetHex.
+
+<doneStriking />
+    All battle strikes are finished.  Move on to the opponent's phase.
+
+<summon summoner="[legion]" donor="[legion]" creature="[creature]" />
+    Summoner summons a creature from donor.
+
+<acquire legion="[legion]" creature="[creature]" />
+    Legion acquires a creature.
+
+<nextTurn />
+    Finish this player's entire game turn.
+
+<withdraw />
+    This player withdraws from the entire game.
+
+<replay />
+    Resend the stream of all significant events so far in this game to
+    this client.
+
+
+
+Messages (server to one or more clients)
+--------
+
+<formGame minPlayers="[number]" maxPlayers="[number]" >
+    <option name="variant" value="Default" />
+    <option name="balancedTowers" value="true" />
+    <option name="allStacksVisible" value="false" />
+    <option name="cumulativeSlow" value="true" />
+    <option name="oneHexAllowed" value="true" />
+    <option name="nonRandomBattleDice" value="false" />
+    <option name="noFirstTurnT2TTeleport" value="false" />
+    <option name="noFirstTurnTeleport" value="false" />
+    <option name="towerToTowerTeleportOnly" value="false" />
+    <option name="noTowerTeleport" value="false" />
+    <option name="noTitanTeleport" value="false" />
+</formGame>
+    Form a new game with the listed options.
+
+<nak />
+    Last request from this client was denied.
+
+<join name="[name]" />
+    A player with name [name] has connected.
+
+<color name="[name]" color="[colorname]" firstMarker="[marker]">
+    Player has chosen color and first marker.
+
+<tower name="[name]" hex="[land]" />
+    Player has been assigned tower.
+
+<split parent="[legion]" child="[legion]" numsplit="[number]">
+    <creatures>
+        <creature name="[creature1]">
+        <creature name="[creatureN]">
+    </creatures>
+</split>
+    A player splits off [number] creatures from [legion1] to a new
+    legion with marker [legion2].  (The splitoff creatures will only 
+    be identified if this client is allowed to see the contents
+    of this stack.)
+
+<merge parent=[legion] child=[legion]>
+    child was merged back into parent.
+
+<roll die="[number]" />
+    The active player rolled for movement. 
+
+<mulligan />
+    The active player took a mulligan.
+
+<move legion="[legion]" hex="[land]" entrySide="[entrySide]" 
+      teleport="[bool"] />
+    [legion] moved to masterboard hex [land] entering on side
+    [entryside].  If teleport is "true" then this move was a teleport.
+
+<undoMove legion="[legion]" />
+    [legion] moved back to its previous location.
+
+<engage hex="[land]" />
+    <creatures>
+        <creature name="[creature1]">
+        <creature name="[creatureN]">
+    </creatures>
+</engage>
+    Active player chose to resolve the engagement in [land].  The 
+    opposing legion's creatures are revealed.
+
+<flee legion="[legion]">
+    <creatures>
+        <creature name="[creature1]">
+        <creature name="[creatureN]">
+    </creatures>
+</flee>
+    [legion] fled, losing creatures.
+
+<doNotFlee legion="[legion]" />
+    [legion] did not flee.
+
+<concede legion="[legion]">
+    <creatures>
+        <creature name="[creature1]">
+        <creature name="[creatureN]">
+    </creatures>
+</concede>
+    [legion] conceded the battle, losing creatures.
+
+<doNotConcede legion="[legion]" />
+    [legion] did not concede the battle.
+
+<negotiate hex="[land]" survivor="[legion]">
+    <creatures>
+        <creature name="[creature1]">
+        <creature name="[creatureN]">
+    </creatures>
+</negotiate>
+    An offer was made, with survivor (if any) winning and
+    keeping the listed creatures.
+
+<accept hex="[land]" survivor="[legion]">
+    <losses legion="[legion]">
+        <creature name="[creature1]">
+        <creature name="[creatureN]">
+    </losses>
+    <losses legion="[legion]">
+        <creature name="[creature1]">
+        <creature name="[creatureN]">
+    </losses>
+</accept>
+    An offer was accepted.  Each legion's losses are shown.
+
+<fight hex="[land]">
+    <attacker name="[legion]">
+        <creature name="[creature1]">
+        <creature name="[creatureN]">
+    </attacker>
+    <defender name="[legion]">
+        <creature name="[creature1]">
+        <creature name="[creatureN]">
+    </defender>
+</fight>
+    A battle will be fought.
+
+<enter creature="[creature]" hex="[battleHex]" />
+    creature moved from offboard to hex.
+
+<maneuver startHex="[battleHex]" endHex="[battlehex]" />
+    creature moved from startHex to endHex.
+
+<undoManeuver hex="[battleHex]" />
+    creature in hex moved back to its previous location.
+
+<doneManeuvering />
+    All battle moves are finished.  Move on to strike phase, or the
+    opponent's battle turn, as appropriate.
+
+<drift hex="[battleHex]" />
+    creature in [battlehex] took one point of drift damage.
+
+<strike strikerHex="[battleHex]" targetHex="[battleHex]" dice="[number]" 
+        strike="[number]" hits="[number]" carries="[number]">
+    <rolls>
+        [number1]
+        [numberN]
+    </rolls>
+    <carryHexes>
+        [battlehex1]
+        [battlehexN]
+    </carryHexes>
+</strike>
+    Creature in strikerhex struck creature in targethex, rolling dice 
+    against the given strike number.  Exact rolls, hits, carries, and 
+    carry targets are given.
+
+<carry targetHex="[battleHex]" hits="[number]" carries="[number]">
+    <carryHexes>
+        [battlehex1]
+        [battlehexN]
+    </carryHexes>
+</carry>
+    Hits were carried to the creature in targetHex.  If there are still 
+    carries and carry targets remaining, they are shown.
+
+<doneStriking />
+    All battle strikes are finished for this phase.
+
+<summon summoner="[legion]" donor="[legion]" creature="[creature]" />
+    Summoner summoned creature from donor.
+
+<acquire legion="[legion]" creature="[creature]" />
+    Legion acquired a creature.
+
+<points player="[player]" points="[number]" />
+    [player] receives [number] full points for a battle.
+
+# TODO Half points  Not all go to slayer, if some legions engaged.
+<eliminatePlayer loser="[player]" slayer="[player]" />
+    loser has been eliminated from the game by slayer (may be null).
+
+<gameOver winner="[player]" />
+    The game is over.  If no winner is given, the game is a draw.
+
+<recruit legion="[legion]" recruit="[creature]" recruiter="[creature]" />
+    Muster a recruit using the right number of recruiter.
+    Also used for reinforcements.
+
+<undoRecruit legion="[legion]" />
+    [legion] undoes its last recruit. 
+
+<turn player="[player]" number="[number]" />
+    Start of a new turn.
+

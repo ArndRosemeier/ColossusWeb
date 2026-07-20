@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<html>
+  <head>
+    <meta name="generator"
+    content="HTML Tidy for Linux/x86 (vers 1st July 2002), see www.w3.org" />
+<!-- $Id$ -->
+    <title>Frequently Asked Questions for Colossus</title>
+  </head>
+  <body>
+    <h2>Frequently Asked Questions for Colossus</h2>
+    <ul>
+      <li>Why does the game sometimes prompt me twice for recruits? 
+      <p>Look closer. It&#39;s asking for the recruit and then for the
+      recruiter(s). Do you want to recruit that cyclops with your other
+      cyclops, or with your two gargoyles? If like most people you don&#39;t
+      care, then turn on 
+      <b>Auto pick recruiters</b>
+       and the computer will just pick one for you.</p>
+      </li>
+      <li>Why is the angel X&#39;d out in the summon dialog? I have one. 
+      <p>Because you haven&#39;t selected the donor stack with the angel. When
+      the Summon Angel dialog pops up, all of your unengaged legions with
+      summonable creatures will be highlighted. Pick one, then click on the
+      Summon button.</p>
+      </li>
+      <li>How come I can see enemy units, but some have question marks
+      over them?  <p>This is a demonstration of the AI&#39;s stack
+      prediction algorithm.  Using memory of creatures that it&#39;s
+      seen, process of elimination, and some guesses about reasonable
+      splits, it tries to figure out what&#39;s in enemy stacks. With
+      the setting 
+      <A HREF="GetPlayersOptions.html#Viewable_legion_content">Viewable
+      legion content in Get Players startup dialog</A> (before game start)
+      it can be changed now, whether you are allowed to see enemy
+      legions content fully, partly, or not at all.</p>
+      </li>
+      <li>How to I make a legion spin around in a circle back to the original
+      hex when I roll a 6? 
+      <p>Just click on the chit twice.</p>
+      </li>
+      <li>What does the Antialias option do? 
+      <p>It makes the graphics a bit smoother (look closely at the hexside
+      edges while you turn it on and off), but this takes some CPU cycles. I
+      recommend turning it on if you have a fast computer and leaving it off if
+      you have a slow computer.</p>
+      </li>
+      <li>Why is the AI so dumb? 
+      <p>Titan has a huge branching complexity. So brute force searching
+      through all possible moves several turns ahead isn&#39;t possible.</p>
+      </li>
+      <li>What&#39;s the difference between 
+      <b>SimpleAI</b> and <b>CowardSimpleAI</b> and <b>A Random AI</b>? 
+      <p>SimpleAI does a straightforward one-ply lookahead for MasterBoard
+      moves. It works fairly well. CowardSimpleAI is the same code with some
+      constants changed to make it less aggressive. A Random AI just chooses
+      one of the available AIs at random -- this will be a more interesting
+      option when there are more viable alternatives.</p>
+      Nowadays there is also RationalAI, HumanHaterRationalAI (that one is
+      just a RationalAI with some constants modified to make it more eager
+      to attack human players, but not other AI players) and MilvangAI.
+      <P>
+      </li>
+      <li>What does the 
+      <b>Load External Variant</b>
+       button do? 
+      <p>It lets you load a variant that&#39;s somewhere else in the
+      filesystem, not included in the game&#39;s jar file.</p>
+      </li>
+      <li>Why, in the Caretaker&#39;s Stack, do some creatures have 
+      <b>--</b> instead of a number?<BR>
+      Why, in the Caretaker&#39;s Stack, are some
+      creatures not red-crossed when there are 0 left? 
+      <p>Same reason: those creatures are &quot;immortal&quot;, i.e. when
+      they&#39;re killed on the batllefields, they&#39;re put back in the
+      Caretaker&#39;s Stack and not in the Graveyard (for instance, in
+      traditional Titan, they&#39;re Angel, Archangel, Warlock, Guardian and
+      Titan).</p>
+      </li>
+      <li>What&#39;s the option &quot;Slowing is cumulative&quot; ? 
+      <p>See description in <A HREF="GetPlayersOptions.html#SlowingCumulative">
+        Get Players startup dialog options document.</A></P>
+      </li>
+      <li>What&#39;s the option <b>Always allows one hex</b> ? 
+      <p>See description in <A HREF="GetPlayersOptions.html#AlwaysAllowOneHex">
+        Get Players startup dialog options document.</A></P>
+      </li>
+      <li>How do I make Java Web Start stop upgrading my game to buggy new
+      versions?</li>
+      <li style="list-style: none">
+        <p>Java Web Start is designed to auto-update without user intervention.
+        This means that the only way to keep it from updating your game is to
+        make sure you&#39;re not connected to the Internet when running the
+        game.</p>
+        <p>Another option is not using JWS at all. See the 
+        <a href="README.html">README</a>
+         for other ways to run the game.</p>
+        <p>Someday when we have an actual stable released version, we&#39;ll
+        make separate JWS links for the stable and bleeding-edge versions.
+        We&#39;re not there yet.</p>
+      </li>
+      <li>I sometimes don't get angels when I cross 100 points.  Is this a
+      bug?</li>
+      <p>
+      No. It's a correct implementation of the Titan rules. You don't get 
+      angels for the half-points you earn from eliminating a titan. You also 
+      don't get angels if your legion is already 7 high.
+      </p>
+      </li>
+      <li>In the Game Status window, sometimes some player names have a
+          star ("*")  and sometimes not. What does it mean?
+      <p> That player has reached Titan Teleport capability (400 points 
+          in Default, might be a different value in other Variants).
+      </p>
+      </li>
+      <li>How can I help? 
+      <p>
+      <a href="BugReporting.html">Good bug reports</a>
+       are great.</p>
+      <p>If you want to contribute code, make sure that you&#39;re starting
+      from the latest source (so pull from Subversion). Please read and 
+      follow the coding standards so your code is easier to merge. Join and 
+      send mail to the dev mailing list at SF so we know what you&#39;re up 
+      to. Beyond that, just code whatever you want and send patches when it 
+      works.</p>
+      </li>
+    </ul>
+  </body>
+</html>
+

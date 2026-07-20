@@ -1,0 +1,31 @@
+# Root
+.DS_Store
+Thumbs.db
+*.log
+*.local
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Web (Vite / Node)
+web/node_modules/
+web/dist/
+web/dist-ssr/
+web/coverage/
+web/*.tsbuildinfo
+
+# Colossus Java build outputs
+Colossus/build/
+Colossus/out/
+Colossus/*.jar
+Colossus/*.zip
+Colossus/*Keystore
+Colossus/local_build.properties
+Colossus/unix.jnlp
+Colossus/win.jnlp
+Colossus/logging.properties.remote*
+Colossus/stop.flag
+Colossus/txt/
+Colossus/forceboard
+Colossus/loadfile
+Colossus/headless

@@ -1,0 +1,252 @@
+package net.sf.colossus.guiutil;
+
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+
+import net.sf.colossus.client.LegionClientSide;
+import net.sf.colossus.common.Constants;
+import net.sf.colossus.game.Legion;
+import net.sf.colossus.util.Glob;
+import net.sf.colossus.util.InstanceTracker;
+
+
+/**
+ *  some small methods helpful during development,
+ *  to wait before program ends to see object instance
+ *  statistics, once just until return is pressed,
+ *  once a loop in which one can force GC, see object statistics,
+ *  etc. until one enters "x" to make the loop exit.
+ */
+
+public class DebugMethods
+{
+    /**
+     * It seems this is the sequence of things needed to achieve
+     * full garbage collection/cleanup of JFrame stuff (Java 1.4.2):
+     * GC and finalization, 2 dummy frames, do the SwingCleanup hack,
+     * and once again GC and finalization.
+     *
+     * @param doSwingCleanup Whether to call the swingCleanup() method
+     */
+    public static void doCleanupStuff(boolean doSwingCleanup)
+    {
+        System.gc();
+        System.runFinalization();
+
+        DummyFrameWithMenu.doOneDummyFrame("exitDummy");
+        DummyFrameWithMenu.doOneDummyFrame("exitDummy2");
+
+        if (doSwingCleanup)
+        {
+            // Should be only done once, the very last time in main()
+            DummyFrameWithMenu.swingCleanup();
+        }
+
+        System.gc();
+        System.runFinalization();
+    }
+
+    /**
+     * prints out "PRESS RETURN TO CONTINUE",
+     * and after return is pressed,
+     * prints then "OK, continuing" and returns.
+     */
+    public static void waitReturn()
+    {
+        System.out.println("\nPRESS RETURN TO CONTINUE!");
+        try
+        {
+            BufferedReader in = new BufferedReader(new InputStreamReader(
+                System.in));
+            in.readLine();
+        }
+        catch (IOException e)
+        {
+            //
+        }
+        System.out.println("OK, continuing.");
+    }
+
+    /**
+     * Repeatedly checks whether now all tracked objects are gone.
+     * Each round, does GC + finalize, and asks for input.
+     * For input "s", prints statistics.
+     * For input "x", exits the loop.
+     * Exits the loop also if all are gone.
+     * If from beginning on all are gone, does not even go into the loop.
+     *
+     * @param force Go into loop even if allGone already returns true at begin
+     */
+    public static void waitReturnLoop(boolean force)
+    {
+        System.gc();
+        System.runFinalization();
+        InstanceTracker.printStatistics();
+
+        if (InstanceTracker.allGone())
+        {
+            if (!force)
+            {
+                return;
+            }
+        }
+
+        System.out
+            .println("Enter s, g, f, h or x. x exits the loop.\n----------\n");
+        int cnt = 2;
+        String line = "";
+        boolean done = false;
+        while (!done)
+        {
+            System.gc();
+            System.runFinalization();
+
+            try
+            {
+                System.out.print("> ");
+                BufferedReader in = new BufferedReader(new InputStreamReader(
+                    System.in));
+                line = in.readLine();
+
+                if (line == null)
+                {
+                    line = "x";
+                }
+
+                if (line.equals("h"))
+                {
+                    SwingReferenceCleanupHacks.cleanupJPopupMenuGlobals(true);
+                    SwingReferenceCleanupHacks.cleanupJMenuBarGlobals();
+                }
+
+                if (line.equals("f"))
+                {
+                    DummyFrameWithMenu f1 = new DummyFrameWithMenu("" + cnt);
+                    cnt++;
+
+                    try
+                    {
+                        Thread.sleep(500);
+                    }
+                    catch (InterruptedException ex)
+                    {
+                        //
+                    }
+
+                    f1.dispose();
+                    f1 = null;
+                }
+
+                if (line.equals("g"))
+                {
+                    System.gc();
+                    System.runFinalization();
+                }
+
+                if (line.equals("s"))
+                {
+                    System.gc();
+                    System.runFinalization();
+
+                    InstanceTracker.printStatistics();
+                }
+
+                if (line.equals("x"))
+                {
+                    done = true;
+                }
+
+                if (InstanceTracker.allGone())
+                {
+                    System.out.println("OK, allGone now true, we can stop.");
+                    done = true;
+                }
+            }
+            catch (IOException e)
+            {
+                //
+            }
+            System.gc();
+            System.runFinalization();
+        }
+        System.out
+            .println("ok, list empty or x entered... finishing shutdown...");
+    }
+
+    private static boolean clemensBattleDevelopment = false;
+
+    public static void setClemensBattleDevelopment(boolean value)
+    {
+        clemensBattleDevelopment = value;
+    }
+
+    public static boolean getClemensBattleDevelopment()
+    {
+        return clemensBattleDevelopment;
+    }
+
+    public static boolean getClemensAiDevelopment()
+    {
+        return Constants.AiDevPrinting.aiDevLog;
+    }
+
+    /**
+     * Print the given message to stdout, if flag is set
+     * @param message
+     */
+    public static void battleLog(String message)
+    {
+        if (clemensBattleDevelopment)
+        {
+            System.out.println(message);
+        }
+    }
+
+    /**
+     * Newline must be added by caller!
+     * @param message
+     */
+    public static void aiDevLog(String message)
+    {
+        if (Constants.AiDevPrinting.aiDevLog)
+        {
+            System.out.print(message);
+        }
+    }
+
+    /**
+     * For comparing battle results from multiple runs, prevent the acquire,
+     * so that resulting legion value remains comparable
+     * @return If true, the AI should deny the acquire
+     */
+    public static boolean denyAcquireAngel()
+    {
+        return false;
+    }
+
+    /**
+     * Some more printlns I want to see only whe working on the "improve
+     * the AI" work
+     * @return Whether to print the messages
+     */
+    public static boolean doPrintLnEval()
+    {
+        return clemensBattleDevelopment;
+    }
+
+    /**
+     * Mostly used for aiDevLog
+     * @param legion
+     * @return
+     */
+    public static String legionInfo(Legion legion)
+    {
+        String content = legion.getMarkerId() + ": "
+            + Glob.glob(", ", ((LegionClientSide)legion).getImageNames())
+            + " (" + legion.getPointValue() + " points)";
+        return content;
+    }
+
+}

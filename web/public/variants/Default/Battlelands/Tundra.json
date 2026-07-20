@@ -1,0 +1,71 @@
+{
+  "terrain": "Tundra",
+  "tower": false,
+  "subtitle": null,
+  "hexes": [
+    {
+      "x": 0,
+      "y": 4,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 1,
+      "y": 3,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 2,
+      "y": 2,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 2,
+      "y": 4,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 3,
+      "y": 3,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 5,
+      "y": 3,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    }
+  ],
+  "startlist": []
+}

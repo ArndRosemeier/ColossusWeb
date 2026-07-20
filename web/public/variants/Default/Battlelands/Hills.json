@@ -1,0 +1,169 @@
+{
+  "terrain": "Hills",
+  "tower": false,
+  "subtitle": null,
+  "hexes": [
+    {
+      "x": 1,
+      "y": 2,
+      "terrain": "Plains",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 0,
+          "type": "s"
+        },
+        {
+          "number": 1,
+          "type": "s"
+        },
+        {
+          "number": 2,
+          "type": "s"
+        },
+        {
+          "number": 3,
+          "type": "s"
+        },
+        {
+          "number": 4,
+          "type": "s"
+        },
+        {
+          "number": 5,
+          "type": "s"
+        }
+      ]
+    },
+    {
+      "x": 1,
+      "y": 4,
+      "terrain": "Plains",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 0,
+          "type": "s"
+        },
+        {
+          "number": 1,
+          "type": "s"
+        },
+        {
+          "number": 2,
+          "type": "s"
+        },
+        {
+          "number": 5,
+          "type": "s"
+        }
+      ]
+    },
+    {
+      "x": 2,
+      "y": 2,
+      "terrain": "Tree",
+      "elevation": 1,
+      "borders": []
+    },
+    {
+      "x": 2,
+      "y": 4,
+      "terrain": "Tree",
+      "elevation": 1,
+      "borders": []
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "terrain": "Plains",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 2,
+          "type": "s"
+        },
+        {
+          "number": 3,
+          "type": "s"
+        },
+        {
+          "number": 4,
+          "type": "s"
+        }
+      ]
+    },
+    {
+      "x": 3,
+      "y": 4,
+      "terrain": "Plains",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 0,
+          "type": "s"
+        },
+        {
+          "number": 1,
+          "type": "s"
+        },
+        {
+          "number": 2,
+          "type": "s"
+        },
+        {
+          "number": 3,
+          "type": "s"
+        },
+        {
+          "number": 4,
+          "type": "s"
+        },
+        {
+          "number": 5,
+          "type": "s"
+        }
+      ]
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "terrain": "Plains",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 0,
+          "type": "s"
+        },
+        {
+          "number": 1,
+          "type": "s"
+        },
+        {
+          "number": 2,
+          "type": "s"
+        },
+        {
+          "number": 3,
+          "type": "s"
+        },
+        {
+          "number": 4,
+          "type": "s"
+        },
+        {
+          "number": 5,
+          "type": "s"
+        }
+      ]
+    },
+    {
+      "x": 5,
+      "y": 3,
+      "terrain": "Tree",
+      "elevation": 1,
+      "borders": []
+    }
+  ],
+  "startlist": []
+}

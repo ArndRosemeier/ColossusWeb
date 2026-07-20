@@ -1,0 +1,361 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<html>
+  <head>
+    <meta name="generator"
+    content="HTML Tidy for Linux/x86 (vers 1st July 2002), see www.w3.org" />
+    <title>Colossus - Options on client side (MasterBoard window)</title>
+  </head>
+  <body>
+<h1>Colossus - Options on client side (MasterBoard window)</h1>
+
+
+This document is a start to describe the meaning/purpose of the
+different available options on client side, i.e. what you (every
+individual player/client) can select/modify from the Menu bar in the
+"MasterBoard" window during the game, and which are more like
+activities, as in "do THIS now".
+<p>
+For the various settings which are more like "Preferences", as
+in "I like this and that to be displayed like THIS", see the
+<a href="ClientPreferences.html">Preferences Window Settings</a> page.
+<p>
+For the game-global option that can only be set during game setup
+see the <a href="GetPlayersOptions.html">Get Players startup dialog</a> page.
+<p>
+The menubar provides the following menus:
+<ul>
+<li><a href="#FileMenu">File menu</a>
+<li><a href="#PhaseMenu">Phase menu</a>
+<li><a href="#WindowMenu">Window menu</a>
+<li><a href="#HelpMenu">Help menu</a>
+</ul>
+
+The different menus are described in detail in the sections below.
+<p>
+<hr>
+<h2><a name="FileMenu">File menu</a></h2>
+
+
+These are the usual options you would expect from most applications:
+<ul>
+<li><b>New game</b></li>
+<li><b>Load game</b></li>
+<li><b>Save game</b></li>
+<li><b>Save game as</b></li>
+<li><b>Quit</b></li>
+</ul>
+<b>Save game</b> and <b>Save game as</b> will save the current state
+of the game to a xml file in a subdirectory "saves" in "the colossus
+directory"; this colossus directory is generally speaking, a directory
+called ".colossus" in your "home directory". Whatever this home
+directory is, depends on your operating system. For Unix and Linux
+users this should be clear; under Windows XP this is something
+like "C:\Documents and Settings\&lt;your login name&gt;"; other
+versions of Microsoft Windows use different directories...
+<p>
+Colossus tells you the directory it considers to be your home directory under
+<a href="#HelpAbout"><b>Help - About</b><a/> (it shows it in the line 
+with "users.home").
+
+<p>
+<b>Save game</b> will automatically generate some numeric, for human
+not meaningful filename (same as the Autosave option in Settings in 
+<a href="GetPlayersOptions.html#Autosave">Get Players startup dialog)</a>;
+with <b>Save game as</b> you are prompted
+with a file selection box to provide a name for the file (with XML
+ending).
+<p>
+Games saved this way can be loaded later using the <b>Load game</b>
+menu option or with the <b>Load game</b> button in the Player
+Selection menu (on game start).
+<p>
+<b><font color="red">NOTE: Right now loading games that were saved
+during the middle of a phase (in particular when a battle is ongoing),
+might cause trouble or not work at all.</b></font> Thus you should try
+to save always at the beginning of a user's turn or at least at the
+beginning of a phase.
+<p>
+<b>NOTE:</b> Once you select <b>New Game</b> and click "Yes" in the
+following confirmation dialog, your currently running game is
+aborted. I.e. even if you then in the upcoming player selection dialog
+click "Quit": this does not bring you back to the game (even though it
+is still visible in the background!!) - rather it will terminate the
+whole Java application. This might be changed in (far ;-) future to
+allow a "Cancel" to return back to the ongoing game.
+<p>Loading a game that involves network (=remote) players is possible,
+but one has to do it "exactly the right way" - see the FAQ in
+ <a href="network.html">Networked Colossus</a> (at the bottom of page).
+<p>
+<hr>
+<h2><a name="PhaseMenu">Phase menu</a></h2>
+
+This menu provides some actions affecting your current game phase: 
+<ul>
+<li><b><a href="#Phase_ClearRecruitChits">Clear recruit chits</a></b></li>
+<li><b><a href="#Phase_Undo">Undo</a></b></li>
+<li><b><a href="#Phase_UndoAll">Undo All</a></b></li>
+<li><b><a href="#Phase_Done">Done</a></b></li>
+<li><b><a href="#Phase_TakeMulligan">Take Mulligan</a></b></li>
+<li><b><a href="#Phase_WithdrawFromGame">Withdraw from Game</a></b></li>
+</ul>
+
+Which of those are at a certain moment available and what they do might
+depend on the situation, in which current game phase you are (Split,
+Move, Resolve Engagements, Muster Recruits).
+<p>
+This means also, when it is currently not your turn, this menu is
+disabled.
+<p>
+<h3><a name="Phase_ClearRecruitChits">Phase - Clear recruit Chits</a></h3> 
+During the muster phase of the individual players, small chits will
+appear on the different legions stacks (on top of the legion marker),
+indicating which creature that legion did recruit recently. They will
+automatically cleared up in the moment when your own mustering phase
+starts. Before that, they are all there and might hinder your sight -
+for example, you don't see the number indicating the height of your
+own or the other player's legions; sometimes this information would be
+useful to see when deciding about whether to split. With this menu
+item (or just pressing "C") you can make the recruit chits disappear
+at nearly any time you want.
+<p>
+There is no way to call them back (right now).
+<p>
+<b>NOTE:</b> above it says "at nearly any time" - because, if you
+press "C" while a "do you want to concede?"-dialog is open, this "C"
+would be taken as answer to the dialog. There's room for improvement
+here...
+
+<h3><a name="Phase_Undo">Phase - Undo</a></h3> 
+
+This will undo the last action you did (split, recruit, or moving a
+legion).
+
+<h3><a name="Phase_UndoAll">Phase - Undo All</a></h3> 
+
+This undoes all of the done actions of this phase, i.e. it resets you
+to the beginning of this phase. There is no way to go back to previous
+phases.
+
+<h3><a name="Phase_Done">Phase - Done</a></h3> 
+
+This will end the current phase, and being done with the "Muster
+Recruits" phase will end your turn; thus the next player can start his
+turn then.
+
+<h3><a name="Phase_TakeMulligan">Phase - Take Mulligan</a></h3>
+
+This allows to take a Mulligan, i.e. re-rolling the movement
+dice. This is only available during the movement phase, and according
+to normal Titan rules only once and only in first turn.
+<p>
+(In the Player Selection during the Game startup, the tab
+<b>Options</b>, exists an option <b>Unlimited Mulligans</b> - with
+this selected the <b>Take Mulligan</b> action will be allowed during
+any turn, as many times as one wants. Good for practicing purposes :)
+
+<h3><a name="Phase_WithdrawFromGame">Phase - Withdraw from game</a></h3>
+
+Will remove you cleanly from the game.
+<p>
+As said, the Phase menu is disabled when it's not your turn.  Arguably
+the <b>Withdraw from Game</b> might be useful to be available at any
+time, but current implementation does not allow it... one would need
+to check first if withdrawing at whatever other point might cause
+problems in the client/server synchronization (to the other, remaining
+clients); as long as this is not checked it stays as it is. If you
+just close your window in a very unlucky moment the game *might* hang
+for the remaining players :-(
+
+<p>
+<hr>
+<h2><a name="WindowMenu">Window menu</a></h2>
+
+There are two types/groups of settings here. The first group are all
+some additional, smaller ("satellite") windows, showing certain types
+of information. Changing the checkboxes make those windows be displayed or
+hidden; closing the window with the small cross in right corner will
+unmark the checkbox in the menu as well.
+<ul>
+<li><a href="#CaretakersStacks">Show Caretaker's stacks</a></li>
+<li><a href="#GameStatus">Show game status</a></li>
+<li><a href="#EngagementResults">Show engagement results</a></li>
+<li><a href="#Inspector">Show inspector</a></li>
+<li><a href="#EventWindow">Show event window</a></li>
+<li><a href="#LogWindow">Show log window</a></li>
+<li><a href="#FullRecruitTree">View Full Recruit Tree</a></li>
+</ul>
+The last two, View Full Recruit Tree and View Web Client, are (technically speaking)
+not checkbox items, but "actions" and can be activated also
+by just pressing a key ("F" for "<u>F</u>ull Recruit Tree" 
+and "W" for "<u>W</u>eb Client).
+<p>
+Additionally in this menu are (only sometimes available) 
+"Choose Screen For Info Windows", and as last item the 
+"Preferences..." which brings up the Preferences Window.
+<ul>
+<li><a href="#ChooseScreen">Choose Screen For Info Windows</a></li>
+<li><a href="#PreferencesWindow">Preferences...</a></li>
+</ul>
+
+<h3><a name="CaretakersStacks">Show Caretaker's stacks</a></h3>
+
+Show or hide the Caretaker's stacks - how many of each creature are available, dead, in use, etc.
+
+<h3><a name="GameStatus">Show game status</a></h3>
+
+Show or hide the game status window. This displays how many legions,
+free markers, points, etc. every player has.  
+<p>This game status window
+also displays also the current game turn number, and, often
+overlooked, <b>in a battle you can see here also the current battle
+round and phase!</b>
+
+<h3><a name="EngagementResults">Show engagement results</a></h3>
+
+As name says: the results from every engagement. Which legions did
+fight, their contents, who won, how (fled, conceded, battle), how many
+points earned. There are prev and next buttons to look through all of them.
+<p>
+There is some special magic builtin to this window - if you press
+"Hide" it will disappear and reappear once the next battle finished
+you are involved in.  (I think this was meant to be like that, so that
+it jumps to the "latest" entry in that window only if you are
+involved, and does NOT automatically go to the next one e.g. if the
+AI's make quickly several battles. That this has also the effect of
+only reappearing in some situations ... well. Someone should take a
+look at it...)
+<p>
+Note that this window only shows the legions as they "were at
+engagement start" and the final state of the winner (just the
+surviving creatures). I.e. you can't see here what was killed,
+summoned, or acquired. Information in that form (what was added or
+removed) can be seen from Event Viewer.
+
+
+<h3><a name="Inspector">Show inspector</a></h3>
+
+A small satellite window always displaying content based on the
+current mouse position.  Mostly the content of legions, or on empty
+land it shows the recruiting tree of that land.
+<p>
+You can always look at your own legions. Whether or what you are
+entitled to see of other player's legions content depends on the
+setting <a href="GetPlayersOptions.html#Viewable_legion_content">
+<b>Viewable legion content</b> in Get Players selection dialog</a>.
+
+<h3><a name="EventWindow">Show event window</a></h3>
+
+Event Viewer shows all (most of) the events that reveal some
+information or are otherwise interesting or relevant.  Mostly this is
+needed to follow information which was revealed by recruiting (what
+was mustered and and which creatures were "revealed" to proof one is
+eligible to do so), teleport, summon, acquire or what survived a
+battle.
+<p>
+Also things like splitting, taking a mulligan, movement roll are shown
+there eventhough one would not classify them as "reveal"ing anything.
+<p>
+A great place to follow what's going on in the game, especially with
+many AI players. This Event Viewer is in particularly needed if you
+play with "Own legions only" for the setting 
+<a href="GetPlayersOptions.html#Viewable_legion_content">Viewable legion
+content</a>.
+<p>
+Behavior of the Event Viewer (how long back events can be shown) 
+depends on the setting <a href="GetPlayersOptions.html#EventsExpireAfter">
+Events expire after</a>
+before game start in the Get Players selection dialog.
+
+<h3><a name="LogWindow">Show log window</a></h3>
+
+A text log window showing lot of details what's going on in the
+game. Most of it not relevant for actual playing, but for trouble
+shooting. The unfortunate situation is, that text is only added there
+when log window is open. Thus if a problem occurs and you display this
+window afterwards there is nothing shown. Room for improvement here...
+
+<h3><a name="FullRecruitTree">View Full Recruit Tree</a></h3>
+
+Show a window with all recruit trees (what can be mustered where).
+<p>
+<hr>
+<p>
+Here the remaining two:
+
+<h3><a name="ChooseScreen">Choose Screen For Info Windows</a></h3>
+
+This option is only available if you use a dual screen setup, i.e. two
+displays connected to your computer.  <i><b>[is that correct??]</i></b>
+<p>
+Then you can use this setting to choose a different screen for the satellite
+windows.
+
+<h3><a name="PreferencesWindow">Preferences...</a></h3>
+
+This brings up the <a href="ClientPreferences.html">"Preferences" window</a>.
+<p>
+<!---------------------------------------------------------------------->
+<p>
+<hr>
+
+<h2><a name="HelpMenu">Help menu</a></h2>
+
+<h3><a name="HelpAbout">Help - About</a></h3>
+
+Tells some basic information about your running Colossus application.
+Shown are:
+<ul>
+<li><b>Colossus build:</b> The build version/date of the used jar files. Important information in bug reports.</li>
+
+<li><b>user.home:</b> Which directory Colossus considers to be your
+home directory. Under that directory will be (created if necessary) a
+directory ".colossus". In this .colossus directory the saved user
+settings (as "Colossus-&lt;playername&gt;.cfg") and the server
+settings (global, i.e. server side game options, which are selected in
+the Get Players startup dialog, as "Colossus-server.cfg" - of course
+only if you run the server); saved games are stored in a subdirectory
+"saves" under this .colossus directory.</li>
+
+<li><b>java.version:</b> Which java version you are using to run this
+game. This also is a very important information when making bug
+reports.</li>
+</ul>
+
+<h3><a name="VariantReadme">Help - Show Variant Readme</a></h3>
+
+This shows the same Variant Readme file that is also displayed in 
+the Variant Readme pane during the Get Players startup selection.
+<p>
+This Readme describes the variant you are currently playing; like, in
+which aspects it differs from the "Default" variant ( = standard Titan
+as the original Avalon Hill game); often, it lists up information
+like when/how angels (or other summonables in some variants) can be
+acquired, and which creatures can be recruited where in an easier to
+read form than clicking the recruit trees of the individual lands; often 
+some credits, who invented that variant, and so on.
+
+<h3><a name="Documentation">Help - Documentation</a></h3>
+
+The purpose of this is to provide help/documentation for various aspects
+of Colossus: the server side options (Get Players dialog),
+the client side options (in MasterBoard menu) and Preferences settings
+(own window, displayable with Window-menu =&gt; Preferences..."),
+and some features of the Battle Map Window (what the various elements
+of the displayed map mean).
+<p>
+Right now this "Documentation" dialog simply displays in a text area
+links (URLs) to the
+relevant web pages on the Colossus home page. This might or should
+eventually be developed further to become a proper help page browsing
+system...
+<p>
+<hr>
+<p>
+<i>
+Created July 2007, reflecting the state of Colossus at this time 
+(directly after rearrangement of the MasterBoard menus).
+<br>
+Last updated thursday, August 27, 2009 by Clemens Katzer<br>
+</i>
+</body>
+</html>

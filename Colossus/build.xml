@@ -1,0 +1,479 @@
+<?xml version="1.0"?>
+<!-- Ant buildfile for Colossus -->
+<!-- To use this you need:
+     Sun JDK 1.5+    http://java.sun.com  (currently recommend 1.5.0)
+     Ant 1.5+        http://jakarta.apache.org/ant/
+     To sign jarfiles, see docs/build.html#keytool for instructions.
+     To install a build on the website (normal public build, or one of
+     the experimental builds, you need a proper rsync/ssh keys setup.
+     Most noticable, you need the ssh public key setup done according SF's
+     instructions, and put the right setup in your .ssh/config file.
+     E.g. my (cleka's) file looks like this:
+     ~~~clip~~~
+     Host web.sourceforge.net
+       User cleka,colossus
+     ~~~clap~~~
+-->
+<project name="Colossus" default="jar" basedir=".">
+  <property environment="env" />
+
+  <property file="${user.home}/colossus_build.properties"/>
+  <property file="local_build.properties"/>
+  <property file="build.properties"/>
+  <property name="release.version" value="SNAPSHOT"/>
+	
+  <!-- classpaths -->
+  <path id="project.class.path">
+    <pathelement path="${build.classes.dir}" />
+    <pathelement path="${variants.dir}" />
+    <fileset dir="${libs.dir}">
+      <include name="**/*.jar" />
+    </fileset>
+  </path>
+	
+  <!-- targets -->
+  <target name="init" description="Initialization">
+    <tstamp />
+    <!-- Set this to jikes or kjc to use those instead of javac -->
+    <property name="build.compiler" value="modern" />
+    <property name="HTML_DIR"
+    value="/home/groups/c/co/colossus/htdocs" />
+    <property name="DOWNLOAD_DIR" value="/home/pfs/project/c/co/colossus" />
+    <property name="DOCS_DIR" value="${HTML_DIR}/docs" />
+    <property name="LIBS_DIR" value="${HTML_DIR}/libs" />
+    <property name="ZIPFILE" value="Colossus-${release.version}.zip" />
+    <property name="SERVER" value="web.sourceforge.net" />
+    <condition property="alias" value="${user.name}" else="ColossusTestSigner">
+      <available file="${user.name}Keystore"/>
+    </condition>
+    <condition property="keystore" value="${user.name}Keystore" else="defaultKeystore">
+      <available file="${user.name}Keystore"/>
+    </condition>
+    <property name="storepass" value="defaultPassword"/>
+    <mkdir dir="${build.classes.dir}" />
+    <mkdir dir="${testresults.dir}" />
+  </target>
+  <target name="genJnlpFiles" depends="init"
+  description="Generates the .jnlp files using the template.jnlp">
+    <path id="cwd">
+      <pathelement location="${basedir}"/>
+    </path>
+    <pathconvert property="codebase" dirsep="/" refid="cwd"/>
+    <copy file="templates/template.jnlp" tofile="win.jnlp" overwrite="true">
+      <filterset>
+        <filter token="codebase" value="file:///${codebase}"/>
+        <filter token="href.jnlp" value="win.jnlp"/>
+      </filterset>
+    </copy>
+    <copy file="templates/template.jnlp" tofile="unix.jnlp" overwrite="true">
+      <filterset>
+        <filter token="codebase" value="file:///${codebase}"/>
+        <filter token="href.jnlp" value="unix.jnlp"/>
+      </filterset>
+    </copy>
+  </target>
+  <target name="compile" depends="init"
+  description="Compiles Colossus without datatools and variants">
+    <javac debug="yes" deprecation="yes" target="${target.level}"
+    includeantruntime="false"
+    bootclasspath="${boot.classpath}"
+    source="${source.level}" srcdir="${core.src.dir}"
+    destdir="${build.classes.dir}">
+      <classpath refid="project.class.path" />
+    </javac>
+  </target>
+  <target name="compileVariants" depends="init"
+  description="Compiles the variant code">
+    <javac debug="yes" deprecation="yes" target="${target.level}"
+    includeantruntime="false"
+    bootclasspath="${boot.classpath}"
+    source="${source.level}" srcdir="${variants.dir}"
+    destdir="${build.classes.dir}">
+      <classpath refid="project.class.path" />
+    </javac>
+  </target>
+  <target name="compileDatatoolsParser" depends="init,compile"
+  description="Compiles the datatools parsers using javac">
+    <javac debug="yes" deprecation="yes" target="${target.level}"
+    includeantruntime="false"
+    bootclasspath="${boot.classpath}"
+    source="${source.level}" srcdir="${datatoolsparser.src.dir}"
+    destdir="${build.classes.dir}" excludes="**/datatools/**">
+      <classpath refid="project.class.path" />
+      <compilerarg value="-Xlint:unchecked" />
+    </javac>
+  </target>
+  <target name="compileDatatools" depends="init,compile,compileDatatoolsParser"
+  description="Compiles the datatools using javac">
+    <javac debug="yes" deprecation="yes" target="${target.level}"
+    includeantruntime="false"
+    bootclasspath="${boot.classpath}"
+    source="${source.level}" srcdir="${datatools.src.dir}"
+    destdir="${build.classes.dir}" excludes="**/datatools/**">
+      <classpath refid="project.class.path" />
+      <compilerarg value="-Xlint:unchecked" />
+    </javac>
+  </target>
+
+  <!-- TODO compiling the test cases into the same folder as the
+       main source means that we have a danger of including the
+       test classes in the JAR or other artifcats -->
+  <target name="compileTests" depends="compile"
+	  description="Compiles the JUnit tests">
+	    <javac debug="yes" deprecation="yes" target="${target.level}"
+	    includeantruntime="false"
+	    bootclasspath="${boot.classpath}"
+	    source="${source.level}" srcdir="${tests.src.dir}"
+	    destdir="${build.classes.dir}">
+	      <classpath refid="project.class.path" />
+	    </javac>
+  </target>
+  <target name="test" depends="compileTests,compileVariants"
+  description="Run all unit tests using JUnit">
+    <junit printsummary="yes" fork="no" haltonfailure="no"
+    failureproperty="junit.testFailed"
+    errorproperty="junit.testError">
+      <classpath refid="project.class.path" />
+      <formatter type="xml" />
+      <batchtest todir="${testresults.dir}">
+        <fileset dir="${tests.src.dir}" />
+      </batchtest>
+    </junit>
+  </target>
+  <target name="compileFuncTests" depends="compile"
+  description="Compiles the JUnit GUI tests">
+    <javac debug="yes" deprecation="yes" target="${target.level}"
+    includeantruntime="false"
+    bootclasspath="${boot.classpath}"
+    source="${source.level}" srcdir="${functests.src.dir}"
+    destdir="${build.classes.dir}">
+      <classpath refid="project.class.path" />
+    </javac>
+  </target>
+  <target name="functest" depends="compileFuncTests,compileVariants"
+  description="Run all GUI unit tests using JUnit">
+    <junit printsummary="yes" fork="no" haltonfailure="no"
+    failureproperty="junit.testFailed"
+    errorproperty="junit.testError">
+      <classpath refid="project.class.path" />
+      <formatter type="xml" />
+      <batchtest todir="${testresults.dir}">
+        <fileset dir="${functests.src.dir}"
+         excludes="**/TestConstants.*"/>
+      </batchtest>
+    </junit>
+  </target>
+  <target name="testReports" description="Generates reports of a prior run of the tests"
+  	depends="test">
+  	<junitreport todir="${testresults.dir}">
+  	  <fileset dir="${testresults.dir}">
+  	    <include name="TEST-*.xml"/>
+  	  </fileset>
+  	  <report format="frames" todir="${testresults.dir}/html"/>
+  	</junitreport>
+  </target>
+  <target name="failOnBrokenTest"
+  description="Fails the build if a previously run 'test' target has any failures or errors">
+    <fail if="junit.testFailed"
+    message="Failing build since a unit test failed" />
+    <fail if="junit.testError"
+    message="Failing build since a unit test returned an error" />
+  </target>
+  <target name="javadoc" depends="compile"
+  description="Make javadoc files">
+    <mkdir dir="${build.javadoc.dir}" />
+    <javadoc sourcepath="${core.src.dir}" destdir="${build.javadoc.dir}" access="private"/>
+  </target>
+	
+  <target name="jar" depends="init,compile,compileVariants"
+  description="Make jar file">
+    <pathconvert property="manifest.classpath" pathsep=" ">
+      <path refid="project.class.path" />
+      <chainedmapper>
+        <flattenmapper />
+        <globmapper from="*" to="libs/*" />
+      </chainedmapper>
+    </pathconvert>
+    <jar jarfile="Colossus.jar" basedir="${build.classes.dir}"
+    includes="**" excludes="**/webserver/**">
+      <manifest>
+        <attribute name="Main-Class"
+        value="net.sf.colossus.appmain.Start" />      	
+        <attribute name="Class-Path"
+        value="${manifest.classpath}" />
+      </manifest>
+    </jar>
+    <!-- add resources such as icons -->
+    <jar jarfile="Colossus.jar" basedir="${core.resource.dir}"
+    includes="**" update="true" />
+    <!-- 
+       Add the resources from the variants by including the whole variants folder.
+       The variants should have a structure with java source and extra resources, too.
+       TODO: create that structure for all variants.
+    -->
+    <jar jarfile="Colossus.jar" basedir="${variants.dir}"
+    includes="**" excludes="*.java" update="true" />
+    <chmod file="Colossus.jar" perm="755" />
+  </target>
+
+  <target name="webjar" depends="init,compile"
+  description="Make WebServer jar file">
+    <jar jarfile="ColossusWeb.jar" basedir="${build.classes.dir}"
+    includes="**/webcommon/**, **/webserver/**,
+              **/common/Options.class, **/common/IOptions.class,
+              **/util/Glob.class, **/util/Split.class,
+              **/common/Constants.class, **/util/BuildInfo.class, **/META-INF/build.properties">
+      <manifest>
+        <attribute name="Main-Class"
+        value="net.sf.colossus.webserver.WebServer" />
+        <attribute name="Class-Path"
+        value="${manifest.classpath}" />
+      </manifest>
+    </jar>
+    <chmod file="ColossusWeb.jar" perm="755" />
+  </target>
+
+  <target name="ccj" depends="init,compile"
+  description="Make cmdline client jar file">
+    <pathconvert property="manifest.classpath" pathsep=" ">
+      <path refid="project.class.path" />
+      <chainedmapper>
+        <flattenmapper />
+        <globmapper from="*" to="libs/*" />
+      </chainedmapper>
+    </pathconvert>
+    <jar jarfile="CmdlineClient.jar" basedir="${build.classes.dir}"
+    includes="**/webclient/** **/webcommon/** **/util/Instance* **/util/Split.class **/util/Glob.class">
+      <manifest>
+        <attribute name="Main-Class"
+        value="net.sf.colossus.webclient.CmdLineWebClient" />      	
+        <attribute name="Class-Path"
+        value="${manifest.classpath}" />
+      </manifest>
+    </jar>
+    <chmod file="CmdlineClient.jar" perm="755" />
+  </target>
+	
+  <!-- Delete stale jar files before compiling -->
+  <target name="cleanjars" depends=""
+  description="Delete stale jar files">
+    <delete verbose="yes" quiet="yes" file="Colossus.jar" />
+    <delete verbose="yes" quiet="yes" file="ColossusWeb.jar" />
+    <delete verbose="yes" quiet="yes" file="CmdlineClient.jar" />
+    <delete verbose="yes" quiet="yes"
+    file="BattlelandsBuilder.jar" />
+    <delete verbose="yes" quiet="yes"
+    file="BattlelandsRandomizer.jar" />
+  </target>
+  <!-- Be very careful modifying this.  It whacks whole directories easily. -->
+  <target name="clean" depends="cleanjars"
+  description="Delete derived files">
+    <delete verbose="yes" quiet="yes" includeemptydirs="yes">
+      <fileset dir="."
+      includes="version, log, fixcrlf*, **/core, **/javacore.txt, **/*~, **/*.bak, **/*.old, **/Colossus.*.zip, TEST-*Test.txt, javadoc/**" />
+    </delete>
+    <delete dir="${build.dir}" />
+  </target>
+  <target name="fix"
+  description="Fix end of line characters and eliminate tabs">
+    <fixcrlf srcDir="." eol="lf" tab="remove" javafiles="yes"
+    eof="remove" tablength="8" includes="**/*.java" />
+    <fixcrlf srcDir="." eol="lf" tab="remove" javafiles="no"
+    eof="remove" tablength="8"
+    includes="**/*.xml, **/*.html, **/*.txt, **/*.py, **/*.pl" />
+  </target>
+  <target name="run" depends="jar" description="Run the game">
+    <java jar="Colossus.jar" fork="yes" />
+  </target>
+  <!-- Tools -->
+  <target name="tools" depends="bbjar,brjar" />
+  <target name="bbjar" depends="init,compile,compileVariants,compileDatatools,buildInfo"
+  description="Make Battlelands Builder jar file">
+    <pathconvert property="manifest.classpath" pathsep=" ">
+      <path refid="project.class.path" />
+      <chainedmapper>
+        <flattenmapper />
+        <globmapper from="*" to="libs/*" />
+      </chainedmapper>
+    </pathconvert>
+    <jar jarfile="BattlelandsBuilder.jar" basedir="${build.classes.dir}"
+    includes="**" excludes="**/webserver/**">
+      <manifest>
+        <attribute name="Main-Class"
+        value="net.sf.colossus.tools.BattlelandsBuilder" />
+        <attribute name="Class-Path"
+        value="${manifest.classpath}" />
+      </manifest>
+    </jar>
+    <jar jarfile="BattlelandsBuilder.jar" basedir="${variants.dir}"
+    includes="**" excludes="*.java" update="true" />
+    <chmod file="BattlelandsBuilder.jar" perm="755" />
+  </target>
+  <target name="jars" depends="clean,jar,webjar,ccj">
+  </target>
+  <target name="brjar" depends="init,compile,compileVariants,compileDatatools,buildInfo"
+  description="Make Battlelands Randomizer jar file">
+    <pathconvert property="manifest.classpath" pathsep=" ">
+      <path refid="project.class.path" />
+      <chainedmapper>
+        <flattenmapper />
+        <globmapper from="*" to="libs/*" />
+      </chainedmapper>
+    </pathconvert>
+    <jar jarfile="BattlelandsRandomizer.jar" basedir="${build.classes.dir}"
+    includes="**" excludes="**/webserver/**">
+      <manifest>
+        <attribute name="Main-Class"
+        value="net.sf.colossus.tools.BattlelandsRandomizer" />
+        <attribute name="Class-Path"
+        value="${manifest.classpath}" />
+      </manifest>
+    </jar>
+    <jar jarfile="BattlelandsRandomizer.jar" basedir="${variants.dir}"
+    includes="**" excludes="*.java" update="true" />
+    <chmod file="BattlelandsRandomizer.jar" perm="755" />
+  </target>
+  <target name="sign" depends="jar,genJnlpFiles"
+  description="Sign main jar file">
+    <echo message="Signing Colossus.jar using keystore=${keystore} and alias=${alias}"/>
+    <signjar jar="Colossus.jar" alias="${alias}"
+    keystore="${keystore}"
+    storepass="${storepass}" />
+    <chmod file="Colossus.jar" perm="755" />
+  </target>
+  <target name="signall" depends="sign"
+  description="Sign all jar files">
+    <signjar jar="libs/jdom.jar" alias="${alias}"
+    keystore="${keystore}"
+    storepass="${storepass}" />
+  </target>
+  <!-- TODO: picking selectively from the base directory is a bit messy, particularly in respect
+       to cleaning up and ignoring files in the VCS. It would be better to collect all generated
+       artifacts somewhere in the build directories and then zip those together with sources that
+       need to be deployed. -->
+  <target name="dist" depends="clean,init,buildInfo,webjar,signall"
+  description="Make zip file for user download">
+    <zip zipfile="${ZIPFILE}" basedir="."
+    excludes="build/**, target/**, **/*.sav, **/*.zip, **/*.bak, **/*javadoc*/*, *Keystore*, *cfg, *properties*, BattlelandsRandomizer.jar, .*, **/*.ps, **/*.aux, **/*.bbl, **/*.bib, **/*.blg, **/*.log, **/*.old, tmp/**, libs/build/**"/>
+  </target>
+	
+  <target name="buildInfo" description="Generates property file with some information on the build such as revision and time">
+    <exec executable="git" outputproperty="git.revision">
+      <arg value="log" />
+      <arg value="-1" />
+      <arg value="--pretty=format:%H"/>
+    </exec>
+    <mkdir dir="${build.classes.dir}/META-INF"/>
+    <!-- we copy all information from wcVersion, even if it is redundant -->
+    <propertyfile file="${build.classes.dir}/META-INF/build.properties" comment="Build information">
+      <entry key="build.timestamp"
+             type="date"
+             pattern="yyyy-MM-dd'T'HH:mm:ss"
+             value="now"/>
+      <entry key="ant.java.version" value="${ant.java.version}"/>
+      <entry key="build.compiler" value="${build.compiler}"/>
+      <entry key="username" value="${user.name}"/>
+      <entry key="java.runtime.name" value="${java.runtime.name}"/>
+      <entry key="java.runtime.version" value="${java.runtime.version}"/>
+      <entry key="os.name" value="${os.name}"/>
+      <entry key="os.arch" value="${os.arch}"/>
+      <entry key="os.version" value="${os.version}"/>
+      <entry key="git.commit" value="${git.revision}"/>
+      <entry key="release.version" value="${release.version}"/>
+    </propertyfile>
+  </target>
+  
+  <!-- Tasks from here down are only needed for installation on the web site. -->
+  <target name="inst" depends="clean,init,sign,dist"
+  description="Locally copy files into htdocs tree on SF">
+    <copy file="Colossus.jar" todir="${HTML_DIR}" />
+    <copy file="Colossus.jnlp" todir="${HTML_DIR}" />
+    <move file="${ZIPFILE}" todir="${DOWNLOAD_DIR}" />
+    <copy todir="${DOCS_DIR}">
+      <fileset dir="docs" />
+    </copy>
+    <copy todir="${LIBS_DIR}">
+      <fileset dir="libs" />
+    </copy>
+  </target>
+
+  <!--  public-build ("Official" public build) -->
+  <target name="remote-inst-public-build"
+  depends="dist"
+  description="copy files into public-build -directory under htdocs tree on SF">
+
+    <exec executable="rsync">
+      <arg line="-a --chmod=ug=rw,o=r htdocs/public-build/Colossus.jnlp ${SERVER}:${HTML_DIR}/public-build/Colossus.jnlp" />
+    </exec>
+    <exec executable="rsync">
+      <arg line="-a --chmod=ug=rw,o=r Colossus.jar ${SERVER}:${HTML_DIR}/public-build/Colossus.jar" />
+    </exec>
+    <exec executable="rsync">
+      <arg line="-a --chmod=ug=rw,o=r libs/jdom.jar ${SERVER}:${HTML_DIR}/public-build/libs/jdom.jar" />
+    </exec>
+    <exec executable="rsync">
+      <arg line="-a --chmod=ug=rw,o=r docs/ ${SERVER}:${HTML_DIR}/public-build/docs/" />
+    </exec>
+    <!--- TODO how to do this for the two other builds, or do at all? 
+                   Or use the download feature on SF site instead? -->
+    <exec executable="rsync">
+            <arg line="-a --chmod=ug=rw,o=r ${ZIPFILE} ${SERVER}:${DOWNLOAD_DIR}" />
+    </exec>
+  </target>
+
+  <!--  public-testing (Public testing build, usually from trunk-head.) -->
+  <target name="remote-inst-public-testing"
+  depends="dist"
+  description="copy files into public-testing -directory under htdocs tree on SF">
+
+    <exec executable="rsync">
+      <arg line="-a --chmod=ug=rw,o=r htdocs/public-testing/Colossus-public-testing.jnlp ${SERVER}:${HTML_DIR}/public-testing/Colossus-public-testing.jnlp" />
+    </exec>
+    <exec executable="rsync">
+      <arg line="-a --chmod=ug=rw,o=r Colossus.jar ${SERVER}:${HTML_DIR}/public-testing/Colossus.jar" />
+    </exec>
+    <exec executable="rsync">
+      <arg line="-a --chmod=ug=rw,o=r libs/jdom.jar ${SERVER}:${HTML_DIR}/public-testing/libs/jdom.jar" />
+    </exec>
+    <exec executable="rsync">
+      <arg line="-a --chmod=ug=rw,o=r docs/ ${SERVER}:${HTML_DIR}/public-testing/docs/" />
+    </exec>
+    <exec executable="rsync">
+      <arg line="-a --chmod=ug=rw,o=r ${ZIPFILE} ${SERVER}:${HTML_DIR}/public-testing/${ZIPFILE}" />
+    </exec>
+  </target>
+
+  <!--  special-build (testing copy to play around e.g. with the rsync stuff 
+        or make a special build for someone to troubleshoot a
+        "happens-only-for-user-but-not-developer-" type of bug.
+    -->
+  <target name="remote-inst-special-build"
+  depends="dist"
+  description="copy files into special-build -directory under htdocs tree on SF">
+
+    <exec executable="rsync">
+      <arg line="-a --chmod=ug=rw,o=r htdocs/special-build/Colossus-special-build.jnlp ${SERVER}:${HTML_DIR}/special-build/Colossus-special-build.jnlp" />
+    </exec>
+    <exec executable="rsync">
+      <arg line="-a --chmod=ug=rw,o=r Colossus.jar ${SERVER}:${HTML_DIR}/special-build/Colossus.jar" />
+    </exec>
+    <exec executable="rsync">
+      <arg line="-a --chmod=ug=rw,o=r libs/jdom.jar ${SERVER}:${HTML_DIR}/special-build/libs/jdom.jar" />
+    </exec>
+    <exec executable="rsync">
+      <arg line="-a --chmod=ug=rw,o=r docs/* ${SERVER}:${HTML_DIR}/special-build/docs/" />
+    </exec>
+    <exec executable="rsync">
+      <arg line="-a --chmod=ug=rw,o=r ${ZIPFILE} ${SERVER}:${HTML_DIR}/special-build/${ZIPFILE}" />
+    </exec>
+  	
+  </target>
+
+  <target name="remote-inst-web"
+  depends="clean,init,signall"
+  description="copy web page files into top htdocs dir on SF">
+    <exec executable="rsync">
+      <arg line="-a htdocs ${SERVER}:${HTML_DIR}" />
+    </exec>
+  </target>
+</project>

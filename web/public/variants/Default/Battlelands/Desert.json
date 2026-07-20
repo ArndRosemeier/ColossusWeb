@@ -1,0 +1,164 @@
+{
+  "terrain": "Desert",
+  "tower": false,
+  "subtitle": null,
+  "hexes": [
+    {
+      "x": 0,
+      "y": 3,
+      "terrain": "Sand",
+      "elevation": 0,
+      "borders": [
+        {
+          "number": 0,
+          "type": "d"
+        },
+        {
+          "number": 1,
+          "type": "d"
+        }
+      ]
+    },
+    {
+      "x": 0,
+      "y": 4,
+      "terrain": "Sand",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 1,
+      "y": 3,
+      "terrain": "Sand",
+      "elevation": 0,
+      "borders": [
+        {
+          "number": 0,
+          "type": "d"
+        },
+        {
+          "number": 1,
+          "type": "d"
+        },
+        {
+          "number": 2,
+          "type": "d"
+        },
+        {
+          "number": 3,
+          "type": "c"
+        }
+      ]
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "terrain": "Sand",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 3,
+      "y": 1,
+      "terrain": "Sand",
+      "elevation": 0,
+      "borders": [
+        {
+          "number": 4,
+          "type": "d"
+        }
+      ]
+    },
+    {
+      "x": 3,
+      "y": 2,
+      "terrain": "Sand",
+      "elevation": 0,
+      "borders": [
+        {
+          "number": 2,
+          "type": "d"
+        },
+        {
+          "number": 3,
+          "type": "c"
+        },
+        {
+          "number": 4,
+          "type": "c"
+        },
+        {
+          "number": 5,
+          "type": "d"
+        }
+      ]
+    },
+    {
+      "x": 3,
+      "y": 5,
+      "terrain": "Sand",
+      "elevation": 0,
+      "borders": [
+        {
+          "number": 0,
+          "type": "d"
+        },
+        {
+          "number": 5,
+          "type": "d"
+        }
+      ]
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "terrain": "Sand",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "terrain": "Sand",
+      "elevation": 0,
+      "borders": [
+        {
+          "number": 2,
+          "type": "d"
+        },
+        {
+          "number": 3,
+          "type": "d"
+        }
+      ]
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "terrain": "Sand",
+      "elevation": 0,
+      "borders": [
+        {
+          "number": 0,
+          "type": "c"
+        },
+        {
+          "number": 1,
+          "type": "d"
+        },
+        {
+          "number": 5,
+          "type": "d"
+        }
+      ]
+    },
+    {
+      "x": 5,
+      "y": 1,
+      "terrain": "Sand",
+      "elevation": 0,
+      "borders": []
+    }
+  ],
+  "startlist": []
+}

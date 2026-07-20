@@ -1,0 +1,3600 @@
+{
+  "name": "Default",
+  "creatures": [
+    {
+      "name": "Angel",
+      "power": 6,
+      "skill": 4,
+      "rangestrikes": false,
+      "flies": true,
+      "magicMissile": false,
+      "summonable": true,
+      "lord": true,
+      "demilord": false,
+      "count": 18,
+      "pluralName": "Angels",
+      "baseColor": "giantBlue",
+      "native": {
+        "Brambles": false,
+        "Drift": false,
+        "Bog": false,
+        "Sand": false,
+        "slope": false,
+        "Volcano": false,
+        "river": false,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Archangel",
+      "power": 9,
+      "skill": 4,
+      "rangestrikes": false,
+      "flies": true,
+      "magicMissile": false,
+      "summonable": true,
+      "lord": true,
+      "demilord": false,
+      "count": 6,
+      "pluralName": "Archangels",
+      "baseColor": "hydraOrange",
+      "native": {
+        "Brambles": false,
+        "Drift": false,
+        "Bog": false,
+        "Sand": false,
+        "slope": false,
+        "Volcano": false,
+        "river": false,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Behemoth",
+      "power": 8,
+      "skill": 3,
+      "rangestrikes": false,
+      "flies": false,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": false,
+      "demilord": false,
+      "count": 18,
+      "pluralName": "Behemoths",
+      "baseColor": "behemothGreen",
+      "native": {
+        "Brambles": true,
+        "Drift": false,
+        "Bog": false,
+        "Sand": false,
+        "slope": false,
+        "Volcano": false,
+        "river": false,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Centaur",
+      "power": 3,
+      "skill": 4,
+      "rangestrikes": false,
+      "flies": false,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": false,
+      "demilord": false,
+      "count": 25,
+      "pluralName": "Centaurs",
+      "baseColor": "centaurGold",
+      "native": {
+        "Brambles": false,
+        "Drift": false,
+        "Bog": false,
+        "Sand": false,
+        "slope": false,
+        "Volcano": false,
+        "river": true,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Colossus",
+      "power": 10,
+      "skill": 4,
+      "rangestrikes": false,
+      "flies": false,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": false,
+      "demilord": false,
+      "count": 10,
+      "pluralName": "Colossi",
+      "baseColor": "colossusPink",
+      "native": {
+        "Brambles": false,
+        "Drift": true,
+        "Bog": false,
+        "Sand": false,
+        "slope": true,
+        "Volcano": false,
+        "river": false,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Cyclops",
+      "power": 9,
+      "skill": 2,
+      "rangestrikes": false,
+      "flies": false,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": false,
+      "demilord": false,
+      "count": 28,
+      "pluralName": "Cyclopes",
+      "baseColor": "behemothGreen",
+      "native": {
+        "Brambles": true,
+        "Drift": false,
+        "Bog": false,
+        "Sand": false,
+        "slope": false,
+        "Volcano": false,
+        "river": false,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Dragon",
+      "power": 9,
+      "skill": 3,
+      "rangestrikes": true,
+      "flies": true,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": false,
+      "demilord": false,
+      "count": 18,
+      "pluralName": "Dragons",
+      "baseColor": "red",
+      "native": {
+        "Brambles": false,
+        "Drift": false,
+        "Bog": false,
+        "Sand": false,
+        "slope": true,
+        "Volcano": true,
+        "river": false,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Gargoyle",
+      "power": 4,
+      "skill": 3,
+      "rangestrikes": false,
+      "flies": true,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": false,
+      "demilord": false,
+      "count": 21,
+      "pluralName": "Gargoyles",
+      "baseColor": "black",
+      "native": {
+        "Brambles": true,
+        "Drift": false,
+        "Bog": false,
+        "Sand": false,
+        "slope": false,
+        "Volcano": false,
+        "river": false,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Giant",
+      "power": 7,
+      "skill": 4,
+      "rangestrikes": true,
+      "flies": false,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": false,
+      "demilord": false,
+      "count": 18,
+      "pluralName": "Giants",
+      "baseColor": "giantBlue",
+      "native": {
+        "Brambles": false,
+        "Drift": true,
+        "Bog": false,
+        "Sand": false,
+        "slope": false,
+        "Volcano": false,
+        "river": false,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Gorgon",
+      "power": 6,
+      "skill": 3,
+      "rangestrikes": true,
+      "flies": true,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": false,
+      "demilord": false,
+      "count": 25,
+      "pluralName": "Gorgons",
+      "baseColor": "black",
+      "native": {
+        "Brambles": true,
+        "Drift": false,
+        "Bog": false,
+        "Sand": false,
+        "slope": false,
+        "Volcano": false,
+        "river": false,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Griffon",
+      "power": 5,
+      "skill": 4,
+      "rangestrikes": false,
+      "flies": true,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": false,
+      "demilord": false,
+      "count": 18,
+      "pluralName": "Griffons",
+      "baseColor": "hydraOrange",
+      "native": {
+        "Brambles": false,
+        "Drift": false,
+        "Bog": false,
+        "Sand": true,
+        "slope": false,
+        "Volcano": false,
+        "river": false,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Guardian",
+      "power": 12,
+      "skill": 2,
+      "rangestrikes": false,
+      "flies": true,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": false,
+      "demilord": true,
+      "count": 6,
+      "pluralName": "Guardians",
+      "baseColor": "colossusPink",
+      "native": {
+        "Brambles": false,
+        "Drift": false,
+        "Bog": false,
+        "Sand": false,
+        "slope": false,
+        "Volcano": false,
+        "river": false,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Hydra",
+      "power": 10,
+      "skill": 3,
+      "rangestrikes": true,
+      "flies": false,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": false,
+      "demilord": false,
+      "count": 10,
+      "pluralName": "Hydrae",
+      "baseColor": "hydraOrange",
+      "native": {
+        "Brambles": false,
+        "Drift": false,
+        "Bog": true,
+        "Sand": true,
+        "slope": false,
+        "Volcano": false,
+        "river": false,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Lion",
+      "power": 5,
+      "skill": 3,
+      "rangestrikes": false,
+      "flies": false,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": false,
+      "demilord": false,
+      "count": 28,
+      "pluralName": "Lions",
+      "baseColor": "red",
+      "native": {
+        "Brambles": false,
+        "Drift": false,
+        "Bog": false,
+        "Sand": true,
+        "slope": true,
+        "Volcano": false,
+        "river": true,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Minotaur",
+      "power": 4,
+      "skill": 4,
+      "rangestrikes": true,
+      "flies": false,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": false,
+      "demilord": false,
+      "count": 21,
+      "pluralName": "Minotaurs",
+      "baseColor": "ogreRed",
+      "native": {
+        "Brambles": false,
+        "Drift": false,
+        "Bog": false,
+        "Sand": false,
+        "slope": true,
+        "Volcano": false,
+        "river": false,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Ogre",
+      "power": 6,
+      "skill": 2,
+      "rangestrikes": false,
+      "flies": false,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": false,
+      "demilord": false,
+      "count": 25,
+      "pluralName": "Ogres",
+      "baseColor": "ogreRed",
+      "native": {
+        "Brambles": false,
+        "Drift": false,
+        "Bog": true,
+        "Sand": false,
+        "slope": true,
+        "Volcano": false,
+        "river": false,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Ranger",
+      "power": 4,
+      "skill": 4,
+      "rangestrikes": true,
+      "flies": true,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": false,
+      "demilord": false,
+      "count": 28,
+      "pluralName": "Rangers",
+      "baseColor": "colossusPink",
+      "native": {
+        "Brambles": false,
+        "Drift": false,
+        "Bog": true,
+        "Sand": false,
+        "slope": false,
+        "Volcano": false,
+        "river": true,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Serpent",
+      "power": 18,
+      "skill": 2,
+      "rangestrikes": false,
+      "flies": false,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": false,
+      "demilord": false,
+      "count": 10,
+      "pluralName": "Serpents",
+      "baseColor": "hydraOrange",
+      "native": {
+        "Brambles": true,
+        "Drift": false,
+        "Bog": false,
+        "Sand": false,
+        "slope": false,
+        "Volcano": false,
+        "river": false,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Titan",
+      "power": -1,
+      "skill": 4,
+      "rangestrikes": false,
+      "flies": false,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": true,
+      "demilord": false,
+      "count": 6,
+      "pluralName": "Titans",
+      "baseColor": "black",
+      "native": {
+        "Brambles": false,
+        "Drift": false,
+        "Bog": false,
+        "Sand": false,
+        "slope": false,
+        "Volcano": false,
+        "river": false,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Troll",
+      "power": 8,
+      "skill": 2,
+      "rangestrikes": false,
+      "flies": false,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": false,
+      "demilord": false,
+      "count": 28,
+      "pluralName": "Trolls",
+      "baseColor": "giantBlue",
+      "native": {
+        "Brambles": false,
+        "Drift": true,
+        "Bog": true,
+        "Sand": false,
+        "slope": false,
+        "Volcano": false,
+        "river": false,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Unicorn",
+      "power": 6,
+      "skill": 4,
+      "rangestrikes": false,
+      "flies": false,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": false,
+      "demilord": false,
+      "count": 12,
+      "pluralName": "Unicorns",
+      "baseColor": "hydraOrange",
+      "native": {
+        "Brambles": false,
+        "Drift": false,
+        "Bog": false,
+        "Sand": false,
+        "slope": true,
+        "Volcano": false,
+        "river": true,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Warbear",
+      "power": 6,
+      "skill": 3,
+      "rangestrikes": false,
+      "flies": false,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": false,
+      "demilord": false,
+      "count": 21,
+      "pluralName": "Warbears",
+      "baseColor": "centaurGold",
+      "native": {
+        "Brambles": false,
+        "Drift": true,
+        "Bog": false,
+        "Sand": false,
+        "slope": false,
+        "Volcano": false,
+        "river": true,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Warlock",
+      "power": 5,
+      "skill": 4,
+      "rangestrikes": true,
+      "flies": false,
+      "magicMissile": true,
+      "summonable": false,
+      "lord": false,
+      "demilord": true,
+      "count": 6,
+      "pluralName": "Warlocks",
+      "baseColor": "hydraOrange",
+      "native": {
+        "Brambles": false,
+        "Drift": false,
+        "Bog": false,
+        "Sand": false,
+        "slope": false,
+        "Volcano": false,
+        "river": false,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    },
+    {
+      "name": "Wyvern",
+      "power": 7,
+      "skill": 3,
+      "rangestrikes": false,
+      "flies": true,
+      "magicMissile": false,
+      "summonable": false,
+      "lord": false,
+      "demilord": false,
+      "count": 18,
+      "pluralName": "Wyverns",
+      "baseColor": "colossusPink",
+      "native": {
+        "Brambles": false,
+        "Drift": false,
+        "Bog": true,
+        "Sand": false,
+        "slope": false,
+        "Volcano": false,
+        "river": false,
+        "Stone": false,
+        "Tree": false,
+        "Lake": false
+      }
+    }
+  ],
+  "terrains": [
+    {
+      "name": "Brush",
+      "color": "green",
+      "regularRecruit": true,
+      "recruits": [
+        {
+          "name": "Gargoyle",
+          "number": 1
+        },
+        {
+          "name": "Cyclops",
+          "number": 2
+        },
+        {
+          "name": "Gorgon",
+          "number": 2
+        }
+      ],
+      "starting": []
+    },
+    {
+      "name": "Desert",
+      "color": "orange",
+      "regularRecruit": true,
+      "recruits": [
+        {
+          "name": "Lion",
+          "number": 1
+        },
+        {
+          "name": "Griffon",
+          "number": 3
+        },
+        {
+          "name": "Hydra",
+          "number": 2
+        }
+      ],
+      "starting": []
+    },
+    {
+      "name": "Hills",
+      "color": "saddleBrown",
+      "regularRecruit": true,
+      "recruits": [
+        {
+          "name": "Ogre",
+          "number": 1
+        },
+        {
+          "name": "Minotaur",
+          "number": 3
+        },
+        {
+          "name": "Unicorn",
+          "number": 2
+        }
+      ],
+      "starting": []
+    },
+    {
+      "name": "Jungle",
+      "color": "darkGreen",
+      "regularRecruit": true,
+      "recruits": [
+        {
+          "name": "Gargoyle",
+          "number": 1
+        },
+        {
+          "name": "Cyclops",
+          "number": 2
+        },
+        {
+          "name": "Behemoth",
+          "number": 3
+        },
+        {
+          "name": "Serpent",
+          "number": 2
+        }
+      ],
+      "starting": []
+    },
+    {
+      "name": "Marsh",
+      "color": "sienna",
+      "regularRecruit": true,
+      "recruits": [
+        {
+          "name": "Ogre",
+          "number": 1
+        },
+        {
+          "name": "Troll",
+          "number": 2
+        },
+        {
+          "name": "Ranger",
+          "number": 2
+        }
+      ],
+      "starting": []
+    },
+    {
+      "name": "Mountains",
+      "color": "red",
+      "regularRecruit": true,
+      "recruits": [
+        {
+          "name": "Lion",
+          "number": 1
+        },
+        {
+          "name": "Minotaur",
+          "number": 2
+        },
+        {
+          "name": "Dragon",
+          "number": 2
+        },
+        {
+          "name": "Colossus",
+          "number": 2
+        }
+      ],
+      "starting": []
+    },
+    {
+      "name": "Plains",
+      "color": "yellow",
+      "regularRecruit": true,
+      "recruits": [
+        {
+          "name": "Centaur",
+          "number": 1
+        },
+        {
+          "name": "Lion",
+          "number": 2
+        },
+        {
+          "name": "Ranger",
+          "number": 2
+        }
+      ],
+      "starting": []
+    },
+    {
+      "name": "Swamp",
+      "color": "blue",
+      "regularRecruit": true,
+      "recruits": [
+        {
+          "name": "Troll",
+          "number": 1
+        },
+        {
+          "name": "Wyvern",
+          "number": 3
+        },
+        {
+          "name": "Hydra",
+          "number": 2
+        }
+      ],
+      "starting": []
+    },
+    {
+      "name": "Tower",
+      "color": "grey",
+      "regularRecruit": false,
+      "recruits": [
+        {
+          "name": "Anything",
+          "number": 0
+        },
+        {
+          "name": "Centaur",
+          "number": 0
+        },
+        {
+          "name": "Anything",
+          "number": 0
+        },
+        {
+          "name": "Gargoyle",
+          "number": 0
+        },
+        {
+          "name": "Anything",
+          "number": 0
+        },
+        {
+          "name": "Ogre",
+          "number": 0
+        },
+        {
+          "name": "AnyNonLord",
+          "number": 0
+        },
+        {
+          "name": "Guardian",
+          "number": 3
+        },
+        {
+          "name": "Titan",
+          "number": -1
+        },
+        {
+          "name": "Warlock",
+          "number": 1
+        }
+      ],
+      "starting": [
+        {
+          "name": "Centaur",
+          "number": 2
+        },
+        {
+          "name": "Gargoyle",
+          "number": 2
+        },
+        {
+          "name": "Ogre",
+          "number": 2
+        }
+      ]
+    },
+    {
+      "name": "Tundra",
+      "color": "skyBlue",
+      "regularRecruit": true,
+      "recruits": [
+        {
+          "name": "Troll",
+          "number": 1
+        },
+        {
+          "name": "Warbear",
+          "number": 2
+        },
+        {
+          "name": "Giant",
+          "number": 2
+        },
+        {
+          "name": "Colossus",
+          "number": 2
+        }
+      ],
+      "starting": []
+    },
+    {
+      "name": "Woods",
+      "color": "olive",
+      "regularRecruit": true,
+      "recruits": [
+        {
+          "name": "Centaur",
+          "number": 1
+        },
+        {
+          "name": "Warbear",
+          "number": 3
+        },
+        {
+          "name": "Unicorn",
+          "number": 2
+        }
+      ],
+      "starting": []
+    }
+  ],
+  "acquirables": [
+    {
+      "name": "Angel",
+      "points": 100
+    },
+    {
+      "name": "Archangel",
+      "points": 500
+    }
+  ],
+  "map": {
+    "width": 15,
+    "height": 8,
+    "hexes": [
+      {
+        "label": "1",
+        "terrain": "Plains",
+        "x": 7,
+        "y": 5,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "2"
+          },
+          {
+            "type": "ARCH",
+            "label": "1000"
+          }
+        ]
+      },
+      {
+        "label": "2",
+        "terrain": "Woods",
+        "x": 8,
+        "y": 5,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "3"
+          },
+          {
+            "type": "ARCH",
+            "label": "7"
+          }
+        ]
+      },
+      {
+        "label": "3",
+        "terrain": "Brush",
+        "x": 8,
+        "y": 6,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "4"
+          },
+          {
+            "type": "ARCH",
+            "label": "100"
+          }
+        ]
+      },
+      {
+        "label": "4",
+        "terrain": "Hills",
+        "x": 9,
+        "y": 6,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "5"
+          },
+          {
+            "type": "BLOCK",
+            "label": "103"
+          }
+        ]
+      },
+      {
+        "label": "5",
+        "terrain": "Jungle",
+        "x": 10,
+        "y": 6,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "6"
+          },
+          {
+            "type": "BLOCK",
+            "label": "106"
+          }
+        ]
+      },
+      {
+        "label": "6",
+        "terrain": "Plains",
+        "x": 10,
+        "y": 5,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "7"
+          },
+          {
+            "type": "ARCH",
+            "label": "200"
+          }
+        ]
+      },
+      {
+        "label": "7",
+        "terrain": "Desert",
+        "x": 9,
+        "y": 5,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "8"
+          },
+          {
+            "type": "ARCH",
+            "label": "2"
+          }
+        ]
+      },
+      {
+        "label": "8",
+        "terrain": "Marsh",
+        "x": 9,
+        "y": 4,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "9"
+          },
+          {
+            "type": "ARCH",
+            "label": "2000"
+          }
+        ]
+      },
+      {
+        "label": "9",
+        "terrain": "Hills",
+        "x": 10,
+        "y": 4,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "10"
+          },
+          {
+            "type": "ARCH",
+            "label": "14"
+          }
+        ]
+      },
+      {
+        "label": "10",
+        "terrain": "Brush",
+        "x": 11,
+        "y": 4,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "11"
+          },
+          {
+            "type": "ARCH",
+            "label": "200"
+          }
+        ]
+      },
+      {
+        "label": "11",
+        "terrain": "Woods",
+        "x": 12,
+        "y": 4,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "12"
+          },
+          {
+            "type": "BLOCK",
+            "label": "110"
+          }
+        ]
+      },
+      {
+        "label": "12",
+        "terrain": "Jungle",
+        "x": 12,
+        "y": 3,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "13"
+          },
+          {
+            "type": "BLOCK",
+            "label": "113"
+          }
+        ]
+      },
+      {
+        "label": "13",
+        "terrain": "Marsh",
+        "x": 11,
+        "y": 3,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "14"
+          },
+          {
+            "type": "ARCH",
+            "label": "300"
+          }
+        ]
+      },
+      {
+        "label": "14",
+        "terrain": "Swamp",
+        "x": 10,
+        "y": 3,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "15"
+          },
+          {
+            "type": "ARCH",
+            "label": "9"
+          }
+        ]
+      },
+      {
+        "label": "15",
+        "terrain": "Plains",
+        "x": 9,
+        "y": 3,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "16"
+          },
+          {
+            "type": "ARCH",
+            "label": "3000"
+          }
+        ]
+      },
+      {
+        "label": "16",
+        "terrain": "Woods",
+        "x": 9,
+        "y": 2,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "17"
+          },
+          {
+            "type": "ARCH",
+            "label": "21"
+          }
+        ]
+      },
+      {
+        "label": "17",
+        "terrain": "Brush",
+        "x": 10,
+        "y": 2,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "18"
+          },
+          {
+            "type": "ARCH",
+            "label": "300"
+          }
+        ]
+      },
+      {
+        "label": "18",
+        "terrain": "Hills",
+        "x": 10,
+        "y": 1,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "19"
+          },
+          {
+            "type": "BLOCK",
+            "label": "117"
+          }
+        ]
+      },
+      {
+        "label": "19",
+        "terrain": "Jungle",
+        "x": 9,
+        "y": 1,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "20"
+          },
+          {
+            "type": "BLOCK",
+            "label": "120"
+          }
+        ]
+      },
+      {
+        "label": "20",
+        "terrain": "Plains",
+        "x": 8,
+        "y": 1,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "21"
+          },
+          {
+            "type": "ARCH",
+            "label": "400"
+          }
+        ]
+      },
+      {
+        "label": "21",
+        "terrain": "Desert",
+        "x": 8,
+        "y": 2,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "22"
+          },
+          {
+            "type": "ARCH",
+            "label": "16"
+          }
+        ]
+      },
+      {
+        "label": "22",
+        "terrain": "Marsh",
+        "x": 7,
+        "y": 2,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "23"
+          },
+          {
+            "type": "ARCH",
+            "label": "4000"
+          }
+        ]
+      },
+      {
+        "label": "23",
+        "terrain": "Hills",
+        "x": 6,
+        "y": 2,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "24"
+          },
+          {
+            "type": "ARCH",
+            "label": "28"
+          }
+        ]
+      },
+      {
+        "label": "24",
+        "terrain": "Brush",
+        "x": 6,
+        "y": 1,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "25"
+          },
+          {
+            "type": "ARCH",
+            "label": "400"
+          }
+        ]
+      },
+      {
+        "label": "25",
+        "terrain": "Woods",
+        "x": 5,
+        "y": 1,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "26"
+          },
+          {
+            "type": "BLOCK",
+            "label": "124"
+          }
+        ]
+      },
+      {
+        "label": "26",
+        "terrain": "Jungle",
+        "x": 4,
+        "y": 1,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "27"
+          },
+          {
+            "type": "BLOCK",
+            "label": "127"
+          }
+        ]
+      },
+      {
+        "label": "27",
+        "terrain": "Marsh",
+        "x": 4,
+        "y": 2,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "28"
+          },
+          {
+            "type": "ARCH",
+            "label": "500"
+          }
+        ]
+      },
+      {
+        "label": "28",
+        "terrain": "Swamp",
+        "x": 5,
+        "y": 2,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "29"
+          },
+          {
+            "type": "ARCH",
+            "label": "23"
+          }
+        ]
+      },
+      {
+        "label": "29",
+        "terrain": "Plains",
+        "x": 5,
+        "y": 3,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "30"
+          },
+          {
+            "type": "ARCH",
+            "label": "5000"
+          }
+        ]
+      },
+      {
+        "label": "30",
+        "terrain": "Woods",
+        "x": 4,
+        "y": 3,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "31"
+          },
+          {
+            "type": "ARCH",
+            "label": "35"
+          }
+        ]
+      },
+      {
+        "label": "31",
+        "terrain": "Brush",
+        "x": 3,
+        "y": 3,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "32"
+          },
+          {
+            "type": "ARCH",
+            "label": "500"
+          }
+        ]
+      },
+      {
+        "label": "32",
+        "terrain": "Hills",
+        "x": 2,
+        "y": 3,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "33"
+          },
+          {
+            "type": "BLOCK",
+            "label": "131"
+          }
+        ]
+      },
+      {
+        "label": "33",
+        "terrain": "Jungle",
+        "x": 2,
+        "y": 4,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "34"
+          },
+          {
+            "type": "BLOCK",
+            "label": "134"
+          }
+        ]
+      },
+      {
+        "label": "34",
+        "terrain": "Plains",
+        "x": 3,
+        "y": 4,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "35"
+          },
+          {
+            "type": "ARCH",
+            "label": "600"
+          }
+        ]
+      },
+      {
+        "label": "35",
+        "terrain": "Desert",
+        "x": 4,
+        "y": 4,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "36"
+          },
+          {
+            "type": "ARCH",
+            "label": "30"
+          }
+        ]
+      },
+      {
+        "label": "36",
+        "terrain": "Marsh",
+        "x": 5,
+        "y": 4,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "37"
+          },
+          {
+            "type": "ARCH",
+            "label": "6000"
+          }
+        ]
+      },
+      {
+        "label": "37",
+        "terrain": "Hills",
+        "x": 5,
+        "y": 5,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "38"
+          },
+          {
+            "type": "ARCH",
+            "label": "42"
+          }
+        ]
+      },
+      {
+        "label": "38",
+        "terrain": "Brush",
+        "x": 4,
+        "y": 5,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "39"
+          },
+          {
+            "type": "ARCH",
+            "label": "600"
+          }
+        ]
+      },
+      {
+        "label": "39",
+        "terrain": "Woods",
+        "x": 4,
+        "y": 6,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "40"
+          },
+          {
+            "type": "BLOCK",
+            "label": "138"
+          }
+        ]
+      },
+      {
+        "label": "40",
+        "terrain": "Jungle",
+        "x": 5,
+        "y": 6,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "41"
+          },
+          {
+            "type": "BLOCK",
+            "label": "141"
+          }
+        ]
+      },
+      {
+        "label": "41",
+        "terrain": "Marsh",
+        "x": 6,
+        "y": 6,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "42"
+          },
+          {
+            "type": "ARCH",
+            "label": "100"
+          }
+        ]
+      },
+      {
+        "label": "42",
+        "terrain": "Swamp",
+        "x": 6,
+        "y": 5,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "1"
+          },
+          {
+            "type": "ARCH",
+            "label": "37"
+          }
+        ]
+      },
+      {
+        "label": "101",
+        "terrain": "Plains",
+        "x": 7,
+        "y": 7,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "142"
+          },
+          {
+            "type": "ARCH",
+            "label": "100"
+          }
+        ]
+      },
+      {
+        "label": "102",
+        "terrain": "Brush",
+        "x": 8,
+        "y": 7,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "101"
+          }
+        ]
+      },
+      {
+        "label": "103",
+        "terrain": "Marsh",
+        "x": 9,
+        "y": 7,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "102"
+          },
+          {
+            "type": "ARCH",
+            "label": "4"
+          }
+        ]
+      },
+      {
+        "label": "104",
+        "terrain": "Jungle",
+        "x": 10,
+        "y": 7,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "103"
+          }
+        ]
+      },
+      {
+        "label": "105",
+        "terrain": "Plains",
+        "x": 11,
+        "y": 7,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "104"
+          }
+        ]
+      },
+      {
+        "label": "106",
+        "terrain": "Brush",
+        "x": 11,
+        "y": 6,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "105"
+          },
+          {
+            "type": "ARCH",
+            "label": "5"
+          }
+        ]
+      },
+      {
+        "label": "107",
+        "terrain": "Desert",
+        "x": 12,
+        "y": 6,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "106"
+          }
+        ]
+      },
+      {
+        "label": "108",
+        "terrain": "Marsh",
+        "x": 12,
+        "y": 5,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "107"
+          },
+          {
+            "type": "ARCH",
+            "label": "200"
+          }
+        ]
+      },
+      {
+        "label": "109",
+        "terrain": "Brush",
+        "x": 13,
+        "y": 5,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "108"
+          }
+        ]
+      },
+      {
+        "label": "110",
+        "terrain": "Plains",
+        "x": 13,
+        "y": 4,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "109"
+          },
+          {
+            "type": "ARCH",
+            "label": "11"
+          }
+        ]
+      },
+      {
+        "label": "111",
+        "terrain": "Swamp",
+        "x": 14,
+        "y": 4,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "110"
+          }
+        ]
+      },
+      {
+        "label": "112",
+        "terrain": "Marsh",
+        "x": 14,
+        "y": 3,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "111"
+          }
+        ]
+      },
+      {
+        "label": "113",
+        "terrain": "Brush",
+        "x": 13,
+        "y": 3,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "112"
+          },
+          {
+            "type": "ARCH",
+            "label": "12"
+          }
+        ]
+      },
+      {
+        "label": "114",
+        "terrain": "Jungle",
+        "x": 13,
+        "y": 2,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "113"
+          }
+        ]
+      },
+      {
+        "label": "115",
+        "terrain": "Plains",
+        "x": 12,
+        "y": 2,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "114"
+          },
+          {
+            "type": "ARCH",
+            "label": "300"
+          }
+        ]
+      },
+      {
+        "label": "116",
+        "terrain": "Brush",
+        "x": 12,
+        "y": 1,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "115"
+          }
+        ]
+      },
+      {
+        "label": "117",
+        "terrain": "Marsh",
+        "x": 11,
+        "y": 1,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "116"
+          },
+          {
+            "type": "ARCH",
+            "label": "18"
+          }
+        ]
+      },
+      {
+        "label": "118",
+        "terrain": "Desert",
+        "x": 11,
+        "y": 0,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "117"
+          }
+        ]
+      },
+      {
+        "label": "119",
+        "terrain": "Plains",
+        "x": 10,
+        "y": 0,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "118"
+          }
+        ]
+      },
+      {
+        "label": "120",
+        "terrain": "Brush",
+        "x": 9,
+        "y": 0,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "119"
+          },
+          {
+            "type": "ARCH",
+            "label": "19"
+          }
+        ]
+      },
+      {
+        "label": "121",
+        "terrain": "Swamp",
+        "x": 8,
+        "y": 0,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "120"
+          }
+        ]
+      },
+      {
+        "label": "122",
+        "terrain": "Marsh",
+        "x": 7,
+        "y": 0,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "121"
+          },
+          {
+            "type": "ARCH",
+            "label": "400"
+          }
+        ]
+      },
+      {
+        "label": "123",
+        "terrain": "Brush",
+        "x": 6,
+        "y": 0,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "122"
+          }
+        ]
+      },
+      {
+        "label": "124",
+        "terrain": "Plains",
+        "x": 5,
+        "y": 0,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "123"
+          },
+          {
+            "type": "ARCH",
+            "label": "25"
+          }
+        ]
+      },
+      {
+        "label": "125",
+        "terrain": "Jungle",
+        "x": 4,
+        "y": 0,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "124"
+          }
+        ]
+      },
+      {
+        "label": "126",
+        "terrain": "Marsh",
+        "x": 3,
+        "y": 0,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "125"
+          }
+        ]
+      },
+      {
+        "label": "127",
+        "terrain": "Brush",
+        "x": 3,
+        "y": 1,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "126"
+          },
+          {
+            "type": "ARCH",
+            "label": "26"
+          }
+        ]
+      },
+      {
+        "label": "128",
+        "terrain": "Desert",
+        "x": 2,
+        "y": 1,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "127"
+          }
+        ]
+      },
+      {
+        "label": "129",
+        "terrain": "Plains",
+        "x": 2,
+        "y": 2,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "128"
+          },
+          {
+            "type": "ARCH",
+            "label": "500"
+          }
+        ]
+      },
+      {
+        "label": "130",
+        "terrain": "Brush",
+        "x": 1,
+        "y": 2,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "129"
+          }
+        ]
+      },
+      {
+        "label": "131",
+        "terrain": "Marsh",
+        "x": 1,
+        "y": 3,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "130"
+          },
+          {
+            "type": "ARCH",
+            "label": "32"
+          }
+        ]
+      },
+      {
+        "label": "132",
+        "terrain": "Swamp",
+        "x": 0,
+        "y": 3,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "131"
+          }
+        ]
+      },
+      {
+        "label": "133",
+        "terrain": "Plains",
+        "x": 0,
+        "y": 4,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "132"
+          }
+        ]
+      },
+      {
+        "label": "134",
+        "terrain": "Brush",
+        "x": 1,
+        "y": 4,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "133"
+          },
+          {
+            "type": "ARCH",
+            "label": "33"
+          }
+        ]
+      },
+      {
+        "label": "135",
+        "terrain": "Jungle",
+        "x": 1,
+        "y": 5,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "134"
+          }
+        ]
+      },
+      {
+        "label": "136",
+        "terrain": "Marsh",
+        "x": 2,
+        "y": 5,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "135"
+          },
+          {
+            "type": "ARCH",
+            "label": "600"
+          }
+        ]
+      },
+      {
+        "label": "137",
+        "terrain": "Brush",
+        "x": 2,
+        "y": 6,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "136"
+          }
+        ]
+      },
+      {
+        "label": "138",
+        "terrain": "Plains",
+        "x": 3,
+        "y": 6,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "137"
+          },
+          {
+            "type": "ARCH",
+            "label": "39"
+          }
+        ]
+      },
+      {
+        "label": "139",
+        "terrain": "Desert",
+        "x": 3,
+        "y": 7,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "138"
+          }
+        ]
+      },
+      {
+        "label": "140",
+        "terrain": "Marsh",
+        "x": 4,
+        "y": 7,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "139"
+          }
+        ]
+      },
+      {
+        "label": "141",
+        "terrain": "Brush",
+        "x": 5,
+        "y": 7,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "140"
+          },
+          {
+            "type": "ARCH",
+            "label": "40"
+          }
+        ]
+      },
+      {
+        "label": "142",
+        "terrain": "Swamp",
+        "x": 6,
+        "y": 7,
+        "exits": [
+          {
+            "type": "ARROWS",
+            "label": "141"
+          }
+        ]
+      },
+      {
+        "label": "100",
+        "terrain": "Tower",
+        "x": 7,
+        "y": 6,
+        "exits": [
+          {
+            "type": "ARROW",
+            "label": "41"
+          },
+          {
+            "type": "ARROW",
+            "label": "101"
+          },
+          {
+            "type": "ARROW",
+            "label": "3"
+          }
+        ]
+      },
+      {
+        "label": "200",
+        "terrain": "Tower",
+        "x": 11,
+        "y": 5,
+        "exits": [
+          {
+            "type": "ARROW",
+            "label": "6"
+          },
+          {
+            "type": "ARROW",
+            "label": "108"
+          },
+          {
+            "type": "ARROW",
+            "label": "10"
+          }
+        ]
+      },
+      {
+        "label": "300",
+        "terrain": "Tower",
+        "x": 11,
+        "y": 2,
+        "exits": [
+          {
+            "type": "ARROW",
+            "label": "13"
+          },
+          {
+            "type": "ARROW",
+            "label": "115"
+          },
+          {
+            "type": "ARROW",
+            "label": "17"
+          }
+        ]
+      },
+      {
+        "label": "400",
+        "terrain": "Tower",
+        "x": 7,
+        "y": 1,
+        "exits": [
+          {
+            "type": "ARROW",
+            "label": "20"
+          },
+          {
+            "type": "ARROW",
+            "label": "122"
+          },
+          {
+            "type": "ARROW",
+            "label": "24"
+          }
+        ]
+      },
+      {
+        "label": "500",
+        "terrain": "Tower",
+        "x": 3,
+        "y": 2,
+        "exits": [
+          {
+            "type": "ARROW",
+            "label": "27"
+          },
+          {
+            "type": "ARROW",
+            "label": "129"
+          },
+          {
+            "type": "ARROW",
+            "label": "31"
+          }
+        ]
+      },
+      {
+        "label": "600",
+        "terrain": "Tower",
+        "x": 3,
+        "y": 5,
+        "exits": [
+          {
+            "type": "ARROW",
+            "label": "34"
+          },
+          {
+            "type": "ARROW",
+            "label": "136"
+          },
+          {
+            "type": "ARROW",
+            "label": "38"
+          }
+        ]
+      },
+      {
+        "label": "1000",
+        "terrain": "Mountains",
+        "x": 7,
+        "y": 4,
+        "exits": [
+          {
+            "type": "BLOCK",
+            "label": "1"
+          },
+          {
+            "type": "ARROW",
+            "label": "2000"
+          },
+          {
+            "type": "ARROW",
+            "label": "6000"
+          }
+        ]
+      },
+      {
+        "label": "2000",
+        "terrain": "Tundra",
+        "x": 8,
+        "y": 4,
+        "exits": [
+          {
+            "type": "BLOCK",
+            "label": "8"
+          },
+          {
+            "type": "ARROW",
+            "label": "3000"
+          },
+          {
+            "type": "ARROW",
+            "label": "1000"
+          }
+        ]
+      },
+      {
+        "label": "3000",
+        "terrain": "Mountains",
+        "x": 8,
+        "y": 3,
+        "exits": [
+          {
+            "type": "BLOCK",
+            "label": "15"
+          },
+          {
+            "type": "ARROW",
+            "label": "4000"
+          },
+          {
+            "type": "ARROW",
+            "label": "2000"
+          }
+        ]
+      },
+      {
+        "label": "4000",
+        "terrain": "Tundra",
+        "x": 7,
+        "y": 3,
+        "exits": [
+          {
+            "type": "BLOCK",
+            "label": "22"
+          },
+          {
+            "type": "ARROW",
+            "label": "5000"
+          },
+          {
+            "type": "ARROW",
+            "label": "3000"
+          }
+        ]
+      },
+      {
+        "label": "5000",
+        "terrain": "Mountains",
+        "x": 6,
+        "y": 3,
+        "exits": [
+          {
+            "type": "BLOCK",
+            "label": "29"
+          },
+          {
+            "type": "ARROW",
+            "label": "6000"
+          },
+          {
+            "type": "ARROW",
+            "label": "4000"
+          }
+        ]
+      },
+      {
+        "label": "6000",
+        "terrain": "Tundra",
+        "x": 6,
+        "y": 4,
+        "exits": [
+          {
+            "type": "BLOCK",
+            "label": "36"
+          },
+          {
+            "type": "ARROW",
+            "label": "1000"
+          },
+          {
+            "type": "ARROW",
+            "label": "5000"
+          }
+        ]
+      }
+    ]
+  },
+  "battlelands": {
+    "Brush": {
+      "terrain": "Brush",
+      "tower": false,
+      "subtitle": null,
+      "hexes": [
+        {
+          "x": 0,
+          "y": 2,
+          "terrain": "Brambles",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 1,
+          "y": 3,
+          "terrain": "Brambles",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 2,
+          "y": 2,
+          "terrain": "Brambles",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 3,
+          "y": 1,
+          "terrain": "Brambles",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 3,
+          "y": 4,
+          "terrain": "Brambles",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 3,
+          "y": 5,
+          "terrain": "Brambles",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 4,
+          "y": 3,
+          "terrain": "Brambles",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 5,
+          "y": 1,
+          "terrain": "Brambles",
+          "elevation": 0,
+          "borders": []
+        }
+      ],
+      "startlist": []
+    },
+    "Desert": {
+      "terrain": "Desert",
+      "tower": false,
+      "subtitle": null,
+      "hexes": [
+        {
+          "x": 0,
+          "y": 3,
+          "terrain": "Sand",
+          "elevation": 0,
+          "borders": [
+            {
+              "number": 0,
+              "type": "d"
+            },
+            {
+              "number": 1,
+              "type": "d"
+            }
+          ]
+        },
+        {
+          "x": 0,
+          "y": 4,
+          "terrain": "Sand",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 1,
+          "y": 3,
+          "terrain": "Sand",
+          "elevation": 0,
+          "borders": [
+            {
+              "number": 0,
+              "type": "d"
+            },
+            {
+              "number": 1,
+              "type": "d"
+            },
+            {
+              "number": 2,
+              "type": "d"
+            },
+            {
+              "number": 3,
+              "type": "c"
+            }
+          ]
+        },
+        {
+          "x": 3,
+          "y": 0,
+          "terrain": "Sand",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 3,
+          "y": 1,
+          "terrain": "Sand",
+          "elevation": 0,
+          "borders": [
+            {
+              "number": 4,
+              "type": "d"
+            }
+          ]
+        },
+        {
+          "x": 3,
+          "y": 2,
+          "terrain": "Sand",
+          "elevation": 0,
+          "borders": [
+            {
+              "number": 2,
+              "type": "d"
+            },
+            {
+              "number": 3,
+              "type": "c"
+            },
+            {
+              "number": 4,
+              "type": "c"
+            },
+            {
+              "number": 5,
+              "type": "d"
+            }
+          ]
+        },
+        {
+          "x": 3,
+          "y": 5,
+          "terrain": "Sand",
+          "elevation": 0,
+          "borders": [
+            {
+              "number": 0,
+              "type": "d"
+            },
+            {
+              "number": 5,
+              "type": "d"
+            }
+          ]
+        },
+        {
+          "x": 4,
+          "y": 1,
+          "terrain": "Sand",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 4,
+          "y": 2,
+          "terrain": "Sand",
+          "elevation": 0,
+          "borders": [
+            {
+              "number": 2,
+              "type": "d"
+            },
+            {
+              "number": 3,
+              "type": "d"
+            }
+          ]
+        },
+        {
+          "x": 4,
+          "y": 5,
+          "terrain": "Sand",
+          "elevation": 0,
+          "borders": [
+            {
+              "number": 0,
+              "type": "c"
+            },
+            {
+              "number": 1,
+              "type": "d"
+            },
+            {
+              "number": 5,
+              "type": "d"
+            }
+          ]
+        },
+        {
+          "x": 5,
+          "y": 1,
+          "terrain": "Sand",
+          "elevation": 0,
+          "borders": []
+        }
+      ],
+      "startlist": []
+    },
+    "Hills": {
+      "terrain": "Hills",
+      "tower": false,
+      "subtitle": null,
+      "hexes": [
+        {
+          "x": 1,
+          "y": 2,
+          "terrain": "Plains",
+          "elevation": 1,
+          "borders": [
+            {
+              "number": 0,
+              "type": "s"
+            },
+            {
+              "number": 1,
+              "type": "s"
+            },
+            {
+              "number": 2,
+              "type": "s"
+            },
+            {
+              "number": 3,
+              "type": "s"
+            },
+            {
+              "number": 4,
+              "type": "s"
+            },
+            {
+              "number": 5,
+              "type": "s"
+            }
+          ]
+        },
+        {
+          "x": 1,
+          "y": 4,
+          "terrain": "Plains",
+          "elevation": 1,
+          "borders": [
+            {
+              "number": 0,
+              "type": "s"
+            },
+            {
+              "number": 1,
+              "type": "s"
+            },
+            {
+              "number": 2,
+              "type": "s"
+            },
+            {
+              "number": 5,
+              "type": "s"
+            }
+          ]
+        },
+        {
+          "x": 2,
+          "y": 2,
+          "terrain": "Tree",
+          "elevation": 1,
+          "borders": []
+        },
+        {
+          "x": 2,
+          "y": 4,
+          "terrain": "Tree",
+          "elevation": 1,
+          "borders": []
+        },
+        {
+          "x": 3,
+          "y": 0,
+          "terrain": "Plains",
+          "elevation": 1,
+          "borders": [
+            {
+              "number": 2,
+              "type": "s"
+            },
+            {
+              "number": 3,
+              "type": "s"
+            },
+            {
+              "number": 4,
+              "type": "s"
+            }
+          ]
+        },
+        {
+          "x": 3,
+          "y": 4,
+          "terrain": "Plains",
+          "elevation": 1,
+          "borders": [
+            {
+              "number": 0,
+              "type": "s"
+            },
+            {
+              "number": 1,
+              "type": "s"
+            },
+            {
+              "number": 2,
+              "type": "s"
+            },
+            {
+              "number": 3,
+              "type": "s"
+            },
+            {
+              "number": 4,
+              "type": "s"
+            },
+            {
+              "number": 5,
+              "type": "s"
+            }
+          ]
+        },
+        {
+          "x": 4,
+          "y": 3,
+          "terrain": "Plains",
+          "elevation": 1,
+          "borders": [
+            {
+              "number": 0,
+              "type": "s"
+            },
+            {
+              "number": 1,
+              "type": "s"
+            },
+            {
+              "number": 2,
+              "type": "s"
+            },
+            {
+              "number": 3,
+              "type": "s"
+            },
+            {
+              "number": 4,
+              "type": "s"
+            },
+            {
+              "number": 5,
+              "type": "s"
+            }
+          ]
+        },
+        {
+          "x": 5,
+          "y": 3,
+          "terrain": "Tree",
+          "elevation": 1,
+          "borders": []
+        }
+      ],
+      "startlist": []
+    },
+    "Jungle": {
+      "terrain": "Jungle",
+      "tower": false,
+      "subtitle": null,
+      "hexes": [
+        {
+          "x": 0,
+          "y": 3,
+          "terrain": "Brambles",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 1,
+          "y": 1,
+          "terrain": "Tree",
+          "elevation": 1,
+          "borders": []
+        },
+        {
+          "x": 2,
+          "y": 1,
+          "terrain": "Brambles",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 2,
+          "y": 3,
+          "terrain": "Brambles",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 2,
+          "y": 5,
+          "terrain": "Brambles",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 3,
+          "y": 2,
+          "terrain": "Brambles",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 3,
+          "y": 3,
+          "terrain": "Tree",
+          "elevation": 1,
+          "borders": []
+        },
+        {
+          "x": 4,
+          "y": 4,
+          "terrain": "Brambles",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 5,
+          "y": 1,
+          "terrain": "Brambles",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 5,
+          "y": 2,
+          "terrain": "Tree",
+          "elevation": 1,
+          "borders": []
+        }
+      ],
+      "startlist": []
+    },
+    "Marsh": {
+      "terrain": "Marsh",
+      "tower": false,
+      "subtitle": null,
+      "hexes": [
+        {
+          "x": 0,
+          "y": 2,
+          "terrain": "Bog",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 2,
+          "y": 3,
+          "terrain": "Bog",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 2,
+          "y": 4,
+          "terrain": "Bog",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 3,
+          "y": 1,
+          "terrain": "Bog",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 4,
+          "y": 3,
+          "terrain": "Bog",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 4,
+          "y": 5,
+          "terrain": "Bog",
+          "elevation": 0,
+          "borders": []
+        }
+      ],
+      "startlist": []
+    },
+    "Mountains": {
+      "terrain": "Mountains",
+      "tower": false,
+      "subtitle": null,
+      "hexes": [
+        {
+          "x": 0,
+          "y": 4,
+          "terrain": "Plains",
+          "elevation": 1,
+          "borders": [
+            {
+              "number": 0,
+              "type": "s"
+            }
+          ]
+        },
+        {
+          "x": 1,
+          "y": 1,
+          "terrain": "Plains",
+          "elevation": 1,
+          "borders": [
+            {
+              "number": 3,
+              "type": "s"
+            },
+            {
+              "number": 4,
+              "type": "s"
+            }
+          ]
+        },
+        {
+          "x": 1,
+          "y": 3,
+          "terrain": "Plains",
+          "elevation": 1,
+          "borders": [
+            {
+              "number": 0,
+              "type": "s"
+            },
+            {
+              "number": 1,
+              "type": "s"
+            },
+            {
+              "number": 2,
+              "type": "s"
+            },
+            {
+              "number": 5,
+              "type": "s"
+            }
+          ]
+        },
+        {
+          "x": 1,
+          "y": 4,
+          "terrain": "Plains",
+          "elevation": 2,
+          "borders": [
+            {
+              "number": 0,
+              "type": "s"
+            },
+            {
+              "number": 1,
+              "type": "c"
+            },
+            {
+              "number": 2,
+              "type": "s"
+            },
+            {
+              "number": 5,
+              "type": "s"
+            }
+          ]
+        },
+        {
+          "x": 2,
+          "y": 1,
+          "terrain": "Plains",
+          "elevation": 2,
+          "borders": [
+            {
+              "number": 2,
+              "type": "s"
+            },
+            {
+              "number": 3,
+              "type": "s"
+            },
+            {
+              "number": 4,
+              "type": "s"
+            }
+          ]
+        },
+        {
+          "x": 2,
+          "y": 2,
+          "terrain": "Plains",
+          "elevation": 1,
+          "borders": [
+            {
+              "number": 3,
+              "type": "s"
+            },
+            {
+              "number": 4,
+              "type": "s"
+            }
+          ]
+        },
+        {
+          "x": 2,
+          "y": 5,
+          "terrain": "Plains",
+          "elevation": 1,
+          "borders": [
+            {
+              "number": 0,
+              "type": "s"
+            },
+            {
+              "number": 1,
+              "type": "s"
+            },
+            {
+              "number": 2,
+              "type": "s"
+            }
+          ]
+        },
+        {
+          "x": 3,
+          "y": 0,
+          "terrain": "Plains",
+          "elevation": 2,
+          "borders": [
+            {
+              "number": 2,
+              "type": "s"
+            },
+            {
+              "number": 3,
+              "type": "s"
+            }
+          ]
+        },
+        {
+          "x": 3,
+          "y": 1,
+          "terrain": "Plains",
+          "elevation": 1,
+          "borders": []
+        },
+        {
+          "x": 3,
+          "y": 2,
+          "terrain": "Volcano",
+          "elevation": 2,
+          "borders": [
+            {
+              "number": 0,
+              "type": "s"
+            },
+            {
+              "number": 1,
+              "type": "s"
+            },
+            {
+              "number": 2,
+              "type": "s"
+            },
+            {
+              "number": 3,
+              "type": "s"
+            },
+            {
+              "number": 4,
+              "type": "c"
+            },
+            {
+              "number": 5,
+              "type": "s"
+            }
+          ]
+        },
+        {
+          "x": 3,
+          "y": 3,
+          "terrain": "Plains",
+          "elevation": 1,
+          "borders": [
+            {
+              "number": 2,
+              "type": "s"
+            },
+            {
+              "number": 3,
+              "type": "s"
+            },
+            {
+              "number": 4,
+              "type": "s"
+            },
+            {
+              "number": 5,
+              "type": "s"
+            }
+          ]
+        },
+        {
+          "x": 4,
+          "y": 1,
+          "terrain": "Plains",
+          "elevation": 1,
+          "borders": []
+        },
+        {
+          "x": 4,
+          "y": 2,
+          "terrain": "Plains",
+          "elevation": 1,
+          "borders": []
+        },
+        {
+          "x": 4,
+          "y": 3,
+          "terrain": "Plains",
+          "elevation": 1,
+          "borders": [
+            {
+              "number": 3,
+              "type": "s"
+            }
+          ]
+        },
+        {
+          "x": 5,
+          "y": 1,
+          "terrain": "Plains",
+          "elevation": 2,
+          "borders": [
+            {
+              "number": 3,
+              "type": "s"
+            },
+            {
+              "number": 4,
+              "type": "s"
+            },
+            {
+              "number": 5,
+              "type": "s"
+            }
+          ]
+        },
+        {
+          "x": 5,
+          "y": 2,
+          "terrain": "Plains",
+          "elevation": 1,
+          "borders": []
+        },
+        {
+          "x": 5,
+          "y": 3,
+          "terrain": "Plains",
+          "elevation": 2,
+          "borders": [
+            {
+              "number": 0,
+              "type": "s"
+            },
+            {
+              "number": 3,
+              "type": "s"
+            },
+            {
+              "number": 4,
+              "type": "c"
+            },
+            {
+              "number": 5,
+              "type": "s"
+            }
+          ]
+        },
+        {
+          "x": 5,
+          "y": 4,
+          "terrain": "Plains",
+          "elevation": 1,
+          "borders": [
+            {
+              "number": 4,
+              "type": "s"
+            },
+            {
+              "number": 5,
+              "type": "s"
+            }
+          ]
+        }
+      ],
+      "startlist": []
+    },
+    "Plains": {
+      "terrain": "Plains",
+      "tower": false,
+      "subtitle": null,
+      "hexes": [],
+      "startlist": []
+    },
+    "Swamp": {
+      "terrain": "Swamp",
+      "tower": false,
+      "subtitle": null,
+      "hexes": [
+        {
+          "x": 1,
+          "y": 3,
+          "terrain": "Bog",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 2,
+          "y": 1,
+          "terrain": "Bog",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 2,
+          "y": 2,
+          "terrain": "Tree",
+          "elevation": 1,
+          "borders": []
+        },
+        {
+          "x": 2,
+          "y": 4,
+          "terrain": "Tree",
+          "elevation": 1,
+          "borders": []
+        },
+        {
+          "x": 3,
+          "y": 3,
+          "terrain": "Bog",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 3,
+          "y": 5,
+          "terrain": "Bog",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 4,
+          "y": 2,
+          "terrain": "Tree",
+          "elevation": 1,
+          "borders": []
+        },
+        {
+          "x": 5,
+          "y": 3,
+          "terrain": "Bog",
+          "elevation": 0,
+          "borders": []
+        }
+      ],
+      "startlist": []
+    },
+    "Tower": {
+      "terrain": "Tower",
+      "tower": true,
+      "subtitle": null,
+      "hexes": [
+        {
+          "x": 2,
+          "y": 2,
+          "terrain": "Tower",
+          "elevation": 1,
+          "borders": [
+            {
+              "number": 0,
+              "type": "w"
+            },
+            {
+              "number": 4,
+              "type": "w"
+            },
+            {
+              "number": 5,
+              "type": "w"
+            }
+          ]
+        },
+        {
+          "x": 2,
+          "y": 3,
+          "terrain": "Tower",
+          "elevation": 1,
+          "borders": [
+            {
+              "number": 3,
+              "type": "w"
+            },
+            {
+              "number": 4,
+              "type": "w"
+            },
+            {
+              "number": 5,
+              "type": "w"
+            }
+          ]
+        },
+        {
+          "x": 3,
+          "y": 1,
+          "terrain": "Tower",
+          "elevation": 1,
+          "borders": [
+            {
+              "number": 0,
+              "type": "w"
+            },
+            {
+              "number": 1,
+              "type": "w"
+            },
+            {
+              "number": 5,
+              "type": "w"
+            }
+          ]
+        },
+        {
+          "x": 3,
+          "y": 2,
+          "terrain": "Tower",
+          "elevation": 2,
+          "borders": [
+            {
+              "number": 0,
+              "type": "w"
+            },
+            {
+              "number": 1,
+              "type": "w"
+            },
+            {
+              "number": 2,
+              "type": "w"
+            },
+            {
+              "number": 3,
+              "type": "w"
+            },
+            {
+              "number": 4,
+              "type": "w"
+            },
+            {
+              "number": 5,
+              "type": "w"
+            }
+          ]
+        },
+        {
+          "x": 3,
+          "y": 3,
+          "terrain": "Tower",
+          "elevation": 1,
+          "borders": [
+            {
+              "number": 2,
+              "type": "w"
+            },
+            {
+              "number": 3,
+              "type": "w"
+            },
+            {
+              "number": 4,
+              "type": "w"
+            }
+          ]
+        },
+        {
+          "x": 4,
+          "y": 2,
+          "terrain": "Tower",
+          "elevation": 1,
+          "borders": [
+            {
+              "number": 0,
+              "type": "w"
+            },
+            {
+              "number": 1,
+              "type": "w"
+            },
+            {
+              "number": 2,
+              "type": "w"
+            }
+          ]
+        },
+        {
+          "x": 4,
+          "y": 3,
+          "terrain": "Tower",
+          "elevation": 1,
+          "borders": [
+            {
+              "number": 1,
+              "type": "w"
+            },
+            {
+              "number": 2,
+              "type": "w"
+            },
+            {
+              "number": 3,
+              "type": "w"
+            }
+          ]
+        }
+      ],
+      "startlist": [
+        "D4",
+        "C4",
+        "E4",
+        "D3",
+        "C3",
+        "E3",
+        "D5"
+      ]
+    },
+    "Tundra": {
+      "terrain": "Tundra",
+      "tower": false,
+      "subtitle": null,
+      "hexes": [
+        {
+          "x": 0,
+          "y": 4,
+          "terrain": "Drift",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 1,
+          "y": 3,
+          "terrain": "Drift",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 2,
+          "y": 1,
+          "terrain": "Drift",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 2,
+          "y": 2,
+          "terrain": "Drift",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 2,
+          "y": 4,
+          "terrain": "Drift",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 3,
+          "y": 3,
+          "terrain": "Drift",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 4,
+          "y": 2,
+          "terrain": "Drift",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 4,
+          "y": 5,
+          "terrain": "Drift",
+          "elevation": 0,
+          "borders": []
+        },
+        {
+          "x": 5,
+          "y": 3,
+          "terrain": "Drift",
+          "elevation": 0,
+          "borders": []
+        }
+      ],
+      "startlist": []
+    },
+    "Woods": {
+      "terrain": "Woods",
+      "tower": false,
+      "subtitle": null,
+      "hexes": [
+        {
+          "x": 0,
+          "y": 2,
+          "terrain": "Tree",
+          "elevation": 1,
+          "borders": []
+        },
+        {
+          "x": 2,
+          "y": 3,
+          "terrain": "Tree",
+          "elevation": 1,
+          "borders": []
+        },
+        {
+          "x": 3,
+          "y": 5,
+          "terrain": "Tree",
+          "elevation": 1,
+          "borders": []
+        },
+        {
+          "x": 4,
+          "y": 1,
+          "terrain": "Tree",
+          "elevation": 1,
+          "borders": []
+        },
+        {
+          "x": 4,
+          "y": 3,
+          "terrain": "Tree",
+          "elevation": 1,
+          "borders": []
+        }
+      ],
+      "startlist": []
+    }
+  }
+}
