@@ -1,4 +1,5 @@
 import type { LoadedVariant } from '../variant/loadVariant'
+import { resolveAiProfileId } from '../ai/profiles'
 import {
   applyBattleResult,
   advanceBattlePhase,
@@ -66,11 +67,14 @@ export function createGame(variant: LoadedVariant, options: NewGameOptions): Gam
   const players: PlayerState[] = options.players.map((p, i) => {
     const color =
       PLAYER_COLORS.find((c) => c.id === p.colorId) ?? PLAYER_COLORS[i % PLAYER_COLORS.length]
+    const aiProfileId =
+      p.kind === 'ai' ? resolveAiProfileId(p.aiProfileId ?? 'balanced', rng) : null
     return {
       id: `p${i}`,
       name: p.name,
       color,
       kind: p.kind,
+      aiProfileId,
       startingTower: towers[i],
       score: 0,
       dead: false,
@@ -322,6 +326,10 @@ function finishEngagementResolution(state: GameState, slayerId: string | null): 
   state.activeEngagement = null
   checkTitanDeath(state, slayerId)
   if (state.winnerId || state.draw) return
+  if (activePlayer(state).dead) {
+    advanceToNextLivingPlayer(state)
+    return
+  }
   state.pendingEngagements = findEngagements(state)
   if (state.pendingEngagements.length === 0) beginMusterPhase(state)
   else state.message = `Fight continues — ${state.pendingEngagements.length} engagement(s) left`
@@ -527,6 +535,10 @@ function canEndMovePhase(state: GameState): boolean {
 }
 
 function beginMusterPhase(state: GameState): void {
+  if (activePlayer(state).dead) {
+    advanceToNextLivingPlayer(state)
+    return
+  }
   state.phase = 'Muster'
   state.selectedLegionId = null
   state.legalHexes = []
@@ -546,7 +558,14 @@ function doRecruit(state: GameState, legionId: string, creatureType: string): vo
 }
 
 function endTurn(state: GameState, rng: () => number): void {
-  // Increase titan powers based on score roughly: +1 per 100
+  advanceToNextLivingPlayer(state)
+  void rng
+}
+
+/** Skip a dead active player (e.g. Titan died mid-turn) and start the next living player's Split. */
+function advanceToNextLivingPlayer(state: GameState): void {
+  if (state.winnerId || state.draw) return
+
   for (const p of state.players) {
     p.titanPower = 6 + Math.floor(p.score / 100)
   }
@@ -554,8 +573,11 @@ function endTurn(state: GameState, rng: () => number): void {
   let next = state.activePlayerIndex
   for (let i = 0; i < state.players.length; i++) {
     next = (next + 1) % state.players.length
-    if (!state.players[next].dead) break
+    if (!state.players[next]!.dead) break
   }
+  // If everyone else is dead, checkTitanDeath should already have set a winner
+  if (state.players[next]!.dead) return
+
   if (next <= state.activePlayerIndex) {
     state.turnNumber += 1
   }
@@ -568,7 +590,6 @@ function endTurn(state: GameState, rng: () => number): void {
   state.pendingEngagements = []
   state.activeEngagement = null
   state.message = `${activePlayer(state).name}: Split phase`
-  void rng
 }
 
 function passPhase(state: GameState, rng: () => number): void {
@@ -761,6 +782,10 @@ function finishBattle(state: GameState): void {
   }
   state.battle = null
   if (state.winnerId || state.draw) return
+  if (activePlayer(state).dead) {
+    advanceToNextLivingPlayer(state)
+    return
+  }
   state.phase = 'Fight'
   state.pendingEngagements = findEngagements(state)
   if (state.pendingEngagements.length === 0) {

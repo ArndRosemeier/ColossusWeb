@@ -1,22 +1,36 @@
 import { useState } from 'react'
+import type { AiProfileId } from '../ai/profiles'
+import { AI_PROFILE_CHOICES } from '../ai/profiles'
 import type { NewGameOptions, PlayerKind } from '../engine/types'
 import { PLAYER_COLORS } from '../engine/types'
+import type { SavedGameMeta } from '../persistence/saveGame'
 import { MarkerChit } from './MarkerChit'
 
 interface Props {
   onStart: (options: NewGameOptions) => void
+  onContinue?: () => void
+  savedGame?: SavedGameMeta | null
 }
 
 interface Row {
   name: string
   kind: PlayerKind
   colorId: string
+  aiProfileId: AiProfileId
 }
 
-export function SetupScreen({ onStart }: Props) {
+function formatSavedAt(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString()
+  } catch {
+    return iso
+  }
+}
+
+export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
   const [rows, setRows] = useState<Row[]>([
-    { name: 'Player 1', kind: 'human', colorId: 'Red' },
-    { name: 'CPU', kind: 'ai', colorId: 'Blue' },
+    { name: 'Player 1', kind: 'human', colorId: 'Red', aiProfileId: 'balanced' },
+    { name: 'CPU', kind: 'ai', colorId: 'Blue', aiProfileId: 'balanced' },
   ])
 
   const add = () => {
@@ -26,8 +40,9 @@ export function SetupScreen({ onStart }: Props) {
       ...rows,
       {
         name: `Player ${rows.length + 1}`,
-        kind: 'human',
+        kind: 'ai',
         colorId: color.id,
+        aiProfileId: 'balanced',
       },
     ])
   }
@@ -36,18 +51,36 @@ export function SetupScreen({ onStart }: Props) {
     <div className="setup">
       <header className="hero">
         <p className="brand">Colossus</p>
-        <h1>Titan for the web</h1>
+        <h1>Masterboard awaits</h1>
         <p className="lede">
-          Hotseat and AI on the classic Default map — all TypeScript, no Java runtime.
+          Raise your Titan. Split, march, and clash on the classic Default map — local hotseat
+          and AI, all in the browser.
         </p>
       </header>
 
-      <section className="setup-panel">
-        <h2>Players</h2>
+      {savedGame && onContinue && (
+        <section className="setup-panel continue-panel" aria-label="Continue saved game">
+          <h2>Continue</h2>
+          <p className="continue-meta">
+            {savedGame.players} · Turn {savedGame.turnNumber} · {savedGame.phase}
+            <br />
+            <span className="muted">Saved {formatSavedAt(savedGame.savedAt)}</span>
+          </p>
+          <div className="setup-actions">
+            <button type="button" className="primary" onClick={onContinue}>
+              Load saved game
+            </button>
+          </div>
+        </section>
+      )}
+
+      <section className="setup-panel" aria-label="Game setup">
+        <h2>Muster players</h2>
         {rows.map((row, i) => (
           <div className="player-row" key={i}>
             <input
               value={row.name}
+              aria-label={`Player ${i + 1} name`}
               onChange={(e) => {
                 const next = [...rows]
                 next[i] = { ...row, name: e.target.value }
@@ -56,6 +89,7 @@ export function SetupScreen({ onStart }: Props) {
             />
             <select
               value={row.kind}
+              aria-label={`${row.name} type`}
               onChange={(e) => {
                 const next = [...rows]
                 next[i] = { ...row, kind: e.target.value as PlayerKind }
@@ -65,8 +99,27 @@ export function SetupScreen({ onStart }: Props) {
               <option value="human">Human</option>
               <option value="ai">AI</option>
             </select>
+            {row.kind === 'ai' && (
+              <select
+                value={row.aiProfileId}
+                title="AI personality"
+                aria-label={`${row.name} AI personality`}
+                onChange={(e) => {
+                  const next = [...rows]
+                  next[i] = { ...row, aiProfileId: e.target.value as AiProfileId }
+                  setRows(next)
+                }}
+              >
+                {AI_PROFILE_CHOICES.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            )}
             <select
               value={row.colorId}
+              aria-label={`${row.name} color`}
               onChange={(e) => {
                 const next = [...rows]
                 next[i] = { ...row, colorId: e.target.value }
@@ -107,11 +160,12 @@ export function SetupScreen({ onStart }: Props) {
                   name: r.name,
                   kind: r.kind,
                   colorId: r.colorId,
+                  aiProfileId: r.kind === 'ai' ? r.aiProfileId : undefined,
                 })),
               })
             }
           >
-            Start game
+            Begin campaign
           </button>
         </div>
       </section>

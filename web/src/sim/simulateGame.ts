@@ -1,4 +1,5 @@
-import { pickSimpleAiCommand } from '../ai/simpleAi'
+import { pickAiCommand } from '../ai/simpleAi'
+import type { AiProfileId, ResolvedAiProfileId } from '../ai/profiles'
 import { createGame, createRng, dispatch } from '../engine/GameEngine'
 import type { GameCommand, GameState, NewGameOptions } from '../engine/types'
 import type { LoadedVariant } from '../variant/loadVariant'
@@ -33,13 +34,27 @@ export type SimulateOptions = {
   maxSteps?: number
   /** Consecutive unchanged fingerprints before declaring stuck */
   stuckLimit?: number
+  /**
+   * Explicit AI profiles by seat (length should match player count).
+   * When omitted, profiles rotate by seed as before.
+   */
+  profiles?: ResolvedAiProfileId[]
 }
 
-function aiPlayers(count: number): NewGameOptions['players'] {
-  return Array.from({ length: count }, (_, i) => ({
-    name: `AI-${i + 1}`,
-    kind: 'ai' as const,
-  }))
+function aiPlayers(
+  count: number,
+  seed: number,
+  profiles?: ResolvedAiProfileId[],
+): NewGameOptions['players'] {
+  const rotate: ResolvedAiProfileId[] = ['balanced', 'aggressive', 'cautious', 'expander']
+  return Array.from({ length: count }, (_, i) => {
+    const profile = profiles?.[i] ?? rotate[(seed + i) % rotate.length]!
+    return {
+      name: profiles ? profile : `AI-${i + 1}`,
+      kind: 'ai' as const,
+      aiProfileId: profile as AiProfileId,
+    }
+  })
 }
 
 /**
@@ -48,14 +63,20 @@ function aiPlayers(count: number): NewGameOptions['players'] {
  */
 export function simulateGame(variant: LoadedVariant, options: SimulateOptions): SimResult {
   const seed = options.seed
-  const players = options.players ?? 2
+  const players = options.players ?? options.profiles?.length ?? 2
   const maxTurns = options.maxTurns ?? 400
   const maxSteps = options.maxSteps ?? 50_000
   const stuckLimit = options.stuckLimit ?? 40
 
+  if (options.profiles && options.profiles.length !== players) {
+    throw new Error(
+      `profiles length ${options.profiles.length} does not match players ${players}`,
+    )
+  }
+
   const rng = createRng(seed)
   let state: GameState = createGame(variant, {
-    players: aiPlayers(players),
+    players: aiPlayers(players, seed, options.profiles),
     seed,
   })
 
@@ -86,7 +107,7 @@ export function simulateGame(variant: LoadedVariant, options: SimulateOptions): 
     if (state.turnNumber > maxTurns) return finish('max_turns')
     if (steps >= maxSteps) return finish('max_steps')
 
-    const cmd = pickSimpleAiCommand(state, rng)
+    const cmd = pickAiCommand(state, rng)
     if (!cmd) {
       return finish('stuck', { error: 'AI returned no command' })
     }

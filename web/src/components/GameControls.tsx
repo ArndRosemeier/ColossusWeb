@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AI_PROFILES } from '../ai/profiles'
 import { activePlayer, getLegalRecruits, playerLegions } from '../engine/GameEngine'
 import type { GameCommand, GameState } from '../engine/types'
 import { CreatureChit } from './CreatureChit'
@@ -89,7 +90,10 @@ export function GameControls({ state, dispatch }: Props) {
 
         {state.phase === 'Move' && (
           <>
-            <p className="hint">Select a legion, then click a highlighted hex.</p>
+            <p className="hint">
+              Select a legion to highlight moves. Copper = walk, violet = teleport; creature
+              icons show the best muster if you end there.
+            </p>
             {state.mulliganAvailable && state.turnNumber === 1 && (
               <button type="button" onClick={() => dispatch({ type: 'mulligan' })}>
                 Mulligan (re-roll)
@@ -319,7 +323,11 @@ export function GameControls({ state, dispatch }: Props) {
         {state.players.map((p) => (
           <div key={p.id} className="score-row">
             <span className="swatch" style={{ background: p.color.css }} />
-            {p.name} {p.kind === 'ai' ? '(AI)' : ''} — {p.score}
+            {p.name}{' '}
+            {p.kind === 'ai'
+              ? `(${p.aiProfileId ? AI_PROFILES[p.aiProfileId].label : 'AI'})`
+              : ''}{' '}
+            — {p.score}
             {p.dead ? ' ✝' : ''}
           </div>
         ))}

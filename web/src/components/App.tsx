@@ -2,6 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { runAiUntilHuman } from '../ai/simpleAi'
 import { createGame, dispatch as engDispatch, getMovesForSelected } from '../engine/GameEngine'
 import type { GameCommand, GameState, NewGameOptions } from '../engine/types'
+import {
+  loadGameFromLocalStorage,
+  peekSavedGameMeta,
+  saveGameToLocalStorage,
+  type SavedGameMeta,
+} from '../persistence/saveGame'
 import { loadAssetManifest } from '../variant/assets'
 import { loadDefaultVariant } from '../variant/loadVariant'
 import { BattleBoardView } from './BattleBoardView'
@@ -13,10 +19,15 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [state, setState] = useState<GameState | null>(null)
+  const [saveMeta, setSaveMeta] = useState<SavedGameMeta | null>(null)
+  const [saveFlash, setSaveFlash] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([loadDefaultVariant(), loadAssetManifest()])
-      .then(() => setLoading(false))
+      .then(() => {
+        setSaveMeta(peekSavedGameMeta())
+        setLoading(false)
+      })
       .catch((e: unknown) => {
         setError(e instanceof Error ? e.message : String(e))
         setLoading(false)
@@ -28,7 +39,39 @@ export default function App() {
     let g = createGame(variant, options)
     g = runAiUntilHuman(g)
     setState(g)
+    setSaveFlash(null)
   }, [])
+
+  const continueSaved = useCallback(async () => {
+    const variant = await loadDefaultVariant()
+    const loaded = loadGameFromLocalStorage(variant)
+    if (!loaded) {
+      setSaveMeta(null)
+      return
+    }
+    setState(runAiUntilHuman(loaded))
+    setSaveFlash(null)
+  }, [])
+
+  const save = useCallback(() => {
+    if (!state) return
+    saveGameToLocalStorage(state)
+    setSaveMeta(peekSavedGameMeta())
+    setSaveFlash('Saved')
+  }, [state])
+
+  useEffect(() => {
+    if (!saveFlash) return
+    const t = window.setTimeout(() => setSaveFlash(null), 1800)
+    return () => window.clearTimeout(t)
+  }, [saveFlash])
+
+  // Keep localStorage in sync so a refresh can Continue
+  useEffect(() => {
+    if (!state) return
+    saveGameToLocalStorage(state)
+    setSaveMeta(peekSavedGameMeta())
+  }, [state])
 
   const apply = useCallback((cmd: GameCommand) => {
     setState((prev) => {
@@ -90,20 +133,33 @@ export default function App() {
   }
 
   if (loading) return <div className="boot">Loading Default variant…</div>
-  if (error) return <div className="boot error">Error: {error}</div>
-  if (!state) return <SetupScreen onStart={start} />
+  if (error && !state) return <div className="boot error">Error: {error}</div>
+  if (!state) {
+    return (
+      <SetupScreen
+        onStart={start}
+        onContinue={saveMeta ? continueSaved : undefined}
+        savedGame={saveMeta}
+      />
+    )
+  }
 
   return (
     <div className="app-shell">
       <header className="topbar">
         <span className="brand-inline">Colossus</span>
-        <span className="muted">Default variant · local play</span>
+        <span className="muted">Default · local</span>
         {state.winnerId && (
           <span className="winner">
             {state.players.find((p) => p.id === state.winnerId)?.name} wins!
           </span>
         )}
         {state.draw && <span className="winner">Draw!</span>}
+        <span className="topbar-spacer" />
+        {saveFlash && <span className="save-flash">{saveFlash}</span>}
+        <button type="button" className="ghost" onClick={save}>
+          Save
+        </button>
         <button type="button" className="ghost" onClick={() => setState(null)}>
           New game
         </button>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { dispatch, getLegalRecruits } from '../GameEngine'
 import { listAllMoves } from '../movement'
+import { listRecruits } from '../recruit'
 import { turn1SplitChild, twoPlayerGame } from './helpers'
 import type { GameState } from '../types'
 
@@ -13,10 +14,24 @@ function musterReady(seed: number): { g: GameState; movedId: string; unmovedId: 
     childCreatures: turn1SplitChild(g, parent),
   })
   g = dispatch(g, { type: 'doneSplit' })
-  const mover = g.legions.find((l) => l.playerId === g.players[0].id)!
-  const moves = listAllMoves(g, mover, g.movementRoll!)
-  const dest = [...moves.keys()][0]
-  g = dispatch(g, { type: 'move', legionId: mover.id, toHex: dest })
+  // Prefer a legion+dest that can actually muster (not e.g. Desert without Lions)
+  const movers = g.legions.filter((l) => l.playerId === g.players[0].id)
+  let mover = movers[0]
+  let dest: string | null = null
+  for (const leg of movers) {
+    const moves = listAllMoves(g, leg, g.movementRoll!)
+    for (const label of moves.keys()) {
+      const phantom = { ...leg, hexLabel: label, moved: true, recruited: false }
+      if (listRecruits(g, phantom).length > 0) {
+        mover = leg
+        dest = label
+        break
+      }
+    }
+    if (dest) break
+  }
+  expect(dest).toBeTruthy()
+  g = dispatch(g, { type: 'move', legionId: mover.id, toHex: dest! })
   g = dispatch(g, { type: 'doneMove' })
   expect(g.phase).toBe('Muster')
   const unmoved = g.legions.find(

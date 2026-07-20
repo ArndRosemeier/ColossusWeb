@@ -204,15 +204,15 @@ function setupNeighbors(hexByLabel: Record<string, MasterHex>, show: boolean[][]
 }
 
 export const TERRAIN_COLORS: Record<string, string> = {
-  Plains: '#e8d44d',
-  Woods: '#6b8e23',
-  Brush: '#228b22',
-  Hills: '#8b5a2b',
-  Jungle: '#006400',
-  Desert: '#daa520',
-  Marsh: '#a0522d',
-  Swamp: '#4169e1',
-  Mountains: '#c41e3a',
-  Tundra: '#87ceeb',
-  Tower: '#808080',
+  Plains: '#d4b84a',
+  Woods: '#3d6b2e',
+  Brush: '#2f7a3a',
+  Hills: '#8a5a32',
+  Jungle: '#1a4d28',
+  Desert: '#c9a227',
+  Marsh: '#6b4a2e',
+  Swamp: '#3a5a7a',
+  Mountains: '#9a2a3a',
+  Tundra: '#6a9eb8',
+  Tower: '#5a6570',
 }

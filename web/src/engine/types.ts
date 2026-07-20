@@ -1,4 +1,5 @@
 import type { LoadedVariant } from '../variant/loadVariant'
+import type { AiProfileId, ResolvedAiProfileId } from '../ai/profiles'
 
 export type Phase = 'Split' | 'Move' | 'Fight' | 'Muster' | 'Battle'
 export type PlayerKind = 'human' | 'ai'
@@ -45,6 +46,8 @@ export interface PlayerState {
   name: string
   color: PlayerColor
   kind: PlayerKind
+  /** Resolved AI personality; null for humans */
+  aiProfileId: ResolvedAiProfileId | null
   startingTower: string
   score: number
   dead: boolean
@@ -160,6 +163,12 @@ export type GameCommand =
   | { type: 'pass' }
 
 export interface NewGameOptions {
-  players: { name: string; kind: PlayerKind; colorId?: string }[]
+  players: {
+    name: string
+    kind: PlayerKind
+    colorId?: string
+    /** AI personality; `random` is resolved at createGame */
+    aiProfileId?: AiProfileId
+  }[]
   seed?: number
 }

@@ -1,8 +1,19 @@
 import type { BuiltBoard, MasterHex } from '../types/variant'
 import { TERRAIN_COLORS } from '../variant/buildBoard'
-import { markerImageUrl, markerPlainColor, terrainImageUrl } from '../variant/assets'
+import {
+  creatureImageUrl,
+  markerImageUrl,
+  markerPlainColor,
+  terrainImageUrl,
+} from '../variant/assets'
+import { getMovesForSelected } from '../engine/GameEngine'
+import { bestRecruitAt } from '../engine/recruit'
 import type { GameState, Legion } from '../engine/types'
 import { SafeSvgImage } from './SafeSvgImage'
+
+const WALK_STROKE = '#e08a45'
+const TELEPORT_STROKE = '#a78bfa'
+const RECRUIT_CHIT = 22
 
 const SQRT3 = Math.sqrt(3)
 
@@ -62,10 +73,12 @@ export function MasterBoardView({ state, onHexClick, onLegionClick }: Props) {
   const board = state.variant.board
   const scale = 14
   const markerSize = 28
-  const legal = new Set(state.legalHexes)
   const selected = state.selectedLegionId
     ? state.legions.find((l) => l.id === state.selectedLegionId)
     : null
+  const moveInfo =
+    state.phase === 'Move' && selected ? getMovesForSelected(state) : new Map()
+  const legalLabels = [...moveInfo.keys()]
 
   let maxX = 0
   let maxY = 0
@@ -81,6 +94,15 @@ export function MasterBoardView({ state, onHexClick, onLegionClick }: Props) {
     const list = legionsByHex.get(leg.hexLabel) ?? []
     list.push(leg)
     legionsByHex.set(leg.hexLabel, list)
+  }
+
+  const recruitPreviews: { label: string; creature: string; index: number }[] = []
+  if (selected && legalLabels.length > 0) {
+    let i = 0
+    for (const label of legalLabels) {
+      const creature = bestRecruitAt(state, selected, label)
+      if (creature) recruitPreviews.push({ label, creature, index: i++ })
+    }
   }
 
   return (
@@ -103,16 +125,19 @@ export function MasterBoardView({ state, onHexClick, onLegionClick }: Props) {
       {hexes.map((hex) => {
         const { cx, cy } = hexPixel(board, hex, scale)
         const fill = TERRAIN_COLORS[hex.terrain] ?? '#ccc'
-        const isLegal = legal.has(hex.label)
+        const move = moveInfo.get(hex.label)
+        const isLegal = move != null
+        const isTeleport = move?.teleport === true
         const isSelectedHere = selected?.hexLabel === hex.label
         const bounds = hexBounds(cx, cy, scale, hex.inverted)
         const terrainSrc = terrainImageUrl(hex.terrain, hex.inverted)
+        const accent = isTeleport ? TELEPORT_STROKE : WALK_STROKE
         return (
           <g key={hex.label} onClick={() => onHexClick(hex.label)} style={{ cursor: 'pointer' }}>
             <polygon
               points={hexPoints(cx, cy, scale, hex.inverted)}
               fill={fill}
-              stroke="#2a241c"
+              stroke="#0a1014"
               strokeWidth={1}
             />
             <SafeSvgImage
@@ -122,29 +147,73 @@ export function MasterBoardView({ state, onHexClick, onLegionClick }: Props) {
               width={bounds.width}
               height={bounds.height}
               clipPath={`url(#hex-clip-${hex.label})`}
-              opacity={0.85}
+              opacity={0.9}
               preserveAspectRatio="xMidYMid slice"
             />
+            {isLegal && (
+              <polygon
+                className="legal-hex-ring"
+                points={hexPoints(cx, cy, scale, hex.inverted)}
+                fill={accent}
+                stroke="none"
+              />
+            )}
             <polygon
+              className={isLegal ? 'legal-hex-stroke' : undefined}
               points={hexPoints(cx, cy, scale, hex.inverted)}
               fill="none"
-              stroke={isLegal ? '#ffeb3b' : isSelectedHere ? '#fff' : '#1a1510'}
-              strokeWidth={isLegal ? 3 : 1.2}
+              stroke={isLegal ? accent : isSelectedHere ? '#e8edf2' : '#0c1218'}
+              strokeWidth={isLegal ? 3.5 : 1.2}
             />
             <text
               x={cx + scale}
               y={cy + 1.15 * SQRT3 * scale}
               textAnchor="middle"
               fontSize={8}
-              fill="#111"
-              stroke="#f5ecd8"
-              strokeWidth={2}
+              fill="#f0f4f8"
+              stroke="#0a1014"
+              strokeWidth={2.5}
               paintOrder="stroke"
-              fontFamily="Georgia, serif"
+              fontFamily="Cinzel, Georgia, serif"
               fontWeight={700}
             >
               {hex.label}
             </text>
+          </g>
+        )
+      })}
+      {recruitPreviews.map(({ label, creature, index }) => {
+        const hex = board.hexByLabel[label]
+        if (!hex) return null
+        const { cx, cy } = hexPixel(board, hex, scale)
+        const x = cx + scale - RECRUIT_CHIT / 2
+        const y = cy + 0.35 * SQRT3 * scale
+        return (
+          <g
+            key={`recruit-${label}`}
+            className="recruit-preview"
+            style={{ animationDelay: `${Math.min(index, 12) * 45}ms` }}
+            pointerEvents="none"
+          >
+            <rect
+              x={x - 1}
+              y={y - 1}
+              width={RECRUIT_CHIT + 2}
+              height={RECRUIT_CHIT + 2}
+              rx={2}
+              fill="rgba(10, 16, 20, 0.72)"
+              stroke={WALK_STROKE}
+              strokeWidth={1.5}
+            />
+            <SafeSvgImage
+              href={creatureImageUrl(creature)}
+              x={x}
+              y={y}
+              width={RECRUIT_CHIT}
+              height={RECRUIT_CHIT}
+              preserveAspectRatio="xMidYMid meet"
+            />
+            <title>{`Best muster: ${creature}`}</title>
           </g>
         )
       })}
@@ -173,9 +242,9 @@ export function MasterBoardView({ state, onHexClick, onLegionClick }: Props) {
                   width={markerSize + 4}
                   height={markerSize + 4}
                   fill="none"
-                  stroke="#ffeb3b"
+                  stroke="#e08a45"
                   strokeWidth={3}
-                  rx={3}
+                  rx={2}
                 />
               )}
               {/* Colossus Plain-{Color} under transparent marker symbol */}

@@ -6,6 +6,7 @@ import { hydrateVariant } from '../../variant/loadVariant'
 import { buildBoard } from '../../variant/buildBoard'
 import { createGame, dispatch, getLegalRecruits } from '../GameEngine'
 import { listAllMoves } from '../movement'
+import { listRecruits } from '../recruit'
 import type { VariantData } from '../../types/variant'
 import { turn1SplitChild } from './helpers'
 
@@ -112,10 +113,23 @@ describe('game engine', () => {
     expect(stuck.phase).toBe('Move')
     expect(stuck.message).toMatch(/must move/i)
 
-    const mover = g.legions.find((l) => l.playerId === g.players[0].id && !l.moved)!
-    const moves = listAllMoves(g, mover, g.movementRoll!)
-    const dest = [...moves.keys()][0]
-    g = dispatch(g, { type: 'move', legionId: mover.id, toHex: dest })
+    const movers = g.legions.filter((l) => l.playerId === g.players[0].id && !l.moved)
+    let mover = movers[0]
+    let dest: string | null = null
+    for (const leg of movers) {
+      const moves = listAllMoves(g, leg, g.movementRoll!)
+      for (const label of moves.keys()) {
+        const phantom = { ...leg, hexLabel: label, moved: true, recruited: false }
+        if (listRecruits(g, phantom).length > 0) {
+          mover = leg
+          dest = label
+          break
+        }
+      }
+      if (dest) break
+    }
+    expect(dest).toBeTruthy()
+    g = dispatch(g, { type: 'move', legionId: mover.id, toHex: dest! })
     g = dispatch(g, { type: 'doneMove' })
     expect(g.phase).toBe('Muster')
 

@@ -9,6 +9,8 @@
     "convert": "node scripts/convert-variant.mjs",
     "test": "vitest run",
     "simulate": "vitest run --config vitest.sim.config.ts",
+    "tourney": "vite-node src/sim/runPersonaTournament.ts",
+    "tourney:ffa": "vite-node src/sim/runFourPlayerFfa.ts",
     "lint": "oxlint",
     "preview": "vite preview",
     "predev": "npm run convert"

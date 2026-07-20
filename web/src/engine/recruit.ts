@@ -1,6 +1,8 @@
 import type { CreatureType, TerrainDef } from '../types/variant'
 import type { GameState, Legion } from './types'
 
+const NO_RECRUIT = 99
+
 export function countCreatures(legion: Legion, type: string): number {
   return legion.creatures.filter((c) => c.type === type).length
 }
@@ -8,6 +10,53 @@ export function countCreatures(legion: Legion, type: string): number {
 export function isLord(creatures: Record<string, CreatureType>, type: string): boolean {
   const c = creatures[type]
   return Boolean(c?.lord || c?.demilord)
+}
+
+function isConcreteRecruit(name: string): boolean {
+  return (
+    name !== 'Anything' &&
+    name !== 'AnyNonLord' &&
+    name !== 'Lord' &&
+    name !== 'DemiLord' &&
+    name !== 'Titan' &&
+    !name.startsWith('Special:')
+  )
+}
+
+/**
+ * Colossus TerrainRecruitLoader / RecruitGraph edges for a regular terrain:
+ * - N of previous step recruits the next (N from that step's number)
+ * - 1 of a creature recruits itself (when its step number > 0)
+ * - with regularRecruit, 1 of any higher tree creature recruits any lower
+ */
+export function numberOfRecruiterNeeded(
+  terrain: TerrainDef,
+  recruiter: string,
+  recruit: string,
+): number {
+  const steps = terrain.recruits.filter((s) => isConcreteRecruit(s.name))
+  const recruitIdx = steps.findIndex((s) => s.name === recruit)
+  const recruiterIdx = steps.findIndex((s) => s.name === recruiter)
+  if (recruitIdx < 0 || recruiterIdx < 0) return NO_RECRUIT
+
+  const recruitStep = steps[recruitIdx]
+  if (recruiter === recruit) {
+    if (recruitStep.number > 0) return 1
+    if (recruitStep.number === 0) return 0
+    return NO_RECRUIT
+  }
+
+  // Direct climb: previous recruits next with that step's number
+  if (recruiterIdx === recruitIdx - 1 && recruitStep.number > 0) {
+    return recruitStep.number
+  }
+
+  // regularRecruit: higher creatures can recruit any lower with 1
+  if (terrain.regularRecruit && recruiterIdx > recruitIdx) {
+    return 1
+  }
+
+  return NO_RECRUIT
 }
 
 /**
@@ -29,23 +78,16 @@ export function listRecruits(state: GameState, legion: Legion): string[] {
   }
   if (!terrain.regularRecruit) return []
 
+  const steps = terrain.recruits.filter((s) => isConcreteRecruit(s.name))
   const available: string[] = []
-  const steps = terrain.recruits
-  for (let i = 0; i < steps.length; i++) {
-    const step = steps[i]
-    if (step.name === 'Anything' || step.name === 'AnyNonLord') continue
+  for (const step of steps) {
     if ((state.caretaker[step.name] ?? 0) <= 0) continue
-
-    if (i === 0) {
-      // Lowest creature of the terrain: always available with space + caretaker stock
-      available.push(step.name)
-      continue
-    }
-    const prev = steps[i - 1]
-    const need = step.number
-    if (need <= 0) continue
-    if (countCreatures(legion, prev.name) >= need) {
-      available.push(step.name)
+    for (const c of legion.creatures) {
+      const needed = numberOfRecruiterNeeded(terrain, c.type, step.name)
+      if (needed < NO_RECRUIT && countCreatures(legion, c.type) >= needed) {
+        available.push(step.name)
+        break
+      }
     }
   }
   return [...new Set(available)]
@@ -72,6 +114,46 @@ function listTowerRecruits(state: GameState, legion: Legion, terrain: TerrainDef
   }
   void terrain
   return [...new Set(available)]
+}
+
+/**
+ * What this legion could muster if it ended its move on hexLabel
+ * (Colossus possible-recruit chits during Move highlighting).
+ */
+export function listRecruitOptionsAt(
+  state: GameState,
+  legion: Legion,
+  hexLabel: string,
+): string[] {
+  if (legion.creatures.length > 6) return []
+  const phantom: Legion = {
+    ...legion,
+    hexLabel,
+    moved: true,
+    recruited: false,
+  }
+  return listRecruits(state, phantom)
+}
+
+/** Strongest eligible recruit at a destination (by power × skill). */
+export function bestRecruitAt(
+  state: GameState,
+  legion: Legion,
+  hexLabel: string,
+): string | null {
+  const options = listRecruitOptionsAt(state, legion, hexLabel)
+  if (options.length === 0) return null
+  let best = options[0]
+  let bestRank = -1
+  for (const name of options) {
+    const t = state.variant.creatures[name]
+    const rank = (t?.power ?? 0) * (t?.skill ?? 0)
+    if (rank >= bestRank) {
+      bestRank = rank
+      best = name
+    }
+  }
+  return best
 }
 
 export function applyRecruit(state: GameState, legionId: string, creatureType: string): void {

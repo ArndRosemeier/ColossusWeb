@@ -1,17 +1,25 @@
 import { dispatch, getLegalRecruits, playerLegions } from '../engine/GameEngine'
-import { listAllMoves } from '../engine/movement'
 import {
   isUnitAlive,
   legalBattleMovesFor,
   legalStrikes,
 } from '../engine/battle'
-import type { GameCommand, GameState } from '../engine/types'
+import { canFlee } from '../engine/engagement'
+import type { GameCommand, GameState, Legion } from '../engine/types'
+import { profileFor, type AiProfile } from './profiles'
+import { estimateBattleOutcome } from './battleEstimate'
+import { pickBestMove } from './evaluateMove'
 
 function actingPlayer(state: GameState) {
   if (state.battle && !state.battle.done) {
     return state.players.find((p) => p.id === state.battle!.activePlayerId) ?? null
   }
   return state.players[state.activePlayerIndex] ?? null
+}
+
+function profileOf(state: GameState): AiProfile {
+  const p = actingPlayer(state)
+  return profileFor(p?.aiProfileId)
 }
 
 /**
@@ -21,24 +29,25 @@ export function pickRandomCommand(state: GameState, rng = Math.random): GameComm
   if (state.winnerId || state.draw) return null
   const player = actingPlayer(state)
   if (!player || player.kind !== 'ai' || player.dead) return null
+  const profile = profileOf(state)
 
   if (state.battle && !state.battle.done) {
-    return pickBattleCommand(state, rng)
+    return pickBattleCommand(state, profile, rng)
   }
 
   if (state.activeEngagement) {
-    return pickFight(state, rng)
+    return pickFight(state, profile, rng)
   }
 
   switch (state.phase) {
     case 'Split':
-      return pickSplit(state, rng)
+      return pickSplit(state, profile, rng)
     case 'Move':
-      return pickMove(state, rng)
+      return pickMove(state, profile, rng)
     case 'Fight':
-      return pickFight(state, rng)
+      return pickFight(state, profile, rng)
     case 'Muster':
-      return pickMuster(state, rng)
+      return pickMuster(state, profile, rng)
     default:
       return { type: 'pass' }
   }
@@ -50,19 +59,18 @@ function mustSplitLegions(state: GameState) {
   )
 }
 
-function pickSplit(state: GameState, rng: () => number): GameCommand {
+function pickSplit(state: GameState, profile: AiProfile, rng: () => number): GameCommand {
   const legs = playerLegions(state, state.players[state.activePlayerIndex].id)
   const forced = mustSplitLegions(state)
 
-  // Turn 1: Colossus requires exactly one 4:4 split with one Lord each
   if (state.turnNumber === 1 && forced.length > 0) {
     const parent = forced[0]
-    const child = pickTurn1SplitChild(state, parent, rng)
+    const child = pickTurn1SplitChild(state, parent, profile, rng)
     return { type: 'split', parentId: parent.id, childCreatures: child }
   }
 
   const candidates = forced.length > 0 ? forced : legs.filter((l) => l.creatures.length >= 5)
-  const shouldSplit = forced.length > 0 || (candidates.length > 0 && rng() < 0.35)
+  const shouldSplit = forced.length > 0 || (candidates.length > 0 && rng() < profile.splitChance)
 
   if (shouldSplit && candidates.length > 0) {
     const parent = candidates[Math.floor(rng() * candidates.length)]
@@ -90,18 +98,18 @@ function pickSplit(state: GameState, rng: () => number): GameCommand {
   return { type: 'doneSplit' }
 }
 
-/** Angel or Titan + 3 creatures for the opening split. */
 function pickTurn1SplitChild(
   state: GameState,
-  parent: GameState['legions'][0],
+  parent: Legion,
+  profile: AiProfile,
   rng: () => number,
 ): string[] {
   const lords = parent.creatures.filter((c) => state.variant.creatures[c.type]?.lord)
   const nonLords = parent.creatures.filter((c) => !state.variant.creatures[c.type]?.lord)
-  // Prefer leaving Titan on parent (split off Angel) ~70% of the time
   const angel = lords.find((c) => c.type === 'Angel')
   const titan = lords.find((c) => c.type === 'Titan')
-  const childLord = angel && (rng() < 0.7 || !titan) ? angel : (titan ?? lords[0])
+  const childLord =
+    angel && (rng() < profile.preferAngelOnTurn1 || !titan) ? angel : (titan ?? lords[0])
   const shuffled = [...nonLords]
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1))
@@ -110,36 +118,46 @@ function pickTurn1SplitChild(
   return [childLord.type, ...shuffled.slice(0, 3).map((c) => c.type)]
 }
 
-function pickMove(state: GameState, rng: () => number): GameCommand {
+function pickMove(state: GameState, profile: AiProfile, rng: () => number): GameCommand {
   if (state.movementRoll == null) return { type: 'doneMove' }
   const playerId = state.players[state.activePlayerIndex].id
-  const legs = playerLegions(state, playerId).filter((l) => !l.moved)
-  const movable: { legionId: string; hex: string; teleport: boolean }[] = []
-  for (const leg of legs) {
-    const moves = listAllMoves(state, leg, state.movementRoll)
-    for (const [hex, info] of moves) {
-      movable.push({ legionId: leg.id, hex, teleport: info.teleport })
-    }
-  }
-  if (movable.length === 0) return { type: 'doneMove' }
-
   const anyMoved = playerLegions(state, playerId).some((l) => l.moved)
-  const attacks = movable.filter((m) =>
-    state.legions.some((l) => l.hexLabel === m.hex && l.playerId !== playerId),
-  )
-  // Must move at least one legion if able
-  if (!anyMoved || (rng() >= 0.15 || attacks.length > 0)) {
-    const pool = attacks.length && rng() < 0.7 ? attacks : movable
-    const choice = pool[Math.floor(rng() * pool.length)]
-    return { type: 'move', legionId: choice.legionId, toHex: choice.hex, teleport: choice.teleport }
-  }
-  return { type: 'doneMove' }
+  return pickBestMove(state, profile, rng, anyMoved)
 }
 
-function pickFight(state: GameState, rng: () => number): GameCommand {
-  void rng
+function pickFight(state: GameState, profile: AiProfile, rng: () => number): GameCommand {
   if (state.activeEngagement) {
     if (!state.activeEngagement.revealed) return { type: 'revealEngagement' }
+    const eng = state.activeEngagement
+    const attacker = state.legions.find((l) => l.id === eng.attackerId)!
+    const defender = state.legions.find((l) => l.id === eng.defenderId)!
+    const defPlayer = state.players.find((p) => p.id === defender.playerId)
+    if (defPlayer?.kind === 'ai' && canFlee(state, defender)) {
+      const defProfile = profileFor(defPlayer.aiProfileId)
+      if (defProfile.fleeOutnumberRatio > 0) {
+        // Outcome is from the attacker's perspective
+        const { outcome, ratio } = estimateBattleOutcome(
+          state,
+          attacker,
+          defender,
+          defender.hexLabel,
+        )
+        const heightRatio = attacker.creatures.length / Math.max(1, defender.creatures.length)
+        const attackerCrushing =
+          outcome === 'winMinimal' ||
+          outcome === 'winHeavy' ||
+          (outcome === 'draw' && defProfile.id === 'cautious')
+        if (
+          attackerCrushing ||
+          heightRatio >= defProfile.fleeOutnumberRatio ||
+          ratio >= defProfile.fleeOutnumberRatio
+        ) {
+          return { type: 'flee' }
+        }
+      }
+    }
+    void profile
+    void rng
     return { type: 'proposeAgreement', kind: 'fight' }
   }
   if (state.pendingEngagements.length === 0) return { type: 'pass' }
@@ -147,20 +165,52 @@ function pickFight(state: GameState, rng: () => number): GameCommand {
   return { type: 'startEngagement', attackerId: e.attackerId, defenderId: e.defenderId }
 }
 
-function pickMuster(state: GameState, rng: () => number): GameCommand {
+function pickMuster(state: GameState, profile: AiProfile, rng: () => number): GameCommand {
   const legs = playerLegions(state, state.players[state.activePlayerIndex].id)
+  if (profile.musterGreed >= 0.99) {
+    let best: GameCommand | null = null
+    let bestRank = -1
+    for (const leg of legs) {
+      const recruits = getLegalRecruits(state, leg.id)
+      for (const r of recruits) {
+        const power = state.variant.creatures[r]?.power ?? 0
+        const skill = state.variant.creatures[r]?.skill ?? 0
+        const rank = power * skill
+        if (rank > bestRank) {
+          bestRank = rank
+          best = { type: 'recruit', legionId: leg.id, creatureType: r }
+        }
+      }
+    }
+    return best ?? { type: 'doneMuster' }
+  }
+
+  const options: GameCommand[] = []
   for (const leg of legs) {
-    const recruits = getLegalRecruits(state, leg.id)
-    if (recruits.length) {
-      const pick = recruits[Math.floor(rng() * recruits.length)]
-      return { type: 'recruit', legionId: leg.id, creatureType: pick }
+    for (const r of getLegalRecruits(state, leg.id)) {
+      options.push({ type: 'recruit', legionId: leg.id, creatureType: r })
     }
   }
-  return { type: 'doneMuster' }
+  if (options.length === 0) return { type: 'doneMuster' }
+  if (rng() < profile.musterGreed) {
+    let best = options[0]
+    let bestRank = -1
+    for (const cmd of options) {
+      if (cmd.type !== 'recruit') continue
+      const power = state.variant.creatures[cmd.creatureType]?.power ?? 0
+      const skill = state.variant.creatures[cmd.creatureType]?.skill ?? 0
+      const rank = power * skill
+      if (rank > bestRank) {
+        bestRank = rank
+        best = cmd
+      }
+    }
+    return best
+  }
+  return options[Math.floor(rng() * options.length)]
 }
 
 function hexApproxDist(a: string, b: string): number {
-  // Support both "x:y" MVP labels and Colossus "C1" labels
   if (a.includes(':') && b.includes(':')) {
     const [ax, ay] = a.split(':').map(Number)
     const [bx, by] = b.split(':').map(Number)
@@ -176,36 +226,59 @@ function hexApproxDist(a: string, b: string): number {
   return Math.abs(A.col - B.col) + Math.abs(A.row - B.row)
 }
 
-function pickBattleCommand(state: GameState, rng: () => number): GameCommand {
+function pickBattleCommand(
+  state: GameState,
+  profile: AiProfile,
+  rng: () => number,
+): GameCommand {
   const battle = state.battle!
 
   if (battle.pendingCarry) {
     return { type: 'battleCarry', targetId: battle.pendingCarry.targetIds[0] }
   }
-  if (battle.phase === 'Recruit') return { type: 'battleSkipReinforce' }
-  if (battle.phase === 'Summon') return { type: 'battleSkipSummon' }
+
+  if (battle.phase === 'Recruit') {
+    if (rng() < profile.skipReinforceChance) return { type: 'battleSkipReinforce' }
+    return { type: 'battleSkipReinforce' }
+  }
+  if (battle.phase === 'Summon') {
+    if (rng() < profile.skipSummonChance) return { type: 'battleSkipSummon' }
+    return { type: 'battleSkipSummon' }
+  }
 
   const myUnits = battle.units.filter(
     (u) => u.playerId === battle.activePlayerId && isUnitAlive(state, u),
   )
+  const enemies = battle.units.filter(
+    (e) => e.playerId !== battle.activePlayerId && isUnitAlive(state, e),
+  )
+
+  if (
+    profile.concedeWhenHopelessChance > 0 &&
+    myUnits.length > 0 &&
+    enemies.length >= myUnits.length * 3 &&
+    rng() < profile.concedeWhenHopelessChance
+  ) {
+    return { type: 'concedeBattle' }
+  }
 
   if (battle.phase === 'Move') {
     const movers = myUnits.filter((u) => !u.moved)
     for (const u of movers) {
       const moves = legalBattleMovesFor(state, battle, u)
       if (moves.length === 0) continue
-      const enemies = battle.units.filter(
-        (e) => e.playerId !== u.playerId && isUnitAlive(state, e) && e.hex,
-      )
-      if (enemies.length === 0 || !u.hex) {
+      const enemyHexes = enemies.filter((e) => e.hex)
+      if (enemyHexes.length === 0 || !u.hex) {
         return { type: 'battleMove', unitId: u.id, toHex: moves[Math.floor(rng() * moves.length)] }
       }
       let best = moves[0]
-      let bestDist = Infinity
+      let bestScore = -Infinity
       for (const m of moves) {
-        const dist = Math.min(...enemies.map((e) => hexApproxDist(m, e.hex!)))
-        if (dist < bestDist || (dist === bestDist && rng() < 0.3)) {
-          bestDist = dist
+        const dist = Math.min(...enemyHexes.map((e) => hexApproxDist(m, e.hex!)))
+        // Higher approach weight → prefer smaller distance
+        const score = -dist * profile.battleApproachEnemy + rng() * 0.1
+        if (score > bestScore) {
+          bestScore = score
           best = m
         }
       }
@@ -228,81 +301,38 @@ function pickBattleCommand(state: GameState, rng: () => number): GameCommand {
   return { type: 'battleDonePhase' }
 }
 
-/** SimpleAI: slightly better heuristics than pure random */
-export function pickSimpleAiCommand(state: GameState, rng = Math.random): GameCommand | null {
+/** Single AI core — behavior varies by player.aiProfileId. */
+export function pickAiCommand(state: GameState, rng = Math.random): GameCommand | null {
   if (state.winnerId || state.draw) return null
   const player = actingPlayer(state)
   if (!player || player.kind !== 'ai' || player.dead) return null
+  const profile = profileOf(state)
 
   if (state.battle && !state.battle.done) {
-    return pickBattleCommand(state, rng)
+    return pickBattleCommand(state, profile, rng)
   }
 
   if (state.activeEngagement) {
-    return pickFight(state, rng)
+    return pickFight(state, profile, rng)
   }
 
   if (state.phase === 'Split' && mustSplitLegions(state).length > 0) {
-    return pickSplit(state, rng)
+    return pickSplit(state, profile, rng)
   }
 
   if (state.phase === 'Move' && state.movementRoll != null) {
-    const legs = playerLegions(state, player.id).filter((l) => !l.moved)
-    type Scored = { legionId: string; hex: string; teleport: boolean; score: number }
-    const scored: Scored[] = []
-    for (const leg of legs) {
-      const moves = listAllMoves(state, leg, state.movementRoll)
-      for (const [hex, info] of moves) {
-        let score = 1
-        const terrain = state.variant.board.hexByLabel[hex]?.terrain
-        if (terrain && terrain !== 'Tower') score += 2
-        if (state.legions.some((l) => l.hexLabel === hex && l.playerId !== player.id)) {
-          const enemy = state.legions.find((l) => l.hexLabel === hex && l.playerId !== player.id)!
-          const myPow = leg.creatures.length
-          const theirPow = enemy.creatures.length
-          score += myPow >= theirPow ? 20 : 5
-        }
-        if (info.teleport) score += 3
-        scored.push({ legionId: leg.id, hex, teleport: info.teleport, score })
-      }
-    }
-    scored.sort((a, b) => b.score - a.score)
-    const anyMoved = playerLegions(state, player.id).some((l) => l.moved)
-    if (scored.length === 0) return { type: 'doneMove' }
-    // Always take a strong attack / teleport if available
-    if (scored[0].score >= 5) {
-      const c = scored[0]
-      return { type: 'move', legionId: c.legionId, toHex: c.hex, teleport: c.teleport }
-    }
-    // Must move at least once; otherwise wander or finish
-    if (!anyMoved || rng() < 0.75) {
-      const c = scored[Math.floor(rng() * Math.min(5, scored.length))]
-      return { type: 'move', legionId: c.legionId, toHex: c.hex, teleport: c.teleport }
-    }
-    return { type: 'doneMove' }
+    return pickMove(state, profile, rng)
   }
 
   if (state.phase === 'Muster') {
-    const legs = playerLegions(state, player.id)
-    let best: GameCommand | null = null
-    let bestRank = -1
-    for (const leg of legs) {
-      const recruits = getLegalRecruits(state, leg.id)
-      for (const r of recruits) {
-        const power = state.variant.creatures[r]?.power ?? 0
-        const skill = state.variant.creatures[r]?.skill ?? 0
-        const rank = power * skill
-        if (rank > bestRank) {
-          bestRank = rank
-          best = { type: 'recruit', legionId: leg.id, creatureType: r }
-        }
-      }
-    }
-    return best ?? { type: 'doneMuster' }
+    return pickMuster(state, profile, rng)
   }
 
   return pickRandomCommand(state, rng)
 }
+
+/** @deprecated alias — use pickAiCommand */
+export const pickSimpleAiCommand = pickAiCommand
 
 export function runAiUntilHuman(state: GameState, maxSteps = 80, rng = Math.random): GameState {
   let s = state
@@ -313,7 +343,7 @@ export function runAiUntilHuman(state: GameState, maxSteps = 80, rng = Math.rand
     const actorId = inBattle ? s.battle!.activePlayerId : player.id
     const actor = s.players.find((p) => p.id === actorId)
     if (!actor || actor.kind !== 'ai') break
-    const cmd = pickSimpleAiCommand(s, rng)
+    const cmd = pickAiCommand(s, rng)
     if (!cmd) break
     s = dispatch(s, cmd, rng)
   }
