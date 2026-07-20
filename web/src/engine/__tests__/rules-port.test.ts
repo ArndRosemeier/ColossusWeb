@@ -61,7 +61,7 @@ describe('phase1 engagement', () => {
 })
 
 describe('phase4 strike chart', () => {
-  it('K3: strike number is 4 - atkSkill + defSkill (clamped)', () => {
+  it('K3: strike number is 4 - atkSkill + defSkill (clamped) on open ground', () => {
     const state = twoPlayerGame(1)
     const atk: BattleUnit = {
       id: 'a',

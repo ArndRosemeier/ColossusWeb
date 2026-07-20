@@ -44,10 +44,14 @@ const ENTRANCE_LANDINGS: string[][] = [
 ]
 
 /** Terrains that block ground / LOS / slow (simplified Colossus HazardTerrain flags). */
-const BLOCKS_GROUND = new Set(['Lake', 'Stone', 'Tree'])
+const BLOCKS_GROUND_FOREIGNERS = new Set(['Lake', 'Stone', 'Tree'])
 const BLOCKS_LOS = new Set(['Tree', 'Stone'])
-const SLOWS_NON_NATIVE = new Set(['Brambles', 'Drift', 'Bog', 'Sand', 'Volcano'])
+/** Slow non-native ground (and flyers, except Sand which is ground-only in Colossus). */
+const SLOWS_NON_NATIVE_GROUND = new Set(['Brambles', 'Drift', 'Bog', 'Sand', 'Volcano'])
+const SLOWS_NON_NATIVE_FLYER = new Set(['Brambles', 'Drift'])
 const GROUND_NATIVE_ONLY = new Set(['Bog', 'Volcano'])
+/** Flyers may only overfly if native (Colossus Stone). */
+const BLOCKS_FLYER_FOREIGNERS = new Set(['Stone'])
 
 export type BattleEntryKey =
   | 'Bottom'
@@ -214,7 +218,11 @@ export function getEntryCost(
   let cost = NORMAL_COST
   const native = isNativeIn(creature, hex.terrain)
 
-  if (BLOCKS_GROUND.has(hex.terrain) || (GROUND_NATIVE_ONLY.has(hex.terrain) && !native)) {
+  // Lake / Tree / Stone: block non-natives; natives may enter (Colossus)
+  if (BLOCKS_GROUND_FOREIGNERS.has(hex.terrain) && !native) {
+    return IMPASSABLE_COST
+  }
+  if (GROUND_NATIVE_ONLY.has(hex.terrain) && !native) {
     return IMPASSABLE_COST
   }
 
@@ -225,7 +233,15 @@ export function getEntryCost(
     return IMPASSABLE_COST
   }
 
-  if ((hazard === 'river' || opp === 'river') && !creature.flies && !native) {
+  // River: +1 unless flyer, river-native, or water-dwelling (Lake attr)
+  const waterDwelling = Boolean(creature.native.Lake)
+  const riverNative = Boolean(creature.native.river)
+  if (
+    (hazard === 'river' || opp === 'river') &&
+    !creature.flies &&
+    !riverNative &&
+    !waterDwelling
+  ) {
     cost += SLOW_INCREMENT
   }
 
@@ -239,18 +255,21 @@ export function getEntryCost(
     cost += SLOW_INCREMENT
   }
 
-  if (SLOWS_NON_NATIVE.has(hex.terrain) && !native) {
+  const slows = creature.flies ? SLOWS_NON_NATIVE_FLYER : SLOWS_NON_NATIVE_GROUND
+  if (slows.has(hex.terrain) && !native) {
     cost += SLOW_INCREMENT
   }
 
-  if (cost > IMPASSABLE_COST) cost = IMPASSABLE_COST
-  void SLOW_COST
-  void land
+  // Non-cumulative slows: entry cost capped at 2 (Colossus default)
+  if (cost > SLOW_COST && cost < IMPASSABLE_COST) cost = SLOW_COST
   return cost
 }
 
 export function canFlyOver(hex: BuiltBattleHex, creature: CreatureType): boolean {
   if (hex.terrain === 'Volcano' && !isNativeIn(creature, 'Volcano')) return false
+  if (BLOCKS_FLYER_FOREIGNERS.has(hex.terrain) && !isNativeIn(creature, hex.terrain)) {
+    return false
+  }
   return true
 }
 

@@ -56,8 +56,8 @@ function skillBonusStruckIn(
   attackerNative: boolean,
   defenderNative: boolean,
 ): number {
-  if (terrain === 'Brambles' || terrain === 'Tree') {
-    // PATRIOTS skill bonus 1 (defender native vs foreign attacker)
+  // PATRIOTS skill bonus 1: native defender vs foreign attacker (Brambles / Tree / Stone)
+  if (terrain === 'Brambles' || terrain === 'Tree' || terrain === 'Stone') {
     if (defenderNative && !attackerNative) return 1
   }
   return 0
@@ -175,7 +175,8 @@ export function getAttackerSkill(
     if (!nativeTerrain(atkType, 'Brambles')) {
       skill -= countInterveningBrambles(land, attacker.hex, defender.hex)
     }
-    if (targetHex.hexsides.some((h) => h === 'tower') || targetHex.terrain === 'Tower') {
+    // Colossus BattleHex.hasWall(): any tower/wall hexside (not Tower terrain name)
+    if (targetHex.hexsides.some((h) => h === 'tower')) {
       const heightDeficit = targetHex.elevation - hex.elevation
       if (heightDeficit > 0) skill -= heightDeficit
     }
