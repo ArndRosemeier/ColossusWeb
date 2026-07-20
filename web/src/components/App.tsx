@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { isAiActing, pickAiCommand } from '../ai/simpleAi'
 import { createGame, dispatch as engDispatch, getMovesForSelected } from '../engine/GameEngine'
 import type { GameCommand, GameState, NewGameOptions } from '../engine/types'
@@ -20,6 +20,7 @@ import { loadDefaultVariant } from '../variant/loadVariant'
 import { BattleBoardView } from './BattleBoardView'
 import { DiceOverlay, shouldAnimateDice } from './DiceOverlay'
 import { GameControls } from './GameControls'
+import { phaseEndCommand } from './LegionActions'
 import { MasterBoardView } from './MasterBoardView'
 import { SetupScreen } from './SetupScreen'
 
@@ -250,6 +251,14 @@ export default function App() {
       }
       return
     }
+    // Clicking the board dismisses split/muster overlay
+    if (
+      (state.phase === 'Split' || state.phase === 'Muster') &&
+      state.selectedLegionId
+    ) {
+      apply({ type: 'deselectLegion' })
+      return
+    }
     if (state.phase === 'Move' && state.selectedLegionId) {
       const moves = getMovesForSelected(state)
       const info = moves.get(label)
@@ -260,12 +269,23 @@ export default function App() {
           toHex: label,
           teleport: info.teleport,
         })
+      } else {
+        apply({ type: 'deselectLegion' })
       }
     }
   }
 
   const onLegionClick = (legionId: string) => {
-    if (!state || isAiActing(state) || busy) return
+    if (!state || busy) return
+    // Toggle off when re-clicking the selected legion during split/muster
+    if (
+      state.selectedLegionId === legionId &&
+      (state.phase === 'Split' || state.phase === 'Muster')
+    ) {
+      apply({ type: 'deselectLegion' })
+      return
+    }
+    // Inspection allowed even while AI acts (public knowledge / own stacks)
     apply({ type: 'selectLegion', legionId })
   }
 
@@ -314,6 +334,16 @@ export default function App() {
     : 0
   const seatCount = state.players.length
 
+  const interactive = !aiActing && !busy && !gameOver
+
+  const onPhaseEndContextMenu = (e: MouseEvent) => {
+    if (!interactive) return
+    const cmd = phaseEndCommand(state)
+    if (!cmd) return
+    e.preventDefault()
+    apply(cmd)
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -356,7 +386,7 @@ export default function App() {
         </button>
       </header>
       <main className="play">
-        <div className="board-pane">
+        <div className="board-pane" onContextMenu={onPhaseEndContextMenu}>
           {state.battle && !state.battle.done ? (
             <BattleBoardView
               state={state}
@@ -373,6 +403,8 @@ export default function App() {
               onLegionClick={onLegionClick}
               moveAnim={masterAnim}
               onMoveAnimDone={onMoveAnimDone}
+              dispatch={apply}
+              interactive={interactive}
             />
           )}
           <DiceOverlay
@@ -384,7 +416,7 @@ export default function App() {
             onThrowDone={onDiceThrowDone}
           />
         </div>
-        <GameControls state={state} dispatch={apply} interactive={!aiActing && !busy} />
+        <GameControls state={state} dispatch={apply} interactive={interactive} />
       </main>
     </div>
   )

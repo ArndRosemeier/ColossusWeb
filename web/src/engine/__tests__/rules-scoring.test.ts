@@ -133,6 +133,7 @@ describe('rules-scoring', () => {
     g = dispatch(g, { type: 'doneMove' })
     g.players[0].score = 250
     g = dispatch(g, { type: 'doneMuster' })
+    if (g.phase === 'Muster') g = dispatch(g, { type: 'doneMuster' })
     const alice = g.players.find((p) => p.name === 'Alice')!
     expect(alice.titanPower).toBe(6 + Math.floor(250 / 100))
   })

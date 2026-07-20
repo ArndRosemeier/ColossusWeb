@@ -61,8 +61,22 @@ describe('rules-muster', () => {
     let { g, movedId } = musterReady(1)
     const options = getLegalRecruits(g, movedId)
     expect(options.length).toBeGreaterThan(0)
-    g = dispatch(g, { type: 'recruit', legionId: movedId, creatureType: options[0] })
+    g = dispatch(g, { type: 'recruit', legionId: movedId, creatureType: options[0]! })
     expect(getLegalRecruits(g, movedId)).toEqual([])
+    expect(g.legions.find((l) => l.id === movedId)!.musteredThisTurn).toBe(options[0])
+  })
+
+  it('warns when Done is pressed while a legion can still muster', () => {
+    let { g, movedId } = musterReady(1)
+    expect(getLegalRecruits(g, movedId).length).toBeGreaterThan(0)
+    const warned = dispatch(g, { type: 'doneMuster' })
+    expect(warned.phase).toBe('Muster')
+    expect(warned.musterSkipWarned).toBe(true)
+    expect(warned.message).toMatch(/can still muster/i)
+
+    const skipped = dispatch(warned, { type: 'doneMuster' })
+    expect(skipped.phase).toBe('Split')
+    expect(skipped.activePlayerIndex).not.toBe(warned.activePlayerIndex)
   })
 
   it('Q3: tower Warlock requires Titan; Guardian requires 3 identical non-lords', () => {

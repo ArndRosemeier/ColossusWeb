@@ -15,6 +15,7 @@ import {
   resolveStrike as doResolveStrike,
 } from './battleStrike'
 import { eliminateLegionToCaretaker } from './engagement'
+import { revealAll, revealCreatures } from './publicKnowledge'
 import type {
   BattleHalf,
   BattleState,
@@ -425,6 +426,8 @@ export function applyBattleResult(state: GameState, battle: BattleState): void {
     )
     const deadTypes = [...legion.creatures]
     legion.creatures = survivors.map((u) => ({ type: u.creatureType, hits: 0 }))
+    // Battle survivors are fully public
+    revealAll(legion)
     const before = deadTypes.map((c) => c.type)
     const after = legion.creatures.map((c) => c.type)
     for (const t of before) {
@@ -570,6 +573,7 @@ function maybeAcquireAngel(
     if (!pick) break
     state.caretaker[pick.name] -= 1
     legion.creatures.push({ type: pick.name, hits: 0 })
+    revealCreatures(legion, [pick.name])
     state.log.push(`${player.name} acquires an ${pick.name}!`)
     earned -= 1
   }

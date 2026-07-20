@@ -391,6 +391,19 @@ button:disabled {
     linear-gradient(160deg, #1a2830 0%, #243038 40%, #2a3228 100%);
 }
 
+.master-board-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.legion-action-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: transparent;
+  cursor: default;
+}
+
 .master-board,
 .battle-board {
   width: 100%;
@@ -398,6 +411,62 @@ button:disabled {
   max-height: calc(100vh - 4.5rem);
   display: block;
   filter: drop-shadow(0 8px 28px rgba(0, 0, 0, 0.45));
+}
+
+.legion-action-overlay {
+  position: absolute;
+  z-index: 6;
+  min-width: 220px;
+  max-width: min(340px, 92vw);
+  padding: 0.65rem 0.75rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(14, 20, 24, 0.28);
+  border: 1px solid rgba(224, 138, 69, 0.4);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  transform: translate(8px, -8px);
+  backdrop-filter: blur(2px);
+}
+
+.legion-action-overlay.flip {
+  transform: translate(calc(-100% - 8px), -8px);
+}
+
+.legion-action-title {
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #f0e6d4;
+  margin-bottom: 0.45rem;
+  letter-spacing: 0.02em;
+}
+
+.split-form-chits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 0.35rem;
+}
+
+.split-form.compact .chip-chit {
+  padding: 3px;
+  margin: 0;
+}
+
+.split-form-hint {
+  margin: 0 0 0.45rem;
+  font-size: 0.72rem;
+  color: #c4b8a4;
+}
+
+.muster-form .recruit-list {
+  margin: 0;
+}
+
+.rmb-hint {
+  opacity: 0.85;
+  font-size: 0.78rem;
 }
 
 @keyframes legal-hex-pulse {
@@ -792,6 +861,21 @@ button:disabled {
   gap: 3px;
 }
 
+.unknown-chit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 4px;
+  border: 1px solid #7a6a52;
+  background: linear-gradient(145deg, #3a342c 0%, #1e1a16 100%);
+  color: #c4b8a4;
+  font-family: Cinzel, Georgia, serif;
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+}
+
 .recruit-list {
   display: flex;
   flex-wrap: wrap;
@@ -828,9 +912,9 @@ button:disabled {
 
 .split-form {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 0.35rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0;
 }
 
 .chip-chit {
@@ -839,11 +923,14 @@ button:disabled {
   align-items: center;
   gap: 0.15rem;
   padding: 0.25rem;
+  margin: 0;
   background: var(--stone);
-  border-radius: 2px;
+  border-radius: 4px;
   font-size: 0.75rem;
   border: 2px solid transparent;
   cursor: pointer;
+  color: inherit;
+  font: inherit;
 }
 
 .chip-chit input {
@@ -925,6 +1012,19 @@ button:disabled {
   outline: 2px solid #e08a45;
   outline-offset: 1px;
   border-radius: 2px;
+}
+
+.battle-chit.staging.dim {
+  opacity: 0.55;
+}
+
+.battle-deploy-hint {
+  margin: 0.35rem 0 0;
+  color: #d4e8c8;
+  letter-spacing: 0;
+  text-transform: none;
+  font-family: system-ui, sans-serif;
+  font-size: 0.8rem;
 }
 
 .battle-meta {

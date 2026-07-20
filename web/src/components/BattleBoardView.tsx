@@ -151,6 +151,42 @@ function BattleAnimOverlay({
   )
 }
 
+function stagingLayout(
+  entrances: string[],
+  land: ReturnType<typeof battleLand>,
+  scale: number,
+  mapCenter: { x: number; y: number },
+  count: number,
+  chit: number,
+): { x: number; y: number }[] {
+  if (entrances.length === 0 || count === 0) return []
+  const centers = entrances
+    .map((label) => land.hexByLabel[label])
+    .filter((h): h is NonNullable<typeof h> => Boolean(h))
+    .map((h) => hexCenter(h.x, h.y, scale))
+  if (centers.length === 0) return []
+  const avg = {
+    x: centers.reduce((s, c) => s + c.x, 0) / centers.length,
+    y: centers.reduce((s, c) => s + c.y, 0) / centers.length,
+  }
+  let dx = avg.x - mapCenter.x
+  let dy = avg.y - mapCenter.y
+  const len = Math.hypot(dx, dy) || 1
+  dx /= len
+  dy /= len
+  const rim = chit * 1.55
+  const originX = avg.x + dx * rim
+  const originY = avg.y + dy * rim
+  const px = -dy
+  const py = dx
+  const gap = chit + 6
+  const start = -((count - 1) / 2) * gap
+  return Array.from({ length: count }, (_, i) => ({
+    x: originX + px * (start + i * gap),
+    y: originY + py * (start + i * gap),
+  }))
+}
+
 export function BattleBoardView({
   state,
   battle,
@@ -187,6 +223,50 @@ export function BattleBoardView({
     y: (minY + maxY) / 2,
   }
 
+  const offBoardAtk = battle.units.filter(
+    (u) =>
+      !u.hex &&
+      isUnitAlive(state, u) &&
+      u.legionId === battle.attackerLegionId &&
+      moveAnim?.pieceId !== u.id,
+  )
+  const offBoardDef = battle.units.filter(
+    (u) =>
+      !u.hex &&
+      isUnitAlive(state, u) &&
+      u.legionId === battle.defenderLegionId &&
+      moveAnim?.pieceId !== u.id,
+  )
+  const atkStaging = stagingLayout(
+    battle.attackerEntrances,
+    land,
+    scale,
+    mapCenter,
+    offBoardAtk.length,
+    chit,
+  )
+  const defStaging = stagingLayout(
+    battle.defenderEntrances,
+    land,
+    scale,
+    mapCenter,
+    offBoardDef.length,
+    chit,
+  )
+
+  for (const p of [...atkStaging, ...defStaging]) {
+    minX = Math.min(minX, p.x - chit / 2)
+    minY = Math.min(minY, p.y - chit / 2)
+    maxX = Math.max(maxX, p.x + chit / 2)
+    maxY = Math.max(maxY, p.y + chit / 2)
+  }
+
+  const activeOffBoard =
+    battle.phase === 'Move' &&
+    battle.units.some(
+      (u) => !u.hex && isUnitAlive(state, u) && u.playerId === battle.activePlayerId,
+    )
+
   return (
     <div className="battle-wrap">
       <div className="battle-meta">
@@ -199,6 +279,11 @@ export function BattleBoardView({
           Attacker enters {battle.attackerEntrances.length} hexes / defender{' '}
           {battle.defenderEntrances.length}
         </span>
+        {activeOffBoard && (
+          <p className="hint battle-deploy-hint">
+            Click a unit beside the board, then an entry hex (highlighted) to bring it in.
+          </p>
+        )}
       </div>
       <svg
         viewBox={`${minX - pad} ${minY - pad} ${maxX - minX + pad * 2} ${maxY - minY + pad * 2}`}
@@ -295,6 +380,56 @@ export function BattleBoardView({
               </foreignObject>
             )
           })}
+        {[
+          ...offBoardAtk.map((u, i) => ({ u, pos: atkStaging[i]! })),
+          ...offBoardDef.map((u, i) => ({ u, pos: defStaging[i]! })),
+        ].map(({ u, pos }) => {
+          const t = state.variant.creatures[u.creatureType]
+          const power = getUnitPower(state, u)
+          const skill = getUnitSkill(state, u)
+          const mine = u.playerId === battle.activePlayerId
+          return (
+            <g key={u.id}>
+              <rect
+                x={pos.x - chit / 2 - 3}
+                y={pos.y - chit / 2 - 3}
+                width={chit + 6}
+                height={chit + 6}
+                rx={4}
+                className="battle-staging-slot"
+                fill="rgba(10, 16, 20, 0.35)"
+                stroke={selected === u.id ? '#e08a45' : 'rgba(126, 200, 255, 0.55)'}
+                strokeWidth={selected === u.id ? 2.5 : 1.25}
+              />
+              <foreignObject
+                x={pos.x - chit / 2}
+                y={pos.y - chit / 2}
+                width={chit}
+                height={chit}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onUnitClick(u.id)
+                }}
+                style={{ cursor: mine ? 'pointer' : 'default' }}
+              >
+                <div
+                  className={`battle-chit staging${selected === u.id ? ' selected' : ''}${
+                    mine ? '' : ' dim'
+                  }`}
+                >
+                  <CreatureChit
+                    creature={u.creatureType}
+                    power={power}
+                    skill={skill}
+                    baseColor={t?.baseColor}
+                    size={chit}
+                    hits={u.hits > 0 && u.hits < 999 ? u.hits : 0}
+                  />
+                </div>
+              </foreignObject>
+            </g>
+          )
+        })}
         {moveAnim && onMoveAnimDone && (
           <BattleAnimOverlay
             land={land}
@@ -309,3 +444,4 @@ export function BattleBoardView({
     </div>
   )
 }
+

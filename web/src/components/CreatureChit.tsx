@@ -176,3 +176,18 @@ export function SafeImg({ src, alt, width, height, className, title }: SafeImgPr
     />
   )
 }
+
+/** Public-knowledge placeholder for an unseen creature in an enemy legion. */
+export function UnknownChit({ size = 48, className }: { size?: number; className?: string }) {
+  return (
+    <div
+      className={`unknown-chit${className ? ` ${className}` : ''}`}
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.55) }}
+      title="Unknown"
+      aria-label="Unknown creature"
+    >
+      ?
+    </div>
+  )
+}
+

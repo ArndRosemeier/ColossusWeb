@@ -129,6 +129,18 @@ export function deserializeGame(blob: SavedGameBlob, variant: LoadedVariant): Ga
     state.diceRoll.playerId = state.players[state.activePlayerIndex]?.id ?? ''
   }
   migrateMarkerPools(state)
+  for (const leg of state.legions) {
+    if (!Array.isArray(leg.knownPublic)) {
+      // Legacy saves: treat contents as fully known
+      leg.knownPublic = leg.creatures.map((c) => c.type)
+    }
+    if (leg.musteredThisTurn === undefined) {
+      leg.musteredThisTurn = null
+    }
+  }
+  if (state.musterSkipWarned === undefined) {
+    state.musterSkipWarned = false
+  }
   return state
 }
 

@@ -3,6 +3,7 @@
  */
 import type { GameState, Legion } from './types'
 import { isLord } from './recruit'
+import { revealAll } from './publicKnowledge'
 
 export function legionPointValue(state: GameState, legion: Legion, full: boolean): number {
   let pts = 0
@@ -51,6 +52,7 @@ export function resolveEngagementConcession(
   // Angels only on full combat/concede wins that cross thresholds — flee denies summon;
   // score angels still allowed on flee per Titan? Colossus: flee half, no summon angel mid-battle;
   // score angels from points still apply. Keep acquire on score.
+  revealAll(loser)
   eliminateLegionToCaretaker(state, loser)
   void scoreBefore
 }

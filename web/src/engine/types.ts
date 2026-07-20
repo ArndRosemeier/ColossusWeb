@@ -34,10 +34,18 @@ export interface Legion {
   playerId: string
   hexLabel: string
   creatures: CreatureInstance[]
+  /**
+   * Creature types publicly known in this legion (multiset).
+   * Unknown slots = creatures.length − knownPublic.length (after sync).
+   * Cleared on split; filled on recruit/teleport/battle reveals.
+   */
+  knownPublic: string[]
   moved: boolean
   teleported: boolean
   /** Already recruited this enlistment phase */
   recruited: boolean
+  /** Creature type mustered this turn (board badge until muster phase ends). */
+  musteredThisTurn: string | null
   enteredFrom: EntrySide | null
 }
 
@@ -176,6 +184,10 @@ export interface GameState {
   diceMode: DiceRollMode
   /** Turn-1 mulligan still available for active player */
   mulliganAvailable: boolean
+  /**
+   * Muster Done was pressed while recruits remained — second press skips them.
+   */
+  musterSkipWarned: boolean
   selectedLegionId: string | null
   legalHexes: string[]
   battle: BattleState | null
@@ -191,6 +203,7 @@ export interface GameState {
 
 export type GameCommand =
   | { type: 'selectLegion'; legionId: string }
+  | { type: 'deselectLegion' }
   | { type: 'split'; parentId: string; childCreatures: string[]; childHex?: string }
   | { type: 'doneSplit' }
   | { type: 'move'; legionId: string; toHex: string; teleport?: boolean }

@@ -131,8 +131,26 @@ export function listRecruitOptionsAt(
     hexLabel,
     moved: true,
     recruited: false,
+    musteredThisTurn: null,
   }
   return listRecruits(state, phantom)
+}
+
+/** Strongest eligible recruit for a legion on its current hex (Muster phase). */
+export function bestRecruit(state: GameState, legion: Legion): string | null {
+  const options = listRecruits(state, legion)
+  if (options.length === 0) return null
+  let best = options[0]!
+  let bestRank = -1
+  for (const name of options) {
+    const t = state.variant.creatures[name]
+    const rank = (t?.power ?? 0) * (t?.skill ?? 0)
+    if (rank >= bestRank) {
+      bestRank = rank
+      best = name
+    }
+  }
+  return best
 }
 
 /** Strongest eligible recruit at a destination (by power × skill). */
@@ -143,7 +161,7 @@ export function bestRecruitAt(
 ): string | null {
   const options = listRecruitOptionsAt(state, legion, hexLabel)
   if (options.length === 0) return null
-  let best = options[0]
+  let best = options[0]!
   let bestRank = -1
   for (const name of options) {
     const t = state.variant.creatures[name]
@@ -165,4 +183,5 @@ export function applyRecruit(state: GameState, legionId: string, creatureType: s
   state.caretaker[creatureType] -= 1
   legion.creatures.push({ type: creatureType, hits: 0 })
   legion.recruited = true
+  legion.musteredThisTurn = creatureType
 }

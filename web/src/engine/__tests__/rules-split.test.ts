@@ -134,7 +134,9 @@ describe('rules-split', () => {
         moved: false,
         teleported: false,
         recruited: false,
+        musteredThisTurn: null,
         enteredFrom: null,
+        knownPublic: [],
       })
     }
     expect(alice.markersAvailable).toHaveLength(0)

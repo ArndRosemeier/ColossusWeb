@@ -25,6 +25,13 @@ import {
 import { listAllMoves, rollDie } from './movement'
 import { applyRecruit, listRecruits } from './recruit'
 import {
+  clearPublicKnowledge,
+  formatPublicContents,
+  revealAll,
+  revealCreatures,
+  revealRecruit,
+} from './publicKnowledge'
+import {
   type DiceRollDisplay,
   type GameCommand,
   type GameState,
@@ -179,9 +186,11 @@ export function createGame(variant: LoadedVariant, options: NewGameOptions): Gam
       playerId: player.id,
       hexLabel: player.startingTower,
       creatures,
+      knownPublic: creatures.map((c) => c.type),
       moved: false,
       teleported: false,
       recruited: false,
+      musteredThisTurn: null,
       enteredFrom: null,
     })
   }
@@ -199,6 +208,7 @@ export function createGame(variant: LoadedVariant, options: NewGameOptions): Gam
     pendingDice: null,
     diceMode: options.diceMode ?? 'rng',
     mulliganAvailable: true,
+    musterSkipWarned: false,
     selectedLegionId: null,
     legalHexes: [],
     battle: null,
@@ -260,6 +270,10 @@ function applyCommand(state: GameState, command: GameCommand, rng: () => number)
     case 'selectLegion':
       selectLegion(state, command.legionId)
       break
+    case 'deselectLegion':
+      state.selectedLegionId = null
+      state.legalHexes = []
+      break
     case 'split':
       doSplit(state, command.parentId, command.childCreatures)
       break
@@ -293,6 +307,7 @@ function applyCommand(state: GameState, command: GameCommand, rng: () => number)
       doRecruit(state, command.legionId, command.creatureType)
       break
     case 'doneMuster':
+      if (!confirmDoneMuster(state)) break
       endTurn(state, rng)
       break
     case 'pass':
@@ -433,6 +448,8 @@ function handleEngagementCommand(
   switch (command.type) {
     case 'revealEngagement': {
       eng.revealed = true
+      revealAll(attacker)
+      revealAll(defender)
       state.message = `Revealed: ${attacker.markerId}=[${attacker.creatures.map((c) => c.type).join(',')}] vs ${defender.markerId}=[${defender.creatures.map((c) => c.type).join(',')}]`
       state.log.push(state.message)
       break
@@ -502,6 +519,8 @@ function startBattleFromEngagement(state: GameState, rng: () => number): void {
   const eng = state.activeEngagement!
   const attacker = state.legions.find((l) => l.id === eng.attackerId)!
   const defender = state.legions.find((l) => l.id === eng.defenderId)!
+  revealAll(attacker)
+  revealAll(defender)
   state.activeEngagement = null
   state.battle = startBattle(state, attacker, defender, rng)
   state.phase = 'Battle'
@@ -513,32 +532,36 @@ function selectLegion(state: GameState, legionId: string): void {
   const legion = state.legions.find((l) => l.id === legionId)
   if (!legion) throw new Error('Legion not found')
   const player = activePlayer(state)
-  if (legion.playerId !== player.id && state.phase !== 'Fight') {
-    throw new Error('Not your legion')
-  }
+  const isMine = legion.playerId === player.id
   state.selectedLegionId = legionId
-  if (state.phase === 'Move' && state.movementRoll != null) {
+
+  if (state.phase === 'Move' && isMine && state.movementRoll != null) {
     const moves = listAllMoves(state, legion, state.movementRoll)
     state.legalHexes = [...moves.keys()]
     state.message = `Selected ${legion.markerId} — ${state.legalHexes.length} legal moves`
-  } else if (state.phase === 'Muster') {
+    return
+  }
+
+  state.legalHexes = []
+  if (state.phase === 'Muster' && isMine) {
     const recruits = listRecruits(state, legion)
-    state.legalHexes = []
     state.message = recruits.length
       ? `Recruit: ${recruits.join(', ')}`
       : 'No recruits available for this legion'
-  } else if (state.phase === 'Split') {
-    state.legalHexes = []
-    state.message = `Selected ${legion.markerId} (${legion.creatures.map((c) => c.type).join(', ')})`
-  } else if (state.phase === 'Fight') {
-    state.legalHexes = []
+    return
+  }
+  if (state.phase === 'Fight') {
     const enemies = state.legions.filter(
       (l) => l.hexLabel === legion.hexLabel && l.playerId !== legion.playerId,
     )
     state.message = enemies.length
       ? `Engage ${enemies.map((e) => e.markerId).join(', ')}?`
       : 'No enemy here'
+    return
   }
+
+  // Inspection (own or enemy) — enemy AI stacks show public knowledge only
+  state.message = `${legion.markerId}: [${formatPublicContents(state, legion)}]`
 }
 
 function doSplit(state: GameState, parentId: string, childTypes: string[]): void {
@@ -583,11 +606,14 @@ function doSplit(state: GameState, parentId: string, childTypes: string[]): void
     playerId: player.id,
     hexLabel: parent.hexLabel,
     creatures: childCreatures,
+    knownPublic: [],
     moved: false,
     teleported: false,
     recruited: false,
+    musteredThisTurn: null,
     enteredFrom: null,
   }
+  clearPublicKnowledge(parent)
   state.legions.push(child)
   state.selectedLegionId = child.id
   state.log.push(`${player.name} splits ${child.markerId} from ${parent.markerId}`)
@@ -602,6 +628,7 @@ function beginMovePhase(state: GameState, rng: () => number): void {
     l.moved = false
     l.teleported = false
     l.recruited = false
+    l.musteredThisTurn = null
   }
   activePlayer(state).hasTeleported = false
   if (state.turnNumber !== 1) state.mulliganAvailable = false
@@ -651,7 +678,10 @@ function doMove(state: GameState, legionId: string, toHex: string): void {
       const t = state.variant.creatures[c.type]
       return t?.lord || t?.demilord
     })
-    if (lord) state.log.push(`${legion.markerId} reveals ${lord.type} for teleport`)
+    if (lord) {
+      revealCreatures(legion, [lord.type])
+      state.log.push(`${legion.markerId} reveals ${lord.type} for teleport`)
+    }
   }
 
   legion.hexLabel = toHex
@@ -722,8 +752,36 @@ function beginMusterPhase(state: GameState): void {
   clearDiceRoll(state)
   state.selectedLegionId = null
   state.legalHexes = []
+  state.musterSkipWarned = false
   // Titan/Colossus: only legions that moved this turn may muster
   state.message = `${activePlayer(state).name}: Muster — recruit with legions that moved, or Done`
+}
+
+/** Legions that still have a legal recruit this muster. */
+export function legionsWithPendingMuster(state: GameState): Legion[] {
+  return playerLegions(state, activePlayer(state).id).filter(
+    (l) => listRecruits(state, l).length > 0,
+  )
+}
+
+function confirmDoneMuster(state: GameState): boolean {
+  if (state.phase !== 'Muster') throw new Error('Not muster phase')
+  const pending = legionsWithPendingMuster(state)
+  if (pending.length === 0) {
+    state.musterSkipWarned = false
+    return true
+  }
+  if (state.musterSkipWarned) {
+    state.musterSkipWarned = false
+    return true
+  }
+  state.musterSkipWarned = true
+  const names = pending.map((l) => l.markerId).join(', ')
+  state.message =
+    pending.length === 1
+      ? `Warning: ${names} can still muster. Confirm Done again to skip.`
+      : `Warning: ${names} can still muster. Confirm Done again to skip.`
+  return false
 }
 
 function doRecruit(state: GameState, legionId: string, creatureType: string): void {
@@ -732,6 +790,8 @@ function doRecruit(state: GameState, legionId: string, creatureType: string): vo
   if (!legion) throw new Error('Legion not found')
   if (legion.playerId !== activePlayer(state).id) throw new Error('Not your legion')
   applyRecruit(state, legionId, creatureType)
+  revealRecruit(state, legion, creatureType)
+  state.musterSkipWarned = false
   state.log.push(`${legion.markerId} recruits ${creatureType}`)
   state.message = `${legion.markerId} recruited ${creatureType}`
   state.selectedLegionId = legionId
@@ -908,6 +968,7 @@ function handleBattleCommand(state: GameState, command: GameCommand, rng: () => 
       if (!opts.includes(command.creatureType)) throw new Error('Illegal reinforcement')
       state.caretaker[command.creatureType] -= 1
       def.creatures.push({ type: command.creatureType, hits: 0 })
+      revealCreatures(def, [command.creatureType])
       battle.units.push({
         id: `bu-r-${battle.units.length}`,
         legionId: def.id,
@@ -951,7 +1012,11 @@ function handleBattleCommand(state: GameState, command: GameCommand, rng: () => 
       })
       if (angelIdx < 0) throw new Error('No summonable creature')
       const [angel] = src.creatures.splice(angelIdx, 1)
+      // Summoned angel leaves the source; drop one known copy if present
+      const knownIdx = src.knownPublic.indexOf(angel.type)
+      if (knownIdx >= 0) src.knownPublic.splice(knownIdx, 1)
       atk.creatures.push({ type: angel.type, hits: 0 })
+      revealCreatures(atk, [angel.type])
       battle.units.push({
         id: `bu-s-${battle.units.length}`,
         legionId: atk.id,

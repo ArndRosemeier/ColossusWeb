@@ -35,7 +35,9 @@ function stubLegion(partial: Partial<Legion> & Pick<Legion, 'playerId' | 'creatu
     moved: false,
     teleported: false,
     recruited: false,
+    musteredThisTurn: null,
     enteredFrom: 'Bottom',
+    knownPublic: partial.creatures.map((c) => c.type),
     ...partial,
   }
 }
