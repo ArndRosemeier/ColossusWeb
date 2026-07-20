@@ -28,6 +28,7 @@ import { DiceOverlay, shouldAnimateDice } from './DiceOverlay'
 import { GameControls } from './GameControls'
 import { phaseEndCommand, applyEnterKeyPhaseEnd } from './LegionActions'
 import { MasterBoardView } from './MasterBoardView'
+import { BackgroundAtmosphereSelect } from './BackgroundAtmosphere'
 import { SetupScreen } from './SetupScreen'
 
 export type { AiSpeedId }
@@ -443,6 +444,7 @@ export default function App() {
         {state.draw && <span className="winner">Draw!</span>}
         <span className="topbar-spacer" />
         {saveFlash && <span className="save-flash">{saveFlash}</span>}
+        <BackgroundAtmosphereSelect className="ai-speed bg-atmosphere-select" />
         {!gameOver && (
           <label className="ai-speed">
             <span className="muted">AI speed</span>

@@ -38,17 +38,275 @@ body {
     var(--ink);
 }
 
-/* Hex lattice atmosphere */
+/* Hex lattice moved into .bg-atmosphere so it sits with ember/ash behind the board */
 body::before {
-  content: '';
+  content: none;
+}
+
+/* —— Selectable background atmosphere —— */
+.bg-atmosphere {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.07;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath fill='none' stroke='%23e08a45' stroke-width='1' d='M28 0 L56 16 L56 48 L28 64 L0 48 L0 16 Z M28 64 L56 80 L56 112 L28 128 L0 112 L0 80 Z'/%3E%3C/svg%3E");
-  background-size: 56px 100px;
-  mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, #000 20%, transparent 75%);
+  overflow: hidden;
+}
+
+.bg-hex-lattice {
+  position: absolute;
+  inset: 0;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='84'%3E%3Cpath fill='none' stroke='%23f0b060' stroke-width='1.75' d='M24 0 L48 14 L48 42 L24 56 L0 42 L0 14 Z M24 56 L48 70 L48 98 L24 112 L0 98 L0 70 Z'/%3E%3C/svg%3E");
+  background-size: 48px 84px;
+  mask-image: radial-gradient(ellipse 90% 80% at 50% 45%, #000 25%, transparent 82%);
+}
+
+.bg-waves {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.bg-wave {
+  position: absolute;
+  left: -30%;
+  width: 160%;
+  height: 42%;
+  border-radius: 42% 58% 48% 52%;
+  filter: blur(36px);
+  mix-blend-mode: soft-light;
+  opacity: 0.7;
+  will-change: transform;
+}
+
+.bg-wave-a {
+  top: 6%;
+  background: radial-gradient(
+    ellipse at 40% 50%,
+    rgba(224, 150, 80, 0.55),
+    rgba(180, 90, 40, 0.12) 55%,
+    transparent 75%
+  );
+}
+
+.bg-wave-b {
+  top: 34%;
+  height: 38%;
+  background: radial-gradient(
+    ellipse at 60% 50%,
+    rgba(70, 140, 160, 0.5),
+    rgba(40, 90, 110, 0.12) 55%,
+    transparent 75%
+  );
+  animation-delay: -4s;
+}
+
+.bg-wave-c {
+  top: 58%;
+  height: 40%;
+  background: radial-gradient(
+    ellipse at 45% 50%,
+    rgba(200, 90, 70, 0.4),
+    rgba(120, 40, 50, 0.1) 55%,
+    transparent 75%
+  );
+  animation-delay: -9s;
+}
+
+.bg-wave-ribbons {
+  position: absolute;
+  inset: 8% -10% 8%;
+  width: 120%;
+  height: 84%;
+  opacity: 0.55;
+  mix-blend-mode: soft-light;
+}
+
+.bg-wave-path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-width: 18;
+}
+
+.bg-wave-path-a {
+  stroke: rgba(224, 148, 80, 0.45);
+}
+
+.bg-wave-path-b {
+  stroke: rgba(90, 160, 175, 0.4);
+}
+
+.bg-wave-path-c {
+  stroke: rgba(200, 110, 85, 0.35);
+}
+
+.bg-ember-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(28px);
+  opacity: 0;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  mix-blend-mode: screen;
+}
+
+.bg-ember-orb-a {
+  width: min(70vw, 640px);
+  height: min(70vw, 640px);
+  left: -12%;
+  top: -16%;
+  background: radial-gradient(circle, rgba(255, 160, 70, 0.85), rgba(224, 100, 40, 0.35) 45%, transparent 70%);
+}
+
+.bg-ember-orb-b {
+  width: min(58vw, 520px);
+  height: min(58vw, 520px);
+  right: -10%;
+  top: 10%;
+  background: radial-gradient(circle, rgba(220, 50, 60, 0.7), rgba(160, 20, 40, 0.3) 48%, transparent 72%);
+}
+
+.bg-ember-orb-c {
+  width: min(62vw, 560px);
+  height: min(48vw, 440px);
+  left: 18%;
+  bottom: -18%;
+  background: radial-gradient(circle, rgba(80, 170, 190, 0.65), rgba(40, 100, 130, 0.28) 50%, transparent 74%);
+}
+
+.bg-ash {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  mix-blend-mode: screen;
+}
+
+.bg-ash-mote {
+  position: absolute;
+  bottom: -4%;
+  border-radius: 50%;
+  background: rgba(255, 236, 210, 0.95);
+  box-shadow:
+    0 0 6px 2px rgba(255, 200, 120, 0.85),
+    0 0 14px 4px rgba(224, 138, 69, 0.45);
+  opacity: 0;
+}
+
+html[data-bg-atmosphere='ember'] .bg-ember-orb {
+  opacity: 1;
+  animation: bg-ember-drift 14s ease-in-out infinite alternate;
+}
+
+html[data-bg-atmosphere='ember'] .bg-ember-orb-b {
+  animation-duration: 18s;
+  animation-direction: alternate-reverse;
+}
+
+html[data-bg-atmosphere='ember'] .bg-ember-orb-c {
+  animation-duration: 22s;
+}
+
+html[data-bg-atmosphere='wave'] .bg-waves {
+  opacity: 1;
+}
+
+html[data-bg-atmosphere='wave'] .bg-wave {
+  animation: bg-wave-drift 18s ease-in-out infinite alternate;
+}
+
+html[data-bg-atmosphere='wave'] .bg-wave-b {
+  animation-duration: 24s;
+  animation-direction: alternate-reverse;
+}
+
+html[data-bg-atmosphere='wave'] .bg-wave-c {
+  animation-duration: 28s;
+}
+
+html[data-bg-atmosphere='wave'] .bg-wave-ribbons {
+  animation: bg-wave-ribbon 22s ease-in-out infinite alternate;
+}
+
+html[data-bg-atmosphere='ash'] .bg-ash {
+  opacity: 1;
+}
+
+html[data-bg-atmosphere='ash'] .bg-ash-mote {
+  animation-name: bg-ash-rise;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes bg-ember-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(16vw, 12vh, 0) scale(1.28);
+  }
+}
+
+@keyframes bg-wave-drift {
+  from {
+    transform: translate3d(-4%, 0, 0) scale(1, 1);
+  }
+  to {
+    transform: translate3d(6%, 3%, 0) scale(1.06, 1.12);
+  }
+}
+
+@keyframes bg-wave-ribbon {
+  from {
+    transform: translate3d(-3%, 1%, 0);
+  }
+  to {
+    transform: translate3d(4%, -2%, 0);
+  }
+}
+
+@keyframes bg-ash-rise {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate3d(28px, -110vh, 0);
+    opacity: 0;
+  }
+}
+
+.bg-atmosphere-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.bg-atmosphere-select select {
+  background: var(--stone-2);
+  color: var(--bone);
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  padding: 0.25rem 0.4rem;
+  font: inherit;
+}
+
+.setup-bg {
+  width: 100%;
+}
+
+.setup-bg .bg-atmosphere-blurb {
+  flex: 1 1 100%;
+  margin: 0.15rem 0 0;
 }
 
 #root {
@@ -305,7 +563,7 @@ button:disabled {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--ink);
+  background: transparent;
 }
 
 .topbar {
@@ -385,10 +643,11 @@ button:disabled {
   position: relative;
   overflow: auto;
   padding: 1rem;
+  /* Let atmosphere read clearly behind the map without washing out chits */
   background:
-    radial-gradient(ellipse at 30% 20%, rgba(40, 70, 60, 0.35), transparent 50%),
-    radial-gradient(ellipse at 80% 80%, rgba(80, 50, 30, 0.25), transparent 45%),
-    linear-gradient(160deg, #1a2830 0%, #243038 40%, #2a3228 100%);
+    radial-gradient(ellipse at 30% 20%, rgba(40, 70, 60, 0.22), transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(80, 50, 30, 0.16), transparent 45%),
+    linear-gradient(160deg, rgba(26, 40, 48, 0.52) 0%, rgba(36, 48, 56, 0.48) 40%, rgba(42, 50, 40, 0.5) 100%);
 }
 
 .board-decision-overlay {
