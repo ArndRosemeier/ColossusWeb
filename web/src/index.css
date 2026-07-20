@@ -324,6 +324,27 @@ button:disabled {
   min-width: 0.5rem;
 }
 
+.ai-speed {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.ai-speed select {
+  background: var(--stone-2);
+  color: var(--bone);
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  padding: 0.25rem 0.4rem;
+  font: inherit;
+}
+
+.ai-watching {
+  color: var(--copper);
+  margin: 0.35rem 0 0;
+}
+
 .save-flash {
   color: var(--copper);
   font-size: 0.85rem;
@@ -688,6 +709,33 @@ button:disabled {
   padding: 0.85rem;
   border-radius: 2px;
   border: 1px solid #2a4434;
+}
+
+.battle-board .bhex {
+  fill-opacity: 1;
+}
+
+.battle-board .bhex.lit {
+  filter: brightness(1.15);
+}
+
+.battle-board .bhex-label {
+  pointer-events: none;
+  font-family: var(--font-display), Georgia, serif;
+}
+
+.battle-chit {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.battle-chit.selected {
+  outline: 2px solid #e08a45;
+  outline-offset: 1px;
+  border-radius: 2px;
 }
 
 .battle-meta {

@@ -1,7 +1,7 @@
 /**
  * Battle phase machine, start/end, time-loss — orchestrates battleland / movement / strike.
  */
-import { buildBattleland, type BuiltBattleland } from './battleland'
+import { buildBattleland, defenderEntryKey, type BuiltBattleland } from './battleland'
 import { legalBattleMoves } from './battleMovement'
 import {
   applyCarry,
@@ -38,10 +38,8 @@ export function battleLand(state: GameState, battle: BattleState): BuiltBattlela
   return land
 }
 
-function oppositeSide(side: EntrySide): EntrySide | 'Top' {
-  if (side === 'Bottom') return 'Top'
-  if (side === 'Left') return 'Right'
-  return 'Left'
+function oppositeSide(side: EntrySide): ReturnType<typeof defenderEntryKey> {
+  return defenderEntryKey(side)
 }
 
 export function startBattle(
@@ -55,13 +53,10 @@ export function startBattle(
   const terrain = hex?.terrain ?? 'Plains'
   const def = state.variant.data.battlelands[terrain] ?? state.variant.data.battlelands.Plains
   const land = buildBattleland(def)
-  const entry = attacker.enteredFrom ?? 'Bottom'
-  const atkSide = entry
-  const defSide = oppositeSide(entry)
-  const atkEntrances = land.entrances[atkSide === 'Bottom' ? 'Bottom' : atkSide === 'Left' ? 'Left' : 'Right']
-  const defEntrances =
-    land.entrances[defSide === 'Top' ? 'Top' : defSide === 'Left' ? 'Left' : defSide === 'Right' ? 'Right' : 'Bottom']
-
+  const atkSide = attacker.enteredFrom ?? 'Bottom'
+  const defSide = oppositeSide(atkSide)
+  const atkEntrances = land.entrances[atkSide]
+  const defEntrances = land.entrances[defSide]
   // Off-board initially — must enter on first maneuver (B3)
   const units: BattleUnit[] = []
   let uid = 0

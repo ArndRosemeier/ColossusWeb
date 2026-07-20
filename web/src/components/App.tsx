@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { runAiUntilHuman } from '../ai/simpleAi'
+import { isAiActing, pickAiCommand } from '../ai/simpleAi'
 import { createGame, dispatch as engDispatch, getMovesForSelected } from '../engine/GameEngine'
 import type { GameCommand, GameState, NewGameOptions } from '../engine/types'
 import {
@@ -15,12 +15,37 @@ import { GameControls } from './GameControls'
 import { MasterBoardView } from './MasterBoardView'
 import { SetupScreen } from './SetupScreen'
 
+export type AiSpeedId = 'paused' | 'slow' | 'normal' | 'fast' | 'instant'
+
+const AI_SPEEDS: Record<
+  AiSpeedId,
+  { label: string; delayMs: number | null; batch: number }
+> = {
+  paused: { label: 'Paused', delayMs: null, batch: 0 },
+  slow: { label: 'Slow', delayMs: 750, batch: 1 },
+  normal: { label: 'Normal', delayMs: 300, batch: 1 },
+  fast: { label: 'Fast', delayMs: 90, batch: 1 },
+  instant: { label: 'Instant', delayMs: 0, batch: 20 },
+}
+
+function stepAi(state: GameState, batch: number): GameState {
+  let s = state
+  for (let i = 0; i < batch; i++) {
+    if (!isAiActing(s)) break
+    const cmd = pickAiCommand(s)
+    if (!cmd) break
+    s = engDispatch(s, cmd)
+  }
+  return s
+}
+
 export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [state, setState] = useState<GameState | null>(null)
   const [saveMeta, setSaveMeta] = useState<SavedGameMeta | null>(null)
   const [saveFlash, setSaveFlash] = useState<string | null>(null)
+  const [aiSpeed, setAiSpeed] = useState<AiSpeedId>('normal')
 
   useEffect(() => {
     Promise.all([loadDefaultVariant(), loadAssetManifest()])
@@ -36,10 +61,12 @@ export default function App() {
 
   const start = useCallback(async (options: NewGameOptions) => {
     const variant = await loadDefaultVariant()
-    let g = createGame(variant, options)
-    g = runAiUntilHuman(g)
+    const g = createGame(variant, options)
     setState(g)
     setSaveFlash(null)
+    // All-AI: keep visible pace; with humans, Normal is fine for opponent turns
+    const allAi = options.players.every((p) => p.kind === 'ai')
+    setAiSpeed(allAi ? 'normal' : 'fast')
   }, [])
 
   const continueSaved = useCallback(async () => {
@@ -49,7 +76,7 @@ export default function App() {
       setSaveMeta(null)
       return
     }
-    setState(runAiUntilHuman(loaded))
+    setState(loaded)
     setSaveFlash(null)
   }, [])
 
@@ -73,17 +100,40 @@ export default function App() {
     setSaveMeta(peekSavedGameMeta())
   }, [state])
 
+  // Paced AI autoplay — one (or a small batch) of commands at a time so the board updates
+  useEffect(() => {
+    if (!state) return
+    if (state.winnerId || state.draw) return
+    if (!isAiActing(state)) return
+    const cfg = AI_SPEEDS[aiSpeed]
+    if (cfg.delayMs == null || cfg.batch <= 0) return
+
+    const id = window.setTimeout(() => {
+      setState((prev) => {
+        if (!prev || !isAiActing(prev)) return prev
+        return stepAi(prev, cfg.batch)
+      })
+    }, cfg.delayMs)
+    return () => window.clearTimeout(id)
+  }, [state, aiSpeed])
+
   const apply = useCallback((cmd: GameCommand) => {
     setState((prev) => {
       if (!prev) return prev
-      let next = engDispatch(prev, cmd)
-      next = runAiUntilHuman(next)
-      return next
+      // Human command only — AI continues via the paced effect
+      return engDispatch(prev, cmd)
+    })
+  }, [])
+
+  const stepOnce = useCallback(() => {
+    setState((prev) => {
+      if (!prev || !isAiActing(prev)) return prev
+      return stepAi(prev, 1)
     })
   }, [])
 
   const onHexClick = (label: string) => {
-    if (!state) return
+    if (!state || isAiActing(state)) return
     if (state.battle && !state.battle.done) {
       const battle = state.battle
       if (battle.phase === 'Move' && battle.selectedUnitId) {
@@ -106,18 +156,19 @@ export default function App() {
   }
 
   const onLegionClick = (legionId: string) => {
+    if (!state || isAiActing(state)) return
     apply({ type: 'selectLegion', legionId })
   }
 
   const onBattleHex = (hex: string) => {
-    if (!state?.battle?.selectedUnitId) return
+    if (!state?.battle?.selectedUnitId || isAiActing(state)) return
     if (state.battle.phase === 'Move') {
       apply({ type: 'battleMove', unitId: state.battle.selectedUnitId, toHex: hex })
     }
   }
 
   const onBattleUnit = (unitId: string) => {
-    if (!state?.battle) return
+    if (!state?.battle || isAiActing(state)) return
     const battle = state.battle
     if (battle.phase === 'Strike' || battle.phase === 'Strikeback') {
       if (battle.selectedUnitId && battle.highlighted.includes(unitId)) {
@@ -144,6 +195,9 @@ export default function App() {
     )
   }
 
+  const aiActing = isAiActing(state)
+  const gameOver = Boolean(state.winnerId || state.draw)
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -157,6 +211,27 @@ export default function App() {
         {state.draw && <span className="winner">Draw!</span>}
         <span className="topbar-spacer" />
         {saveFlash && <span className="save-flash">{saveFlash}</span>}
+        {!gameOver && (
+          <label className="ai-speed">
+            <span className="muted">AI speed</span>
+            <select
+              value={aiSpeed}
+              aria-label="AI playback speed"
+              onChange={(e) => setAiSpeed(e.target.value as AiSpeedId)}
+            >
+              {(Object.keys(AI_SPEEDS) as AiSpeedId[]).map((id) => (
+                <option key={id} value={id}>
+                  {AI_SPEEDS[id].label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {aiActing && aiSpeed === 'paused' && (
+          <button type="button" className="ghost" onClick={stepOnce}>
+            Step AI
+          </button>
+        )}
         <button type="button" className="ghost" onClick={save}>
           Save
         </button>
@@ -181,7 +256,7 @@ export default function App() {
             />
           )}
         </div>
-        <GameControls state={state} dispatch={apply} />
+        <GameControls state={state} dispatch={apply} interactive={!aiActing} />
       </main>
     </div>
   )

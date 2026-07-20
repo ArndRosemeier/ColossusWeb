@@ -8,9 +8,11 @@ import { MarkerChit } from './MarkerChit'
 interface Props {
   state: GameState
   dispatch: (cmd: GameCommand) => void
+  /** When false, phase actions are disabled (AI is acting). */
+  interactive?: boolean
 }
 
-export function GameControls({ state, dispatch }: Props) {
+export function GameControls({ state, dispatch, interactive = true }: Props) {
   const player = activePlayer(state)
   const selected = state.selectedLegionId
     ? state.legions.find((l) => l.id === state.selectedLegionId)
@@ -27,9 +29,13 @@ export function GameControls({ state, dispatch }: Props) {
           <span className="muted">
             Turn {state.turnNumber} · {state.phase}
             {state.movementRoll != null ? ` · roll ${state.movementRoll}` : ''}
+            {player.kind === 'ai' ? ' · AI' : ''}
           </span>
         </div>
         <p className="message">{state.message}</p>
+        {!interactive && player.kind === 'ai' && (
+          <p className="hint ai-watching">Watching AI — adjust speed in the top bar.</p>
+        )}
       </div>
 
       {selected && (
@@ -64,6 +70,7 @@ export function GameControls({ state, dispatch }: Props) {
         </div>
       )}
 
+      {interactive && (
       <div className="phase-actions">
         {state.phase === 'Split' && (
           <>
@@ -273,7 +280,9 @@ export function GameControls({ state, dispatch }: Props) {
           </>
         )}
       </div>
+      )}
 
+      {interactive && (
       <div className="legion-list">
         <h3>Your legions</h3>
         {myLegs.map((leg) => {
@@ -317,6 +326,7 @@ export function GameControls({ state, dispatch }: Props) {
           )
         })}
       </div>
+      )}
 
       <div className="scores">
         <h3>Scores</h3>

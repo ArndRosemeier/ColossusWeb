@@ -1,5 +1,5 @@
 /**
- * Battleland hex graph + hazard helpers (Colossus BattleHex / HazardHexside).
+ * Battleland hex graph + hazard helpers (Colossus BattleHex / HazardHexside / HexMap).
  */
 import type { BattleHexDef, BattlelandDef, CreatureType } from '../types/variant'
 
@@ -19,11 +19,43 @@ const HAZARD_BY_CODE: Record<string, HexsideHazard> = {
   r: 'river',
 }
 
+/** Colossus HexMap.VISIBLE_HEXES — true battle map is a hexagon (27 hexes). */
+export const VISIBLE_HEXES: boolean[][] = [
+  [false, false, true, true, true, false],
+  [false, true, true, true, true, false],
+  [false, true, true, true, true, true],
+  [true, true, true, true, true, true],
+  [false, true, true, true, true, true],
+  [false, true, true, true, true, false],
+]
+
+/**
+ * Landing hexes adjacent to each entrance (Colossus MasterBoardTerrain.setupEntrances).
+ * Odd indices = attacker sides (4 hexes); even = defender sides (3 hexes).
+ * Order matches EntrySide: TopDefense, Right, RightDefense, Bottom, LeftDefense, Left.
+ */
+const ENTRANCE_LANDINGS: string[][] = [
+  ['D6', 'E5', 'F4'], // 0 Top defense
+  ['F4', 'F3', 'F2', 'F1'], // 1 Right
+  ['F1', 'E1', 'D1'], // 2 Right defense
+  ['D1', 'C1', 'B1', 'A1'], // 3 Bottom
+  ['A1', 'A2', 'A3'], // 4 Left defense
+  ['A3', 'B4', 'C5', 'D6'], // 5 Left
+]
+
 /** Terrains that block ground / LOS / slow (simplified Colossus HazardTerrain flags). */
 const BLOCKS_GROUND = new Set(['Lake', 'Stone', 'Tree'])
 const BLOCKS_LOS = new Set(['Tree', 'Stone'])
 const SLOWS_NON_NATIVE = new Set(['Brambles', 'Drift', 'Bog', 'Sand', 'Volcano'])
 const GROUND_NATIVE_ONLY = new Set(['Bog', 'Volcano'])
+
+export type BattleEntryKey =
+  | 'Bottom'
+  | 'Left'
+  | 'Right'
+  | 'Top'
+  | 'LeftDefense'
+  | 'RightDefense'
 
 export interface BuiltBattleHex {
   label: string
@@ -42,13 +74,18 @@ export interface BuiltBattleland {
   hexByLabel: Record<string, BuiltBattleHex>
   labels: string[]
   startlist: string[]
-  /** Entrance labels by side name */
-  entrances: Record<'Bottom' | 'Left' | 'Right' | 'Top', string[]>
+  /** Landing hexes by entry side (attacker uses Bottom/Left/Right; defender uses opposites). */
+  entrances: Record<BattleEntryKey, string[]>
+}
+
+/** Java-style integer division toward zero for label math. */
+function idiv(a: number, b: number): number {
+  return Math.trunc(a / b)
 }
 
 function createLabel(x: number, y: number): string {
   if (x < 0) return `X${y}`
-  const yLabel = 6 - y - Math.abs(Math.trunc((x - 3) / 2))
+  const yLabel = 6 - y - Math.abs(idiv(x - 3, 2))
   return `${String.fromCharCode(65 + x)}${yLabel}`
 }
 
@@ -82,11 +119,10 @@ export function buildBattleland(def: BattlelandDef): BuiltBattleland {
   const byXY = new Map<string, BattleHexDef>()
   for (const h of def.hexes) byXY.set(`${h.x},${h.y}`, h)
 
-  // Ensure full A–F grid of plains where XML only overrides hazards
   const hexByLabel: Record<string, BuiltBattleHex> = {}
   for (let x = 0; x < 6; x++) {
     for (let y = 0; y < 6; y++) {
-      if ((x === 0 || x === 5) && (y === 0 || y === 5)) continue
+      if (!VISIBLE_HEXES[x]![y]) continue
       const key = `${x},${y}`
       const raw = byXY.get(key)
       const label = raw?.label ?? createLabel(x, y)
@@ -114,26 +150,21 @@ export function buildBattleland(def: BattlelandDef): BuiltBattleland {
   for (const h of Object.values(hexByLabel)) {
     const deltas = neighborDeltas(h.x)
     for (let i = 0; i < 6; i++) {
-      const [dx, dy] = deltas[i]
+      const [dx, dy] = deltas[i]!
       const n = byCoord.get(`${h.x + dx},${h.y + dy}`)
       h.neighbors[i] = n ?? null
     }
   }
 
-  const entrances = {
-    Bottom: ['C1', 'D1', 'B1', 'E1'].filter((l) => hexByLabel[l]),
-    Top: ['C5', 'D5', 'B4', 'E4'].filter((l) => hexByLabel[l]),
-    Left: ['A1', 'A2', 'A3'].filter((l) => hexByLabel[l]),
-    Right: ['F1', 'F2', 'F3', 'F4'].filter((l) => hexByLabel[l]),
-  }
+  const filterExisting = (labels: string[]) => labels.filter((l) => hexByLabel[l])
 
-  // Fallback if label scheme misses
-  if (entrances.Bottom.length === 0) {
-    const bottom = Object.values(hexByLabel)
-      .filter((h) => h.y >= 4)
-      .sort((a, b) => a.x - b.x)
-      .map((h) => h.label)
-    entrances.Bottom = bottom.slice(0, 4)
+  const entrances: Record<BattleEntryKey, string[]> = {
+    Top: filterExisting(ENTRANCE_LANDINGS[0]!),
+    Right: filterExisting(ENTRANCE_LANDINGS[1]!),
+    RightDefense: filterExisting(ENTRANCE_LANDINGS[2]!),
+    Bottom: filterExisting(ENTRANCE_LANDINGS[3]!),
+    LeftDefense: filterExisting(ENTRANCE_LANDINGS[4]!),
+    Left: filterExisting(ENTRANCE_LANDINGS[5]!),
   }
 
   return {
@@ -141,9 +172,21 @@ export function buildBattleland(def: BattlelandDef): BuiltBattleland {
     tower: def.tower,
     hexByLabel,
     labels: Object.keys(hexByLabel),
-    startlist: def.startlist.length ? def.startlist : Object.values(hexByLabel).filter((h) => h.terrain === 'Tower' || h.elevation > 0).map((h) => h.label).slice(0, 7),
+    startlist: def.startlist.length
+      ? def.startlist
+      : Object.values(hexByLabel)
+          .filter((h) => h.terrain === 'Tower' || h.elevation > 0)
+          .map((h) => h.label)
+          .slice(0, 7),
     entrances,
   }
+}
+
+/** Defender sits opposite the attacker's entry (Colossus EntrySide.getOpposingSide). */
+export function defenderEntryKey(attackerSide: 'Left' | 'Right' | 'Bottom'): BattleEntryKey {
+  if (attackerSide === 'Bottom') return 'Top'
+  if (attackerSide === 'Left') return 'RightDefense'
+  return 'LeftDefense'
 }
 
 export function oppositeHazard(land: BuiltBattleland, hex: BuiltBattleHex, side: number): HexsideHazard {
@@ -192,22 +235,22 @@ export function getEntryCost(
   }
 
   if (cost > IMPASSABLE_COST) cost = IMPASSABLE_COST
-  if (cost < IMPASSABLE_COST && cost > SLOW_COST) cost = SLOW_COST
+  void SLOW_COST
+  void land
   return cost
 }
 
 export function canFlyOver(hex: BuiltBattleHex, creature: CreatureType): boolean {
-  if (!creature.flies) return false
   if (hex.terrain === 'Volcano' && !isNativeIn(creature, 'Volcano')) return false
   return true
-}
-
-export function blocksLOS(hex: BuiltBattleHex): boolean {
-  return BLOCKS_LOS.has(hex.terrain)
 }
 
 export function battleNeighbors(land: BuiltBattleland, label: string): string[] {
   const hex = land.hexByLabel[label]
   if (!hex) return []
   return hex.neighbors.filter((n): n is string => n != null)
+}
+
+export function blocksLOS(hex: BuiltBattleHex): boolean {
+  return BLOCKS_LOS.has(hex.terrain)
 }

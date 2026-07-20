@@ -331,18 +331,23 @@ export function pickAiCommand(state: GameState, rng = Math.random): GameCommand 
   return pickRandomCommand(state, rng)
 }
 
+/** True when the player who must act now is an AI (master or battle). */
+export function isAiActing(state: GameState): boolean {
+  if (state.winnerId || state.draw) return false
+  const player = state.players[state.activePlayerIndex]
+  const inBattle = Boolean(state.battle && !state.battle.done)
+  const actorId = inBattle ? state.battle!.activePlayerId : player?.id
+  const actor = state.players.find((p) => p.id === actorId)
+  return Boolean(actor && actor.kind === 'ai' && !actor.dead)
+}
+
 /** @deprecated alias — use pickAiCommand */
 export const pickSimpleAiCommand = pickAiCommand
 
-export function runAiUntilHuman(state: GameState, maxSteps = 80, rng = Math.random): GameState {
+export function runAiUntilHuman(state: GameState, maxSteps = 80, rng = () => Math.random()): GameState {
   let s = state
   for (let i = 0; i < maxSteps; i++) {
-    if (s.winnerId || s.draw) break
-    const player = s.players[s.activePlayerIndex]
-    const inBattle = s.battle && !s.battle.done
-    const actorId = inBattle ? s.battle!.activePlayerId : player.id
-    const actor = s.players.find((p) => p.id === actorId)
-    if (!actor || actor.kind !== 'ai') break
+    if (!isAiActing(s)) break
     const cmd = pickAiCommand(s, rng)
     if (!cmd) break
     s = dispatch(s, cmd, rng)
