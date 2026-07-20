@@ -188,4 +188,66 @@ describe('Titan rangestrike range counting', () => {
       angel.id,
     )
   })
+
+  it('LOS: Tree on the only intervening hex blocks Ranger; Warlock ignores', () => {
+    const nothing = Array(6).fill('nothing') as (
+      | 'nothing'
+      | 'dune'
+      | 'cliff'
+      | 'slope'
+      | 'tower'
+      | 'river'
+    )[]
+    // Linear A — B(Tree) — C
+    const hexA = {
+      label: 'A',
+      x: 0,
+      y: 0,
+      terrain: 'Plains',
+      elevation: 0,
+      hexsides: [...nothing] as typeof nothing,
+      neighbors: ['B', null, null, null, null, null] as (string | null)[],
+    }
+    const hexB = {
+      label: 'B',
+      x: 1,
+      y: 0,
+      terrain: 'Tree',
+      elevation: 0,
+      hexsides: [...nothing] as typeof nothing,
+      neighbors: ['C', null, null, 'A', null, null] as (string | null)[],
+    }
+    const hexC = {
+      label: 'C',
+      x: 2,
+      y: 0,
+      terrain: 'Plains',
+      elevation: 0,
+      hexsides: [...nothing] as typeof nothing,
+      neighbors: [null, null, null, 'B', null, null] as (string | null)[],
+    }
+    const land = {
+      terrain: 'Test',
+      tower: false,
+      hexByLabel: { A: hexA, B: hexB, C: hexC },
+      labels: ['A', 'B', 'C'],
+      startlist: [],
+      entrances: {
+        Bottom: [],
+        Left: [],
+        Right: [],
+        Top: [],
+        LeftDefense: [],
+        RightDefense: [],
+      },
+    } as ReturnType<typeof import('../battleland').buildBattleland>
+
+    const g = twoPlayerGame(99)
+    const ranger = unit({ creatureType: 'Ranger', playerId: 'a', hex: 'A' })
+    const warlock = unit({ id: 'wl', creatureType: 'Warlock', playerId: 'a', hex: 'A' })
+    const ogre = unit({ creatureType: 'Ogre', playerId: 'b', hex: 'C' })
+    expect(titanRange(land, 'A', 'C')).toBe(3)
+    expect(legalStrikes(g, { units: [ranger, ogre] }, land, ranger, true)).not.toContain(ogre.id)
+    expect(legalStrikes(g, { units: [warlock, ogre] }, land, warlock, true)).toContain(ogre.id)
+  })
 })

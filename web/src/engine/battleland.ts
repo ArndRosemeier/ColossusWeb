@@ -279,6 +279,23 @@ export function battleNeighbors(land: BuiltBattleland, label: string): string[] 
   return hex.neighbors.filter((n): n is string => n != null)
 }
 
+/** True if the hexside between `from` and `to` is a cliff (either side). */
+export function isCliffBetween(land: BuiltBattleland, from: string, to: string): boolean {
+  const dir = directionBetween(land, from, to)
+  if (dir < 0) return false
+  const hex = land.hexByLabel[from]
+  if (!hex) return false
+  return hex.hexsides[dir] === 'cliff' || oppositeHazard(land, hex, dir) === 'cliff'
+}
+
+/**
+ * Neighbor hexes that count as melee contact / strike adjacency.
+ * Cliffs separate characters: they are not engaged across that hexside.
+ */
+export function meleeNeighbors(land: BuiltBattleland, label: string): string[] {
+  return battleNeighbors(land, label).filter((n) => !isCliffBetween(land, label, n))
+}
+
 export function blocksLOS(hex: BuiltBattleHex): boolean {
   return BLOCKS_LOS.has(hex.terrain)
 }

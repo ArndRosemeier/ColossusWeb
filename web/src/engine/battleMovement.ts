@@ -4,7 +4,7 @@
  * may continue inland with remaining skill in the same move.
  */
 import type { BuiltBattleland } from './battleland'
-import { battleNeighbors, canFlyOver, getEntryCost, IMPASSABLE_COST } from './battleland'
+import { battleNeighbors, canFlyOver, getEntryCost, IMPASSABLE_COST, meleeNeighbors } from './battleland'
 import type { BattleState, BattleUnit, GameState } from './types'
 import { getUnitSkill, isUnitAlive } from './battleStrike'
 import type { CreatureType } from '../types/variant'
@@ -16,7 +16,8 @@ export function isInContact(
   unit: BattleUnit,
 ): boolean {
   if (!unit.hex || !isUnitAlive(state, unit)) return false
-  for (const n of battleNeighbors(land, unit.hex)) {
+  // Cliffs break contact (Colossus / Titan: adjacent across cliff ≠ engaged).
+  for (const n of meleeNeighbors(land, unit.hex)) {
     if (
       battle.units.some(
         (u) => u.hex === n && u.playerId !== unit.playerId && isUnitAlive(state, u),

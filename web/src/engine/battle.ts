@@ -235,6 +235,7 @@ export function resolveStrikeFor(
   defenderId: string,
   rng: () => number,
   forcedRolls?: number[],
+  raisedStrikeNumber?: number,
 ): {
   message: string
   rolls: number[]
@@ -244,7 +245,16 @@ export function resolveStrikeFor(
   defenderType: string
 } {
   const land = battleLand(state, battle)
-  const result = doResolveStrike(state, battle, land, attackerId, defenderId, rng, forcedRolls)
+  const result = doResolveStrike(
+    state,
+    battle,
+    land,
+    attackerId,
+    defenderId,
+    rng,
+    forcedRolls,
+    raisedStrikeNumber,
+  )
   if (result.carries) {
     battle.pendingCarry = {
       fromUnitId: attackerId,
@@ -277,6 +287,7 @@ export function resolveStrike(
   defenderId: string,
   rng: () => number,
   forcedRolls?: number[],
+  raisedStrikeNumber?: number,
 ): {
   message: string
   rolls: number[]
@@ -285,7 +296,15 @@ export function resolveStrike(
   attackerType: string
   defenderType: string
 } {
-  return resolveStrikeFor(state, battle, attackerId, defenderId, rng, forcedRolls)
+  return resolveStrikeFor(
+    state,
+    battle,
+    attackerId,
+    defenderId,
+    rng,
+    forcedRolls,
+    raisedStrikeNumber,
+  )
 }
 
 export function checkBattleEnd(state: GameState, battle: BattleState): void {
@@ -463,6 +482,7 @@ export function advanceBattlePhase(state: GameState, battle: BattleState): void 
           battle.phase = 'Move'
         }
       } else {
+        battle.pendingSummon = false
         battle.phase = 'Move'
       }
       prepareBattleManeuver(battle)
@@ -709,25 +729,26 @@ export function checkTitanDeath(state: GameState, slayerId: string | null): void
       player.dead = true
       state.log.push(`${player.name} is eliminated (Titan slain)!`)
       const leftovers = state.legions.filter((l) => l.playerId === player.id)
-      // Colossus PlayerServerSide.die: half-points for unengaged leftovers, then markers to slayer
-      const slayer = slayerId ? state.players.find((p) => p.id === slayerId) : undefined
-      if (slayer) {
+      // Colossus PlayerServerSide.die: engaged leftovers → enemy on that hex;
+      // unengaged → slayer. No angels from leftover half-points.
+      for (const leg of leftovers) {
+        const enemy = state.legions.find(
+          (e) => e.hexLabel === leg.hexLabel && e.playerId !== leg.playerId,
+        )
+        const scorerId = enemy?.playerId ?? slayerId
+        const scorer = scorerId ? state.players.find((p) => p.id === scorerId) : undefined
+        if (!scorer) continue
         let bonus = 0
-        for (const leg of leftovers) {
-          for (const c of leg.creatures) {
-            const t = state.variant.creatures[c.type]
-            if (!t) continue
-            const power =
-              c.type === 'Titan'
-                ? (player.titanPower ?? 6)
-                : t.power
-            bonus += Math.floor((power * t.skill) / 2)
-          }
+        for (const c of leg.creatures) {
+          const t = state.variant.creatures[c.type]
+          if (!t) continue
+          const power = c.type === 'Titan' ? (player.titanPower ?? 6) : t.power
+          bonus += Math.floor((power * t.skill) / 2)
         }
         if (bonus > 0) {
-          slayer.score += bonus
+          scorer.score += bonus
           state.log.push(
-            `${slayer.name} scores ${bonus} half-points for ${player.name}'s remaining legions (no angels)`,
+            `${scorer.name} scores ${bonus} half-points for ${player.name}'s ${leg.markerId} (no angels)`,
           )
         }
       }
@@ -735,6 +756,7 @@ export function checkTitanDeath(state: GameState, slayerId: string | null): void
         eliminateLegionToCaretaker(state, leg)
       }
       // After leftovers return their markers, transfer the entire free pool to the slayer
+      const slayer = slayerId ? state.players.find((p) => p.id === slayerId) : undefined
       if (slayer && player.markersAvailable.length > 0) {
         for (const m of player.markersAvailable) {
           if (!slayer.markersAvailable.includes(m)) {

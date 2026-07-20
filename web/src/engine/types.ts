@@ -171,6 +171,7 @@ export interface PendingDiceRoll {
     attackerId: string
     defenderId: string
     need: number
+    raisedStrikeNumber?: number
   }
 }
 
@@ -237,7 +238,7 @@ export type GameCommand =
   | { type: 'battleMove'; unitId: string; toHex: string }
   | { type: 'battleUndoLastMove' }
   | { type: 'battleUndoAllMoves' }
-  | { type: 'battleStrike'; attackerId: string; defenderId: string }
+  | { type: 'battleStrike'; attackerId: string; defenderId: string; raisedStrikeNumber?: number }
   | { type: 'battleCarry'; targetId: string }
   | { type: 'battleDonePhase' }
   | { type: 'battleReinforce'; creatureType: string }

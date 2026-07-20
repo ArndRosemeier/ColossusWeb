@@ -8,6 +8,7 @@ import {
   blocksLOS,
   directionBetween,
   isNativeIn,
+  meleeNeighbors,
   oppositeHazard,
 } from './battleland'
 import { rollDie } from './movement'
@@ -264,6 +265,46 @@ function isAdjacent(land: BuiltBattleland, a: string, b: string): boolean {
   return battleNeighbors(land, a).includes(b)
 }
 
+/** Melee adjacency — excludes cliff hexsides (not engaged / cannot strike across). */
+function isMeleeAdjacent(land: BuiltBattleland, a: string, b: string): boolean {
+  return meleeNeighbors(land, a).includes(b)
+}
+
+/**
+ * Free carry targets: adjacent enemies where strike number/dice are no worse than
+ * the primary strike (Colossus CreatureServerSide.findCarry without penalty options).
+ * With `raisedStrikeNumber`, treat the primary strike as needing that SN so harder
+ * targets that match the raised need become legal carries.
+ */
+export function legalCarryTargetIds(
+  state: GameState,
+  battle: { units: BattleUnit[] },
+  land: BuiltBattleland,
+  attacker: BattleUnit,
+  primary: BattleUnit,
+  raisedStrikeNumber?: number,
+): string[] {
+  if (!attacker.hex) return []
+  const baseDice = getStrikeDice(state, land, attacker, primary, true)
+  const naturalSn = getStrikeNumber(state, attacker, primary, land, true)
+  const primarySn = raisedStrikeNumber != null ? Math.max(naturalSn, raisedStrikeNumber) : naturalSn
+
+  return battle.units
+    .filter((u) => {
+      if (u.id === primary.id) return false
+      if (u.playerId !== primary.playerId) return false
+      if (!isUnitAlive(state, u) || !u.hex) return false
+      if (!isMeleeAdjacent(land, attacker.hex!, u.hex)) return false
+
+      let tmpDice = getStrikeDice(state, land, attacker, u, true)
+      let tmpSn = getStrikeNumber(state, attacker, u, land, true)
+      if (tmpDice > baseDice) tmpDice = baseDice
+      if (tmpSn < primarySn) tmpSn = primarySn
+      return tmpSn === primarySn && tmpDice === baseDice
+    })
+    .map((u) => u.id)
+}
+
 function losBlocked(land: BuiltBattleland, from: string, to: string): boolean {
   if (isAdjacent(land, from, to)) return false
   const dist = hexDistance(land, from, to)
@@ -304,10 +345,10 @@ export function legalStrikes(
     (u) => u.playerId !== unit.playerId && isUnitAlive(state, u) && u.hex,
   )
   const result: string[] = []
-  const inContact = enemies.some((e) => isAdjacent(land, unit.hex!, e.hex!))
+  const inContact = enemies.some((e) => isMeleeAdjacent(land, unit.hex!, e.hex!))
 
   for (const e of enemies) {
-    if (isAdjacent(land, unit.hex, e.hex!)) {
+    if (isMeleeAdjacent(land, unit.hex, e.hex!)) {
       result.push(e.id)
       continue
     }
@@ -347,7 +388,7 @@ export function hasForcedStrike(
           e.playerId !== u.playerId &&
           isUnitAlive(state, e) &&
           e.hex &&
-          isAdjacent(land, u.hex!, e.hex!),
+          isMeleeAdjacent(land, u.hex!, e.hex!),
       ),
   )
 }
@@ -361,6 +402,11 @@ export function resolveStrike(
   rng: () => number,
   /** When set, use these faces instead of rolling (physical dice / tests). */
   forcedRolls?: number[],
+  /**
+   * Optional higher Strike-number announced before the roll so excess hits can
+   * carry to harder adjacent targets (Titan Engagements).
+   */
+  raisedStrikeNumber?: number,
 ): {
   message: string
   carries: { hitsLeft: number; targetIds: string[] } | null
@@ -384,9 +430,13 @@ export function resolveStrike(
     }
   }
 
-  const melee = isAdjacent(land, attacker.hex, defender.hex)
+  const melee = isMeleeAdjacent(land, attacker.hex, defender.hex)
   const dice = getStrikeDice(state, land, attacker, defender, melee)
-  const need = getStrikeNumber(state, attacker, defender, land, melee)
+  const naturalNeed = getStrikeNumber(state, attacker, defender, land, melee)
+  const need =
+    raisedStrikeNumber != null && raisedStrikeNumber > naturalNeed
+      ? raisedStrikeNumber
+      : naturalNeed
   let hits = 0
   const rolls: number[] = []
   if (forcedRolls != null) {
@@ -411,22 +461,23 @@ export function resolveStrike(
   defender.hits += hits
   attacker.struck = true
   const killed = !isUnitAlive(state, defender)
-  const msg = `${attacker.creatureType} rolls [${rolls.join(',')}] need ${need}+: ${hits} hit(s)${killed ? ' — KILLED' : ''}`
+  const raiseNote = need > naturalNeed ? ` (raised SN ${need})` : ''
+  const msg = `${attacker.creatureType} rolls [${rolls.join(',')}] need ${need}+: ${hits} hit(s)${raiseNote}${killed ? ' — KILLED' : ''}`
 
   let carries: { hitsLeft: number; targetIds: string[] } | null = null
   if (melee) {
     const carryHits = Math.max(0, hits - neededToKill)
     if (carryHits > 0) {
-      const others = battle.units.filter(
-        (u) =>
-          u.id !== defender.id &&
-          u.playerId === defender.playerId &&
-          isUnitAlive(state, u) &&
-          u.hex &&
-          isAdjacent(land, attacker.hex!, u.hex),
+      const targetIds = legalCarryTargetIds(
+        state,
+        battle,
+        land,
+        attacker,
+        defender,
+        need > naturalNeed ? need : undefined,
       )
-      if (others.length) {
-        carries = { hitsLeft: carryHits, targetIds: others.map((o) => o.id) }
+      if (targetIds.length) {
+        carries = { hitsLeft: carryHits, targetIds }
       }
     }
   }

@@ -5,7 +5,7 @@ Authority: **Colossus Java** when intentionally divergent → **official Titan**
 
 Statuses: `pass` | `partial` | `fail` | `colossus-diff` | `n/a`
 
-**Counts (full rules port):** pass **~50** · partial **~5** · colossus-diff **3** · n/a **2** (dice etiquette)
+**Counts (full rules port):** pass **~55** · partial **~3** · colossus-diff **3** · n/a **2** (dice etiquette)
 
 Port modules: `engagement.ts`, `battleland.ts`, `battleMovement.ts`, `battleStrike.ts`, `battle.ts`.
 
@@ -33,44 +33,45 @@ Port modules: `engagement.ts`, `battleland.ts`, `battleMovement.ts`, `battleStri
 | M5, M8 | Engagement hex / arrows | partial | — |
 | M9 | Mulligan | pass | `rules-port` |
 | T1–T2, T4 | Teleport | pass | `rules-teleport` |
-| T3 | Reveal lord on tower teleport | pass | `doMove` log |
+| T3 | Reveal lord on tower teleport | pass | `doMove` | `rules-engagement-extras` |
 | Q1–Q3 | Muster | pass | `rules-muster` |
 
 ## Engagements
 
 | ID | Rule | Status | Code | Test |
 |----|------|--------|------|------|
-| E1 | Mover picks order | pass | `findEngagements` | — |
-| E2 | Reveal stacks | pass | auto on `openEngagement` | — |
+| E1 | Mover picks order | pass | `findEngagements` | `rules-engagement-extras` |
+| E2 | Reveal stacks | pass | auto on `openEngagement` | `rules-engagement-extras` |
 | E3 | Flee half points | pass | `engagement.ts` | `rules-port` |
-| E4 | Fight forfeits flee path | pass | propose fight | — |
+| E4 | Fight forfeits flee path | pass | propose fight | `rules-engagement-extras` |
 | E5 | Agreement / mutual 0 | pass | `resolveAgreement` | `rules-port` |
 | E6 | Concede full points | pass | `concedeEngagement` / `concededFullPoints` | `rules-port` |
-| E7 | Caretaker recycle | pass | eliminate paths | — |
+| E7 | Caretaker recycle | pass | eliminate paths | `removeDeadCreatures`, flee/concede |
 
 ## Battle
 
 | ID | Rule | Status | Code | Test |
 |----|------|--------|------|------|
 | B1 | Real battleland | pass | `battleland.ts` + convert | `rules-port` |
-| B3 | Unentered after first maneuver die | pass | `killUnentered` | — |
+| B3 | Unentered after first maneuver die | pass | `killUnentered` | `rules-battle-maneuver` |
 | B4–B5 | Tower / defender first | pass | `startBattle` | `rules-battle-timing` |
 | B6 | Titan-teleport entry | partial | `enteredFrom` entrances | — |
 | B7 | Time-loss | pass | `applyTimeLoss` | `rules-battle-timing` |
-| N1 | Skill movement | pass | `battleMovement.ts` | — |
-| N3 | Contact lock | pass | `isInContact` | — |
-| N5 | Occupied hexes | pass | movement | — |
-| N6–N8 | Hazards entry/slow | pass | `getEntryCost` | — |
-| K2 | Must strike | pass | `hasForcedStrike` | — |
+| N1 | Skill movement | pass | `battleMovement.ts` | `rules-battle-maneuver` |
+| N3 | Contact lock (cliffs break contact) | pass | `isInContact` / `meleeNeighbors` | `rules-battle-maneuver` |
+| N5 | Occupied hexes | pass | movement | `battleEntryDeploy` |
+| N6–N8 | Hazards entry/slow | pass | `getEntryCost` | `rules-battle-hazards` H14 |
+| H1–H15 | Hazard combat / rangestrike / entry | pass | `battleStrike` / `battleland` | `rules-battle-hazards` |
+| K2 | Must strike | pass | `hasForcedStrike` | `rules-battle-maneuver` |
 | K2b | Dead creatures strike back before removal | pass | `legalStrikes` / Strikeback | `deadStrikeback` |
 | K3 | Strike chart | pass | `getStrikeNumber` | `rules-port` |
 | K4 | Heal after battle | pass | `applyBattleResult` | `rules-scoring` |
-| K5 | Carries | pass | `pendingCarry` / `battleCarry` | — |
+| K5 | Carries + optional raised SN | pass | `legalCarryTargetIds` / `raisedStrikeNumber` | `rules-carries` |
 | K6–K9 | Rangestrike / LOS / lords / Warlock | pass | `battleStrike.ts` (`titanRange`) | `rules-rangestrike` |
-| R1–R3 | Defender reinforce turn 4 | pass | `battleReinforce` | — |
-| U1–U4 | Angel summon | pass | `battleSummon` | — |
+| R1–R3 | Defender reinforce turn 4 | pass | `battleReinforce` | `rules-reinforce-summon` |
+| U1–U4 | Angel summon | pass | `battleSummon` | `rules-reinforce-summon` |
 | Q4–Q6 | Angels / scoring / titan power | pass | `rules-scoring` | |
-| Q8–Q9 | Leftover half points + markers | pass | `checkTitanDeath` | — |
+| Q8–Q9 | Leftover half points + markers | pass | `checkTitanDeath` | `rules-engagement-extras`, `titanDeathBattle` |
 | L1–L2 | Dice etiquette | n/a | digital RNG | `rules-gaps` todo |
 
 ---

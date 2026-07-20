@@ -21,7 +21,7 @@ import {
   undoLastBattleMove,
   MAX_BATTLE_TURNS,
 } from './battle'
-import { battleNeighbors } from './battleland'
+import { meleeNeighbors } from './battleland'
 import {
   canFlee,
   resolveAgreement,
@@ -454,6 +454,7 @@ function commitPendingDice(state: GameState, rng: () => number, forced?: number[
       pending.strike.defenderId,
       rng,
       values,
+      pending.strike.raisedStrikeNumber,
     )
     state.log.push(result.message)
     state.message = result.message
@@ -1230,9 +1231,12 @@ function handleBattleCommand(state: GameState, command: GameCommand, rng: () => 
 
       if (state.diceMode === 'physical') {
         const land = battleLand(state, battle)
-        const meleeStrike = battleNeighbors(land, attacker.hex).includes(defender.hex)
+        const meleeStrike = meleeNeighbors(land, attacker.hex).includes(defender.hex)
         const dieCount = getStrikeDice(state, land, attacker, defender, meleeStrike)
-        const need = getStrikeNumber(state, attacker, defender, land, meleeStrike)
+        const naturalNeed = getStrikeNumber(state, attacker, defender, land, meleeStrike)
+        const raised = command.raisedStrikeNumber
+        const need =
+          raised != null && raised > naturalNeed ? raised : naturalNeed
         if (dieCount < 1) throw new Error('No dice for strike')
         setPendingDice(state, {
           context: 'strike',
@@ -1243,13 +1247,22 @@ function handleBattleCommand(state: GameState, command: GameCommand, rng: () => 
             attackerId: command.attackerId,
             defenderId: command.defenderId,
             need,
+            raisedStrikeNumber: raised != null && raised > naturalNeed ? raised : undefined,
           },
         })
         state.message = `${attacker.creatureType} strikes ${defender.creatureType}…`
         break
       }
 
-      const result = resolveStrike(state, battle, command.attackerId, command.defenderId, rng)
+      const result = resolveStrike(
+        state,
+        battle,
+        command.attackerId,
+        command.defenderId,
+        rng,
+        undefined,
+        command.raisedStrikeNumber,
+      )
       state.log.push(result.message)
       state.message = result.message
       if (result.rolls.length > 0) {
