@@ -597,6 +597,10 @@ export function rankBattleStrikes(
     (u) => u.playerId === battle.activePlayerId && !u.struck && u.hex,
   )
   const land = battleLand(state, battle)
+  const targetCount = new Map<string, number>()
+  for (const u of strikers) {
+    targetCount.set(u.id, legalStrikesFor(state, battle, u).length)
+  }
   const scored: ScoredBattleStrike[] = []
   for (const u of strikers) {
     const targets = legalStrikesFor(state, battle, u)
@@ -619,8 +623,38 @@ export function rankBattleStrikes(
       }
     }
   }
-  scored.sort((a, b) => b.score - a.score)
+  // Single-target strikers first (no choice of who), then by score — so forced
+  // damage is known before multi-choice units pick their target.
+  scored.sort((a, b) => {
+    const aForced = (targetCount.get(a.attackerId) ?? 99) === 1 ? 0 : 1
+    const bForced = (targetCount.get(b.attackerId) ?? 99) === 1 ? 0 : 1
+    if (aForced !== bForced) return aForced - bForced
+    return b.score - a.score
+  })
   return scored
+}
+
+/**
+ * If any remaining striker has only one legal target, restrict to those strikes.
+ * Multi-choice strikers wait until forced damage (and kills) are resolved.
+ */
+export function preferSingleTargetStrikes(
+  state: GameState,
+  battle: BattleState,
+  ranked: ScoredBattleStrike[],
+): ScoredBattleStrike[] {
+  if (ranked.length === 0) return ranked
+  const countByAttacker = new Map<string, number>()
+  for (const s of ranked) {
+    if (countByAttacker.has(s.attackerId)) continue
+    const u = battle.units.find((x) => x.id === s.attackerId)
+    countByAttacker.set(
+      s.attackerId,
+      u ? legalStrikesFor(state, battle, u).length : 0,
+    )
+  }
+  const forced = ranked.filter((s) => countByAttacker.get(s.attackerId) === 1)
+  return forced.length > 0 ? forced : ranked
 }
 
 export function pickBestBattleMove(
@@ -678,7 +712,11 @@ export function pickBestBattleStrike(
   profile: AiProfile,
   rng: () => number,
 ): GameCommand {
-  const ranked = rankBattleStrikes(state, battle, profile)
+  const ranked = preferSingleTargetStrikes(
+    state,
+    battle,
+    rankBattleStrikes(state, battle, profile),
+  )
   if (ranked.length === 0) return { type: 'battleDonePhase' }
   const best = ranked[0]!
   const win = battleWinConfidence(state, battle, battle.activePlayerId)

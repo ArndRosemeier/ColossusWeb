@@ -12,9 +12,12 @@ import {
   musterTier,
   ownKeepValue,
   pickBestBattleStrike,
+  preferSingleTargetStrikes,
   protectionMultiplier,
+  rankBattleStrikes,
   turnsLeftOnClock,
 } from '../evaluateBattle'
+import { legalStrikesFor } from '../../engine/battle'
 import { AI_PROFILES } from '../profiles'
 
 function hexOfTerrain(state: ReturnType<typeof twoPlayerGame>, terrain: string): string {
@@ -485,5 +488,77 @@ describe('keep value and win-confidence conservation', () => {
     expect(battleWinConfidence(g, battle, atk.playerId)).toBeGreaterThan(0.65)
     const cmd = pickBestBattleStrike(g, battle, profile, () => 0)
     expect(cmd).toEqual({ type: 'battleStrike', attackerId: ogre.id, defenderId: foe.id })
+  })
+
+  it('resolves single-target strikers before multi-choice strikers', () => {
+    const g = twoPlayerGame(77)
+    const plains = hexOfTerrain(g, 'Plains')
+    const atk = stubLegion({
+      id: 'atk',
+      playerId: g.players[0]!.id,
+      markerId: 'Rd01',
+      hexLabel: plains,
+      enteredFrom: 'Bottom',
+      creatures: [
+        { type: 'Ogre', hits: 0 },
+        { type: 'Colossus', hits: 0 },
+      ],
+    })
+    const def = stubLegion({
+      id: 'def',
+      playerId: g.players[1]!.id,
+      markerId: 'Bu01',
+      hexLabel: plains,
+      enteredFrom: null,
+      creatures: [
+        { type: 'Centaur', hits: 0 },
+        { type: 'Titan', hits: 0 },
+        { type: 'Lion', hits: 0 },
+      ],
+    })
+    g.legions = [atk, def]
+    const battle = startBattle(g, atk, def, () => 0.5)
+    g.battle = battle
+    const ogre = battle.units.find((u) => u.creatureType === 'Ogre')!
+    const colo = battle.units.find((u) => u.creatureType === 'Colossus')!
+    const centaur = battle.units.find((u) => u.creatureType === 'Centaur')!
+    const titan = battle.units.find((u) => u.creatureType === 'Titan')!
+    const lion = battle.units.find((u) => u.creatureType === 'Lion')!
+    // Ogre only sees Centaur; Colossus sees Titan + Lion (higher-value choice)
+    placeUnits(battle, [
+      { id: ogre.id, hex: 'A1' },
+      { id: centaur.id, hex: 'A2' },
+      { id: colo.id, hex: 'C3' },
+      { id: titan.id, hex: 'C4' },
+      { id: lion.id, hex: 'D3' },
+    ])
+    battle.phase = 'Strike'
+    battle.activePlayerId = atk.playerId
+    battle.firstManeuverDone = { attacker: true, defender: true }
+
+    expect(legalStrikesFor(g, battle, ogre)).toEqual([centaur.id])
+    expect(legalStrikesFor(g, battle, colo).sort()).toEqual([titan.id, lion.id].sort())
+
+    const profile = AI_PROFILES.balanced
+    const ranked = rankBattleStrikes(g, battle, profile)
+    const preferred = preferSingleTargetStrikes(g, battle, ranked)
+    expect(preferred.every((s) => s.attackerId === ogre.id)).toBe(true)
+    expect(preferred.some((s) => s.attackerId === colo.id)).toBe(false)
+
+    // Without the filter, Colossus→Titan would outscore Ogre→Centaur
+    const coloTitan = ranked.find(
+      (s) => s.attackerId === colo.id && s.defenderId === titan.id && !s.raisedStrikeNumber,
+    )!
+    const ogreCentaur = ranked.find(
+      (s) => s.attackerId === ogre.id && s.defenderId === centaur.id && !s.raisedStrikeNumber,
+    )!
+    expect(coloTitan.score).toBeGreaterThan(ogreCentaur.score)
+
+    const cmd = pickBestBattleStrike(g, battle, profile, () => 0)
+    expect(cmd.type).toBe('battleStrike')
+    if (cmd.type === 'battleStrike') {
+      expect(cmd.attackerId).toBe(ogre.id)
+      expect(cmd.defenderId).toBe(centaur.id)
+    }
   })
 })
