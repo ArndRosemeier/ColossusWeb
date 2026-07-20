@@ -1,14 +1,19 @@
 import { dispatch, getLegalRecruits, playerLegions } from '../engine/GameEngine'
 import {
   isUnitAlive,
-  legalBattleMovesFor,
-  legalStrikes,
 } from '../engine/battle'
+import { listRecruits } from '../engine/recruit'
 import { canFlee } from '../engine/engagement'
 import type { GameCommand, GameState, Legion } from '../engine/types'
 import { profileFor, type AiProfile } from './profiles'
 import { estimateBattleOutcome } from './battleEstimate'
 import { pickBestMove } from './evaluateMove'
+import {
+  pickBestBattleMove,
+  pickBestBattleStrike,
+  pickBestCarry,
+} from './evaluateBattle'
+import { creatureCombatValue, findBestSummonable } from './legionStrength'
 
 function actingPlayer(state: GameState) {
   if (state.battle && !state.battle.done) {
@@ -210,20 +215,36 @@ function pickMuster(state: GameState, profile: AiProfile, rng: () => number): Ga
   return options[Math.floor(rng() * options.length)]
 }
 
-function hexApproxDist(a: string, b: string): number {
-  if (a.includes(':') && b.includes(':')) {
-    const [ax, ay] = a.split(':').map(Number)
-    const [bx, by] = b.split(':').map(Number)
-    return Math.abs(ax - bx) + Math.abs(ay - by)
+function pickBattleReinforce(state: GameState, profile: AiProfile, rng: () => number): GameCommand {
+  const battle = state.battle!
+  const def = state.legions.find((l) => l.id === battle.defenderLegionId)
+  if (!def || def.creatures.length >= 7) return { type: 'battleSkipReinforce' }
+  def.moved = true
+  const opts = listRecruits(state, def)
+  def.moved = false
+  if (opts.length === 0) return { type: 'battleSkipReinforce' }
+  if (rng() < profile.skipReinforceChance) return { type: 'battleSkipReinforce' }
+  let best = opts[0]!
+  let bestVal = -Infinity
+  for (const c of opts) {
+    const v = creatureCombatValue(state, c, def.hexLabel)
+    if (v > bestVal) {
+      bestVal = v
+      best = c
+    }
   }
-  const parse = (lab: string) => {
-    const col = lab.charCodeAt(0) - 65
-    const row = Number(lab.slice(1)) || 0
-    return { col, row }
-  }
-  const A = parse(a)
-  const B = parse(b)
-  return Math.abs(A.col - B.col) + Math.abs(A.row - B.row)
+  return { type: 'battleReinforce', creatureType: best }
+}
+
+function pickBattleSummon(state: GameState, profile: AiProfile, rng: () => number): GameCommand {
+  const battle = state.battle!
+  if (battle.attackerSummoned || battle.denySummon) return { type: 'battleSkipSummon' }
+  const atk = state.legions.find((l) => l.id === battle.attackerLegionId)
+  if (!atk || atk.creatures.length >= 7) return { type: 'battleSkipSummon' }
+  const best = findBestSummonable(state, atk)
+  if (!best) return { type: 'battleSkipSummon' }
+  if (rng() < profile.skipSummonChance) return { type: 'battleSkipSummon' }
+  return { type: 'battleSummon', fromLegionId: best.fromLegionId }
 }
 
 function pickBattleCommand(
@@ -234,16 +255,14 @@ function pickBattleCommand(
   const battle = state.battle!
 
   if (battle.pendingCarry) {
-    return { type: 'battleCarry', targetId: battle.pendingCarry.targetIds[0] }
+    return pickBestCarry(state, battle, profile)
   }
 
   if (battle.phase === 'Recruit') {
-    if (rng() < profile.skipReinforceChance) return { type: 'battleSkipReinforce' }
-    return { type: 'battleSkipReinforce' }
+    return pickBattleReinforce(state, profile, rng)
   }
   if (battle.phase === 'Summon') {
-    if (rng() < profile.skipSummonChance) return { type: 'battleSkipSummon' }
-    return { type: 'battleSkipSummon' }
+    return pickBattleSummon(state, profile, rng)
   }
 
   const myUnits = battle.units.filter(
@@ -263,42 +282,11 @@ function pickBattleCommand(
   }
 
   if (battle.phase === 'Move') {
-    const movers = myUnits.filter((u) => !u.moved)
-    for (const u of movers) {
-      const moves = legalBattleMovesFor(state, battle, u)
-      if (moves.length === 0) continue
-      const enemyHexes = enemies.filter((e) => e.hex)
-      if (enemyHexes.length === 0 || !u.hex) {
-        return { type: 'battleMove', unitId: u.id, toHex: moves[Math.floor(rng() * moves.length)] }
-      }
-      let best = moves[0]
-      let bestScore = -Infinity
-      for (const m of moves) {
-        const dist = Math.min(...enemyHexes.map((e) => hexApproxDist(m, e.hex!)))
-        // Higher approach weight → prefer smaller distance
-        const score = -dist * profile.battleApproachEnemy + rng() * 0.1
-        if (score > bestScore) {
-          bestScore = score
-          best = m
-        }
-      }
-      return { type: 'battleMove', unitId: u.id, toHex: best }
-    }
-    return { type: 'battleDonePhase' }
+    return pickBestBattleMove(state, battle, profile, rng)
   }
 
-  for (const u of myUnits) {
-    if (u.struck) continue
-    const targets = legalStrikes(state, battle, u)
-    if (targets.length) {
-      return {
-        type: 'battleStrike',
-        attackerId: u.id,
-        defenderId: targets[Math.floor(rng() * targets.length)],
-      }
-    }
-  }
-  return { type: 'battleDonePhase' }
+  // Strike / Strikeback
+  return pickBestBattleStrike(state, battle, profile, rng)
 }
 
 /** Single AI core — behavior varies by player.aiProfileId. */

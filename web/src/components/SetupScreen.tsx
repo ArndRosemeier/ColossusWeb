@@ -30,7 +30,8 @@ function formatSavedAt(iso: string): string {
 export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
   const [rows, setRows] = useState<Row[]>([
     { name: 'Player 1', kind: 'human', colorId: 'Red', aiProfileId: 'balanced' },
-    { name: 'CPU', kind: 'ai', colorId: 'Blue', aiProfileId: 'balanced' },
+    { name: 'CPU 1', kind: 'ai', colorId: 'Blue', aiProfileId: 'balanced' },
+    { name: 'CPU 2', kind: 'ai', colorId: 'Green', aiProfileId: 'aggressive' },
   ])
 
   const add = () => {
@@ -50,7 +51,34 @@ export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
   return (
     <div className="setup">
       <header className="hero">
-        <p className="brand">Colossus</p>
+        <svg
+          className="brand-svg"
+          viewBox="0 0 920 220"
+          role="img"
+          aria-label="Colossus"
+          preserveAspectRatio="xMinYMid meet"
+          overflow="visible"
+        >
+          <defs>
+            <linearGradient id="colossusBrandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#ffe0c2" />
+              <stop offset="40%" stopColor="#e08a45" />
+              <stop offset="78%" stopColor="#ff6b35" />
+              <stop offset="100%" stopColor="#ffd4a8" />
+            </linearGradient>
+          </defs>
+          <text
+            x="12"
+            y="155"
+            fill="url(#colossusBrandGrad)"
+            fontFamily="Cinzel, Palatino Linotype, serif"
+            fontWeight="700"
+            fontSize="96"
+            letterSpacing="10"
+          >
+            COLOSSUS
+          </text>
+        </svg>
         <h1>Masterboard awaits</h1>
         <p className="lede">
           Raise your Titan. Split, march, and clash on the classic Default map — local hotseat
@@ -99,7 +127,7 @@ export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
               <option value="human">Human</option>
               <option value="ai">AI</option>
             </select>
-            {row.kind === 'ai' && (
+            {row.kind === 'ai' ? (
               <select
                 value={row.aiProfileId}
                 title="AI personality"
@@ -116,6 +144,8 @@ export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
                   </option>
                 ))}
               </select>
+            ) : (
+              <span className="player-row-spacer" aria-hidden="true" />
             )}
             <select
               value={row.colorId}

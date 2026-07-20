@@ -41,6 +41,10 @@ export interface AiProfile {
   fleeOutnumberRatio: number
   /** In battle Move, prefer closing on enemies (higher = closer) */
   battleApproachEnemy: number
+  /** Extra value for Titan targets / own-Titan threat in battle scoring */
+  battleTitanValue: number
+  /** After someone moved, end Move when best hex score ≤ this */
+  battleMoveThreshold: number
   /** Chance to skip reinforce when options exist */
   skipReinforceChance: number
   /** Chance to skip summon when options exist */
@@ -69,6 +73,8 @@ export const AI_PROFILES: Record<ResolvedAiProfileId, AiProfile> = {
     strongMoveThreshold: 8,
     fleeOutnumberRatio: 0,
     battleApproachEnemy: 1,
+    battleTitanValue: 80,
+    battleMoveThreshold: 0,
     skipReinforceChance: 1,
     skipSummonChance: 1,
     musterGreed: 1,
@@ -89,6 +95,8 @@ export const AI_PROFILES: Record<ResolvedAiProfileId, AiProfile> = {
     strongMoveThreshold: 3,
     fleeOutnumberRatio: 0,
     battleApproachEnemy: 1.4,
+    battleTitanValue: 120,
+    battleMoveThreshold: -2,
     skipReinforceChance: 0.4,
     skipSummonChance: 0.3,
     musterGreed: 0.85,
@@ -109,6 +117,8 @@ export const AI_PROFILES: Record<ResolvedAiProfileId, AiProfile> = {
     strongMoveThreshold: 12,
     fleeOutnumberRatio: 1.5,
     battleApproachEnemy: 0.6,
+    battleTitanValue: 100,
+    battleMoveThreshold: 1,
     skipReinforceChance: 0.5,
     skipSummonChance: 0.6,
     musterGreed: 0.7,
@@ -129,6 +139,8 @@ export const AI_PROFILES: Record<ResolvedAiProfileId, AiProfile> = {
     strongMoveThreshold: 6,
     fleeOutnumberRatio: 2.2,
     battleApproachEnemy: 1,
+    battleTitanValue: 80,
+    battleMoveThreshold: 0,
     skipReinforceChance: 0.2,
     skipSummonChance: 0.2,
     musterGreed: 1,
