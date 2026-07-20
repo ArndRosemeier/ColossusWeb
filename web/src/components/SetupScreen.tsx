@@ -29,9 +29,9 @@ function formatSavedAt(iso: string): string {
 
 export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
   const [rows, setRows] = useState<Row[]>([
-    { name: 'Player 1', kind: 'human', colorId: 'Red', aiProfileId: 'balanced' },
-    { name: 'CPU 1', kind: 'ai', colorId: 'Blue', aiProfileId: 'balanced' },
-    { name: 'CPU 2', kind: 'ai', colorId: 'Green', aiProfileId: 'aggressive' },
+    { name: 'Player 1', kind: 'human', colorId: 'Red', aiProfileId: 'random' },
+    { name: 'CPU 1', kind: 'ai', colorId: 'Blue', aiProfileId: 'random' },
+    { name: 'CPU 2', kind: 'ai', colorId: 'Green', aiProfileId: 'random' },
   ])
 
   const add = () => {
@@ -43,7 +43,7 @@ export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
         name: `Player ${rows.length + 1}`,
         kind: 'ai',
         colorId: color.id,
-        aiProfileId: 'balanced',
+        aiProfileId: 'random',
       },
     ])
   }

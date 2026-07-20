@@ -12,11 +12,19 @@ import {
 } from '../engine/battle'
 import {
   getStrikeNumber,
+  getStrikeDice,
   getUnitPower,
+  getUnitSkill,
   legalStrikes as findLegalStrikes,
 } from '../engine/battleStrike'
 import { battleNeighbors } from '../engine/battleland'
 import type { BattleState, BattleUnit, GameCommand, GameState } from '../engine/types'
+import {
+  RATIO_DRAW,
+  RATIO_LOSE_HEAVY,
+  RATIO_WIN_HEAVY,
+  RATIO_WIN_MINIMAL,
+} from './battleEstimate'
 import type { AiProfile } from './profiles'
 
 export type ScoredBattleMove = {
@@ -46,16 +54,17 @@ export function actingAsAttacker(state: GameState, battle: BattleState): boolean
   return atk != null && battle.activePlayerId === atk.playerId
 }
 
-/** E[hits] for one strike (melee or rangestrike dice). */
+/** E[hits] for one strike (melee or rangestrike), including hazard modifiers. */
 export function expectedHits(
   state: GameState,
+  battle: BattleState,
   attacker: BattleUnit,
   defender: BattleUnit,
   melee: boolean,
 ): number {
-  const power = getUnitPower(state, attacker)
-  const dice = melee ? power : Math.floor(power / 2)
-  const need = getStrikeNumber(state, attacker, defender)
+  const land = battleLand(state, battle)
+  const dice = getStrikeDice(state, land, attacker, defender, melee)
+  const need = getStrikeNumber(state, attacker, defender, land, melee)
   const pHit = (7 - need) / 6
   return dice * pHit
 }
@@ -72,6 +81,126 @@ export function unitPointValue(state: GameState, u: BattleUnit): number {
 
 function remainingHp(state: GameState, u: BattleUnit): number {
   return Math.max(0, getUnitPower(state, u) - u.hits)
+}
+
+const NON_TREE_RECRUIT = new Set([
+  'Anything',
+  'AnyNonLord',
+  'Lord',
+  'DemiLord',
+  'Titan',
+])
+
+/**
+ * Highest muster-tree step for this creature across terrains (0 = bottom).
+ * Top-of-tree recruiters (Colossus, Hydra, …) score highest — they drive late musters.
+ */
+export function musterTier(state: GameState, creatureType: string): number {
+  let best = -1
+  for (const terrain of Object.values(state.variant.terrains)) {
+    const steps = terrain.recruits.filter(
+      (s) => !NON_TREE_RECRUIT.has(s.name) && !s.name.startsWith('Special:'),
+    )
+    const idx = steps.findIndex((s) => s.name === creatureType)
+    if (idx > best) best = idx
+  }
+  return best
+}
+
+/**
+ * How much we care about this unit surviving the fight (not just combat PV).
+ * Favors developed muster creatures, uniques in the legion, and scarce caretaker stock.
+ */
+export function ownKeepValue(
+  state: GameState,
+  battle: BattleState,
+  unit: BattleUnit,
+  profile: AiProfile,
+): number {
+  const t = state.variant.creatures[unit.creatureType]
+  if (!t) return 0
+
+  if (unit.creatureType === 'Titan') {
+    return unitPointValue(state, unit) + profile.battleTitanValue * 2.5
+  }
+
+  let v = unitPointValue(state, unit)
+  if (t.lord || t.demilord) v += 45
+  if (t.summonable) v += 28
+
+  const tier = musterTier(state, unit.creatureType)
+  if (tier >= 0) {
+    // Nonlinear: top-tree creatures matter far more for future musters
+    v += (tier + 1) * (tier + 1) * 4
+  }
+
+  const sameAlive = battle.units.filter(
+    (u) =>
+      u.legionId === unit.legionId &&
+      u.creatureType === unit.creatureType &&
+      isUnitAlive(state, u),
+  ).length
+  if (sameAlive === 1 && tier >= 2) {
+    v += 18 + tier * 10
+  }
+
+  const available = state.caretaker[unit.creatureType] ?? 0
+  if (available <= 2 && tier >= 3) v += 18
+
+  return v
+}
+
+/** Remaining combat weight of one side (HP × skill). */
+export function battleSideForce(
+  state: GameState,
+  battle: BattleState,
+  playerId: string,
+): number {
+  let force = 0
+  for (const u of battle.units) {
+    if (u.playerId !== playerId || !isUnitAlive(state, u)) continue
+    force += remainingHp(state, u) * getUnitSkill(state, u)
+  }
+  return force
+}
+
+function enemyPlayerId(battle: BattleState, ourPlayerId: string): string | null {
+  for (const u of battle.units) {
+    if (u.playerId !== ourPlayerId) return u.playerId
+  }
+  return null
+}
+
+/**
+ * 0 = likely loss, 1 = likely win. Uses live board forces (Colossus ratio buckets).
+ */
+export function battleWinConfidence(
+  state: GameState,
+  battle: BattleState,
+  ourPlayerId: string,
+): number {
+  const ours = battleSideForce(state, battle, ourPlayerId)
+  const enemyId = enemyPlayerId(battle, ourPlayerId)
+  const theirs = enemyId ? battleSideForce(state, battle, enemyId) : 0
+  const ratio = ours / Math.max(1, theirs)
+
+  if (ratio >= RATIO_WIN_MINIMAL + 0.25) return 0.95
+  if (ratio >= RATIO_WIN_MINIMAL) return 0.8
+  if (ratio >= RATIO_WIN_HEAVY) return 0.65
+  if (ratio >= 1) return 0.52
+  if (ratio >= RATIO_DRAW) return 0.4
+  if (ratio >= RATIO_LOSE_HEAVY) return 0.25
+  return 0.1
+}
+
+/** How hard to weight own losses: high when ahead, low when desperate. */
+export function protectionMultiplier(winConfidence: number): number {
+  return 0.28 + winConfidence * winConfidence * 1.85
+}
+
+/** Extra offense push when behind. */
+export function desperationOffenseMul(winConfidence: number): number {
+  return 1.4 - winConfidence * 0.55
 }
 
 /** Prefer Titans, high PV, and already-wounded targets. */
@@ -122,15 +251,17 @@ export function evaluateBattleStrike(
 ): number {
   if (!attacker.hex || !defender.hex) return -Infinity
   const melee = isAdjacentHex(state, battle, attacker.hex, defender.hex)
-  const eh = expectedHits(state, attacker, defender, melee)
+  const eh = expectedHits(state, battle, attacker, defender, melee)
   const rem = remainingHp(state, defender)
   if (rem <= 0) return -Infinity
 
   const heat = battleClockHeat(battle)
   const asAtk = actingAsAttacker(state, battle)
+  const win = battleWinConfidence(state, battle, attacker.playerId)
   // Attacker must finish before time-loss; amplify offense/kills as the clock runs down.
   // Defender still likes kills but less so when stalling wins the clock.
-  const offenseMul = asAtk ? 1 + 1.4 * heat : 1 - 0.2 * heat
+  const offenseMul =
+    (asAtk ? 1 + 1.4 * heat : 1 - 0.2 * heat) * desperationOffenseMul(win)
 
   const tv = targetValue(state, defender, profile)
   const dealt = Math.min(eh, rem)
@@ -159,10 +290,113 @@ export function evaluateBattleStrike(
     }
   }
 
+  // When ahead: slight preference that fodder delivers (keep value); big swings still from damage
+  const keep = ownKeepValue(state, battle, attacker, profile)
+  score -= keep * 0.02 * win * win
+
   return score
 }
 
-/** Score placing `unit` on `toHex` (offense − threat + approach ± clock). */
+function entryLandingsFor(battle: BattleState, unit: BattleUnit): string[] {
+  return unit.legionId === battle.attackerLegionId
+    ? battle.attackerEntrances
+    : battle.defenderEntrances
+}
+
+function isFirstManeuverFor(battle: BattleState, unit: BattleUnit): boolean {
+  const half = unit.legionId === battle.attackerLegionId ? 'attacker' : 'defender'
+  return !battle.firstManeuverDone[half]
+}
+
+/** Allies still off-board (will die if not entered this maneuver). */
+export function undeployedAllyCount(
+  state: GameState,
+  battle: BattleState,
+  unit: BattleUnit,
+): number {
+  return battle.units.filter(
+    (u) =>
+      u.legionId === unit.legionId &&
+      u.id !== unit.id &&
+      isUnitAlive(state, u) &&
+      u.hex == null,
+  ).length
+}
+
+/**
+ * Must-enter bonus only. Hex choice among legal entries is left to tactical
+ * scoring (offense / exposure) — do not reward racing inland.
+ */
+export function deploymentPlacementBonus(
+  state: GameState,
+  battle: BattleState,
+  unit: BattleUnit,
+  toHex: string,
+): number {
+  if (unit.hex != null) return 0
+  // Always huge vs leaving someone off-board (killUnentered)
+  let bonus = 200
+  if (!isFirstManeuverFor(battle, unit)) return bonus
+
+  const waiting = undeployedAllyCount(state, battle, unit)
+  const onEntrance = entryLandingsFor(battle, unit).includes(toHex)
+  if (waiting > 0 && onEntrance) {
+    // Clear the door: sitting on an entrance blocks later entrants
+    bonus -= 80
+  }
+  return bonus
+}
+
+/**
+ * Simulate next-enemy-maneuver exposure: hits we can take now, plus hits if an
+ * enemy spends its move to reach adjacency (approximate reach via skill).
+ */
+export function prospectiveExposure(
+  state: GameState,
+  battle: BattleState,
+  unit: BattleUnit,
+  toHex: string,
+  profile: AiProfile,
+): number {
+  const land = battleLand(state, battle)
+  let win = battleWinConfidence(state, battle, unit.playerId)
+  if (unit.creatureType === 'Titan') win = Math.max(win, 0.92)
+  const ownVal = ownKeepValue(state, battle, unit, profile) * protectionMultiplier(win)
+  const enemies = battle.units.filter(
+    (e) => e.playerId !== unit.playerId && isUnitAlive(state, e) && e.hex,
+  )
+  let exposure = 0
+  for (const enemy of enemies) {
+    if (!enemy.hex) continue
+    const dist = hexDistanceOnLand(land, toHex, enemy.hex)
+    const skill = getUnitSkill(state, enemy)
+    // Already in contact or rangestrike from current hex
+    const canHitNow = (() => {
+      const prev = unit.hex
+      unit.hex = toHex
+      try {
+        return findLegalStrikes(state, battle, land, enemy, true).includes(unit.id)
+      } finally {
+        unit.hex = prev
+      }
+    })()
+    if (canHitNow) {
+      const melee = dist <= 1
+      exposure += expectedHits(state, battle, enemy, unit, melee) * ownVal * 0.15 * profile.fightLossPenalty
+      continue
+    }
+    // Enemy can walk adjacent next maneuver (skill reaches dist-1)
+    if (dist > 1 && dist - 1 <= skill) {
+      const eh = expectedHits(state, battle, enemy, unit, true)
+      exposure += eh * ownVal * 0.12 * profile.fightLossPenalty
+    }
+  }
+  // Titans: exposure is catastrophic — weight harder than fodder
+  if (unit.creatureType === 'Titan') exposure *= 2.4
+  return exposure
+}
+
+/** Score placing `unit` on `toHex` (offense − threat + approach ± clock ± deploy). */
 export function evaluateBattleHex(
   state: GameState,
   battle: BattleState,
@@ -172,10 +406,23 @@ export function evaluateBattleHex(
 ): number {
   const land = battleLand(state, battle)
   const prevHex = unit.hex
+  const entering = prevHex == null
+  const firstManeuver = isFirstManeuverFor(battle, unit)
+  const deployBonus = deploymentPlacementBonus(state, battle, unit, toHex)
+  const winRaw = battleWinConfidence(state, battle, unit.playerId)
+  // Titans are never "acceptable losses". Defenders stalling the clock aren't desperate divers.
+  const heatEarly = battleClockHeat(battle)
+  const asAtkEarly = actingAsAttacker(state, battle)
+  let win = winRaw
+  if (unit.creatureType === 'Titan') win = Math.max(win, 0.92)
+  else if (!asAtkEarly && heatEarly >= 0.4) win = Math.max(win, 0.55)
+
+  const protect = protectionMultiplier(win)
+  const keep = ownKeepValue(state, battle, unit, profile)
   unit.hex = toHex
   try {
-    const heat = battleClockHeat(battle)
-    const asAtk = actingAsAttacker(state, battle)
+    const heat = heatEarly
+    const asAtk = asAtkEarly
 
     // Offense: best single strike available from this hex (Strike phase rules)
     const targetIds = findLegalStrikes(state, battle, land, unit, true)
@@ -186,20 +433,23 @@ export function evaluateBattleHex(
       offense = Math.max(offense, evaluateBattleStrike(state, battle, unit, def, profile))
     }
 
-    // Threat: what enemies could do to us next strike phase
-    let threat = 0
-    const ownVal =
-      unitPointValue(state, unit) + (unit.creatureType === 'Titan' ? profile.battleTitanValue : 0)
+    // Immediate strike threat — scaled by keep value × win confidence
+    const ownVal = keep * protect
     const enemies = battle.units.filter(
       (e) => e.playerId !== unit.playerId && isUnitAlive(state, e) && e.hex,
     )
+    let threat = 0
     for (const enemy of enemies) {
       const canHit = findLegalStrikes(state, battle, land, enemy, true).includes(unit.id)
       if (!canHit || !enemy.hex) continue
       const melee = battleNeighbors(land, enemy.hex).includes(toHex)
-      const eh = expectedHits(state, enemy, unit, melee)
+      const eh = expectedHits(state, battle, enemy, unit, melee)
       threat += eh * ownVal * 0.15 * profile.fightLossPenalty
     }
+
+    // Entry only: simulate enemy reach next maneuver (don't race into their ZOC)
+    const exposure = entering ? prospectiveExposure(state, battle, unit, toHex, profile) : 0
+    const exposureExtra = Math.max(0, exposure - threat)
 
     // Approach: still close when no contact yet
     let approach = 0
@@ -209,9 +459,20 @@ export function evaluateBattleHex(
       approach = -minDist * profile.battleApproachEnemy
     }
 
+    // Empty-board entry (typical defender first maneuver): form near the door, don't race center
+    let posture = 0
+    if (entering && firstManeuver && enemies.length === 0) {
+      const doors = entryLandingsFor(battle, unit)
+      const doorDist = Math.min(
+        ...doors.map((d) => hexDistanceOnLand(land, toHex, d)),
+        99,
+      )
+      posture = -doorDist * (unit.creatureType === 'Titan' ? 4 : 1.5)
+    }
+
     // Clock: attacker presses (more offense/approach, less fear); defender stalls (more fear, less approach)
-    let offenseW = offense
-    let threatW = threat
+    let offenseW = offense * desperationOffenseMul(win)
+    let threatW = threat + exposureExtra
     let approachW = approach
     if (asAtk) {
       offenseW *= 1 + 1.2 * heat
@@ -228,7 +489,40 @@ export function evaluateBattleHex(
       if (heat >= 0.4 && threat === 0) offenseW += 8 * heat
     }
 
-    return offenseW - threatW + approachW
+    // Ahead: high-keep units stay back; behind: fodder (not Titans) may dive for damage.
+    // Use adjusted `win` for dive so clock-stalling defenders don't suicide.
+    if (unit.creatureType !== 'Titan') {
+      if (winRaw >= 0.65 && keep >= 50) {
+        threatW *= 1.15 + 0.35 * winRaw
+        approachW *= 0.55
+      } else if (win <= 0.3) {
+        threatW *= 0.55
+        approachW *= 1.25
+      }
+    } else {
+      // Titans almost never seek contact for its own sake
+      approachW *= 0.2
+      if (!(asAtk && heat >= 0.8)) offenseW *= 0.4
+    }
+
+    // Entering: pick hex by safety / useful contact — Titans must not dive for a strike
+    if (entering) {
+      if (unit.creatureType === 'Titan') {
+        approachW *= 0.05
+        offenseW *= 0.12
+        threatW *= heat < 0.55 ? 1.6 : 1.25
+      } else {
+        approachW *= 0.35
+        if (heat < 0.55) threatW *= 1.1
+        // Only Colossus / top muster pieces: don't race into contact when winning
+        if (winRaw >= 0.65 && musterTier(state, unit.creatureType) >= 3) {
+          offenseW *= 0.35
+          threatW *= 1.25
+        }
+      }
+    }
+
+    return offenseW - threatW + approachW + posture + deployBonus
   } finally {
     unit.hex = prevHex
   }
@@ -287,24 +581,38 @@ export function pickBestBattleMove(
   const ranked = rankBattleMoves(state, battle, profile)
   if (ranked.length === 0) return { type: 'battleDonePhase' }
 
+  // Keep deploying while any off-board unit still has a legal entry.
+  // Place fodder before the Titan so the Titan can pick a covered hex.
+  const deployMoves = ranked.filter((m) => {
+    const u = battle.units.find((x) => x.id === m.unitId)
+    return u != null && u.hex == null
+  })
+  const nonTitanDeploy = deployMoves.filter((m) => {
+    const u = battle.units.find((x) => x.id === m.unitId)
+    return u != null && u.creatureType !== 'Titan'
+  })
+  const pool =
+    nonTitanDeploy.length > 0 ? nonTitanDeploy : deployMoves.length > 0 ? deployMoves : ranked
+
   const anyMoved = battle.units.some(
     (u) => u.playerId === battle.activePlayerId && isUnitAlive(state, u) && u.moved,
   )
-  const best = ranked[0]!
+  const best = pool[0]!
   const heat = battleClockHeat(battle)
   const asAtk = actingAsAttacker(state, battle)
 
-  // Attacker late: keep moving even on modest scores. Defender late: stop sooner if not improving.
-  let threshold = profile.battleMoveThreshold
-  if (asAtk) threshold -= 12 * heat
-  else threshold += 6 * heat
-
-  if (anyMoved && best.score <= threshold) {
-    return { type: 'battleDonePhase' }
+  // Never end Move while creatures can still enter (unentered die after first maneuver)
+  if (deployMoves.length === 0) {
+    let threshold = profile.battleMoveThreshold
+    if (asAtk) threshold -= 12 * heat
+    else threshold += 6 * heat
+    if (anyMoved && best.score <= threshold) {
+      return { type: 'battleDonePhase' }
+    }
   }
 
   // Among top few near-best, slight rng for variety
-  const top = ranked.filter((m) => m.score >= best.score - 0.5).slice(0, 3)
+  const top = pool.filter((m) => m.score >= best.score - 0.5).slice(0, 3)
   const pick = top[Math.floor(rng() * top.length)]!
   return { type: 'battleMove', unitId: pick.unitId, toHex: pick.toHex }
 }
@@ -318,7 +626,50 @@ export function pickBestBattleStrike(
   const ranked = rankBattleStrikes(state, battle, profile)
   if (ranked.length === 0) return { type: 'battleDonePhase' }
   const best = ranked[0]!
-  const top = ranked.filter((s) => s.score >= best.score - 0.5).slice(0, 3)
+  const win = battleWinConfidence(state, battle, battle.activePlayerId)
+
+  // When the fight is in hand, among near-best strikes prefer the lowest-keep attacker
+  // (sacrifice Ogres, not the only Colossus) — never drop a unique kill for that.
+  let pool = ranked.filter((s) => s.score >= best.score - 0.5)
+  if (win >= 0.6) {
+    const band = ranked.filter((s) => s.score >= best.score - Math.max(12, best.score * 0.2))
+    const bestAtk = battle.units.find((u) => u.id === best.attackerId)
+    const bestDef = battle.units.find((u) => u.id === best.defenderId)
+    const bestKills =
+      bestAtk &&
+      bestDef &&
+      expectedHits(
+        state,
+        battle,
+        bestAtk,
+        bestDef,
+        bestAtk.hex != null &&
+          bestDef.hex != null &&
+          isAdjacentHex(state, battle, bestAtk.hex, bestDef.hex),
+      ) >= remainingHp(state, bestDef)
+
+    const candidates = band.filter((s) => {
+      if (!bestKills) return true
+      const atk = battle.units.find((u) => u.id === s.attackerId)
+      const def = battle.units.find((u) => u.id === s.defenderId)
+      if (!atk || !def || !atk.hex || !def.hex) return false
+      const melee = isAdjacentHex(state, battle, atk.hex, def.hex)
+      return expectedHits(state, battle, atk, def, melee) >= remainingHp(state, def)
+    })
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => {
+        const ua = battle.units.find((u) => u.id === a.attackerId)!
+        const ub = battle.units.find((u) => u.id === b.attackerId)!
+        const ka = ownKeepValue(state, battle, ua, profile)
+        const kb = ownKeepValue(state, battle, ub, profile)
+        if (ka !== kb) return ka - kb
+        return b.score - a.score
+      })
+      pool = candidates.slice(0, 3)
+    }
+  }
+
+  const top = pool.slice(0, 3)
   const pick = top[Math.floor(rng() * top.length)]!
   return {
     type: 'battleStrike',

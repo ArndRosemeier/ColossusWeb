@@ -4,9 +4,14 @@ import { twoPlayerGame } from '../../engine/__tests__/helpers'
 import type { BattleState, Legion } from '../../engine/types'
 import {
   battleClockHeat,
+  battleWinConfidence,
   evaluateBattleHex,
   evaluateBattleStrike,
   expectedHits,
+  musterTier,
+  ownKeepValue,
+  pickBestBattleStrike,
+  protectionMultiplier,
   turnsLeftOnClock,
 } from '../evaluateBattle'
 import { AI_PROFILES } from '../profiles'
@@ -82,7 +87,7 @@ describe('expectedHits', () => {
     const atk = battle.units[0]!
     const def = battle.units[2]!
     // Cyclops skill 2 vs Gargoyle skill 3 → need 5, p=2/6, dice=9 → 3
-    const eh = expectedHits(g, atk, def, true)
+    const eh = expectedHits(g, battle, atk, def, true)
     expect(eh).toBeCloseTo(9 * (2 / 6), 5)
   })
 })
@@ -256,5 +261,188 @@ describe('battle clock (time-loss)', () => {
     const intoContact = evaluateBattleHex(g, battle, garg, 'C4', profile)
     const stayAway = evaluateBattleHex(g, battle, garg, 'F1', profile)
     expect(stayAway).toBeGreaterThan(intoContact)
+  })
+})
+
+describe('keep value and win-confidence conservation', () => {
+  it('ranks Colossus above Cyclops for keep value (muster development)', () => {
+    const g = twoPlayerGame(21)
+    const mountains = hexOfTerrain(g, 'Mountains')
+    const atk = stubLegion({
+      id: 'atk',
+      playerId: g.players[0]!.id,
+      markerId: 'Rd01',
+      hexLabel: mountains,
+      enteredFrom: 'Bottom',
+      creatures: [
+        { type: 'Colossus', hits: 0 },
+        { type: 'Cyclops', hits: 0 },
+      ],
+    })
+    const def = stubLegion({
+      id: 'def',
+      playerId: g.players[1]!.id,
+      markerId: 'Bu01',
+      hexLabel: mountains,
+      enteredFrom: null,
+      creatures: [{ type: 'Ogre', hits: 0 }],
+    })
+    g.legions = [atk, def]
+    const battle = startBattle(g, atk, def, () => 0.5)
+    g.battle = battle
+    const colo = battle.units.find((u) => u.creatureType === 'Colossus')!
+    const cyc = battle.units.find((u) => u.creatureType === 'Cyclops')!
+    const profile = AI_PROFILES.balanced
+    expect(musterTier(g, 'Colossus')).toBeGreaterThan(musterTier(g, 'Cyclops'))
+    expect(ownKeepValue(g, battle, colo, profile)).toBeGreaterThan(
+      ownKeepValue(g, battle, cyc, profile),
+    )
+  })
+
+  it('when winning, protects Colossus from contact more than when losing', () => {
+    const g = twoPlayerGame(22)
+    const mountains = hexOfTerrain(g, 'Mountains')
+    const profile = AI_PROFILES.balanced
+
+    // Favored: fat stack + Colossus vs one Ogre
+    const atkWin = stubLegion({
+      id: 'atk',
+      playerId: g.players[0]!.id,
+      markerId: 'Rd01',
+      hexLabel: mountains,
+      enteredFrom: 'Bottom',
+      creatures: [
+        { type: 'Colossus', hits: 0 },
+        { type: 'Cyclops', hits: 0 },
+        { type: 'Cyclops', hits: 0 },
+        { type: 'Lion', hits: 0 },
+        { type: 'Lion', hits: 0 },
+      ],
+    })
+    const defWin = stubLegion({
+      id: 'def',
+      playerId: g.players[1]!.id,
+      markerId: 'Bu01',
+      hexLabel: mountains,
+      enteredFrom: null,
+      creatures: [{ type: 'Ogre', hits: 0 }],
+    })
+    g.legions = [atkWin, defWin]
+    const battleWin = startBattle(g, atkWin, defWin, () => 0.5)
+    g.battle = battleWin
+    const coloWin = battleWin.units.find((u) => u.creatureType === 'Colossus')!
+    const foeWin = battleWin.units.find((u) => u.legionId === defWin.id)!
+    placeUnits(battleWin, [
+      { id: coloWin.id, hex: 'A1' },
+      { id: foeWin.id, hex: 'C3' },
+    ])
+    for (const u of battleWin.units) {
+      if (u.id !== coloWin.id && u.id !== foeWin.id) {
+        u.hex = 'B1'
+        u.moved = true
+      }
+    }
+    coloWin.moved = false
+    const winConf = battleWinConfidence(g, battleWin, coloWin.playerId)
+    expect(winConf).toBeGreaterThan(0.65)
+    expect(protectionMultiplier(winConf)).toBeGreaterThan(1)
+
+    const safeWin = evaluateBattleHex(g, battleWin, coloWin, 'A1', profile)
+    const hotWin = evaluateBattleHex(g, battleWin, coloWin, 'C2', profile)
+    const protectDelta = safeWin - hotWin
+
+    // Desperate: Colossus alone vs three Cyclopes
+    const g2 = twoPlayerGame(23)
+    const m2 = hexOfTerrain(g2, 'Mountains')
+    const atkLose = stubLegion({
+      id: 'atk',
+      playerId: g2.players[0]!.id,
+      markerId: 'Rd01',
+      hexLabel: m2,
+      enteredFrom: 'Bottom',
+      creatures: [{ type: 'Colossus', hits: 0 }],
+    })
+    const defLose = stubLegion({
+      id: 'def',
+      playerId: g2.players[1]!.id,
+      markerId: 'Bu01',
+      hexLabel: m2,
+      enteredFrom: null,
+      creatures: [
+        { type: 'Cyclops', hits: 0 },
+        { type: 'Cyclops', hits: 0 },
+        { type: 'Cyclops', hits: 0 },
+      ],
+    })
+    g2.legions = [atkLose, defLose]
+    const battleLose = startBattle(g2, atkLose, defLose, () => 0.5)
+    g2.battle = battleLose
+    const coloLose = battleLose.units.find((u) => u.creatureType === 'Colossus')!
+    const foes = battleLose.units.filter((u) => u.legionId === defLose.id)
+    placeUnits(battleLose, [
+      { id: coloLose.id, hex: 'A1' },
+      { id: foes[0]!.id, hex: 'C3' },
+      { id: foes[1]!.id, hex: 'D3' },
+      { id: foes[2]!.id, hex: 'D4' },
+    ])
+    coloLose.moved = false
+    const loseConf = battleWinConfidence(g2, battleLose, coloLose.playerId)
+    expect(loseConf).toBeLessThan(0.4)
+
+    const safeLose = evaluateBattleHex(g2, battleLose, coloLose, 'A1', profile)
+    const hotLose = evaluateBattleHex(g2, battleLose, coloLose, 'C2', profile)
+    const desperateDelta = safeLose - hotLose
+
+    // Winning fight: much stronger preference to keep Colossus safe
+    expect(protectDelta).toBeGreaterThan(desperateDelta)
+  })
+
+  it('when ahead, prefers fodder over Colossus for the same killing strike', () => {
+    const g = twoPlayerGame(24)
+    const mountains = hexOfTerrain(g, 'Mountains')
+    const atk = stubLegion({
+      id: 'atk',
+      playerId: g.players[0]!.id,
+      markerId: 'Rd01',
+      hexLabel: mountains,
+      enteredFrom: 'Bottom',
+      creatures: [
+        { type: 'Colossus', hits: 0 },
+        { type: 'Ogre', hits: 0 },
+        { type: 'Ogre', hits: 0 },
+        { type: 'Lion', hits: 0 },
+      ],
+    })
+    const def = stubLegion({
+      id: 'def',
+      playerId: g.players[1]!.id,
+      markerId: 'Bu01',
+      hexLabel: mountains,
+      enteredFrom: null,
+      creatures: [{ type: 'Gargoyle', hits: 0 }],
+    })
+    g.legions = [atk, def]
+    const battle = startBattle(g, atk, def, () => 0.5)
+    g.battle = battle
+    const colo = battle.units.find((u) => u.creatureType === 'Colossus')!
+    const ogre = battle.units.find((u) => u.creatureType === 'Ogre')!
+    const foe = battle.units.find((u) => u.legionId === def.id)!
+    placeUnits(battle, [
+      { id: colo.id, hex: 'C3' },
+      { id: ogre.id, hex: 'B3' },
+      { id: foe.id, hex: 'C4', hits: 3 }, // 1 HP — both can finish
+    ])
+    for (const u of battle.units) {
+      if (u.id !== colo.id && u.id !== ogre.id && u.id !== foe.id) {
+        u.hex = 'A1'
+        u.moved = true
+      }
+    }
+    battle.phase = 'Strike'
+    battle.activePlayerId = atk.playerId
+    const profile = AI_PROFILES.balanced
+    expect(battleWinConfidence(g, battle, atk.playerId)).toBeGreaterThan(0.65)
+    const cmd = pickBestBattleStrike(g, battle, profile, () => 0)
+    expect(cmd).toEqual({ type: 'battleStrike', attackerId: ogre.id, defenderId: foe.id })
   })
 })

@@ -115,6 +115,15 @@ function isNativeIn(creature: CreatureType, terrain: string): boolean {
   return Boolean(creature.native[terrain] || creature.native[terrain.toLowerCase()])
 }
 
+export { isNativeIn }
+
+/** Hexside index from `from` toward adjacent `to`, or -1. */
+export function directionBetween(land: BuiltBattleland, from: string, to: string): number {
+  const hex = land.hexByLabel[from]
+  if (!hex) return -1
+  return hex.neighbors.findIndex((n) => n === to)
+}
+
 export function buildBattleland(def: BattlelandDef): BuiltBattleland {
   const byXY = new Map<string, BattleHexDef>()
   for (const h of def.hexes) byXY.set(`${h.x},${h.y}`, h)
