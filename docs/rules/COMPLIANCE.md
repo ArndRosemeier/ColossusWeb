@@ -66,10 +66,10 @@ Port modules: `engagement.ts`, `battleland.ts`, `battleMovement.ts`, `battleStri
 | K2b | Dead creatures strike back before removal | pass | `legalStrikes` / Strikeback | `deadStrikeback` |
 | K3 | Strike chart | pass | `getStrikeNumber` | `rules-port` |
 | K4 | Heal after battle | pass | `applyBattleResult` | `rules-scoring` |
-| K5 | Carries + optional raised SN | pass | `legalCarryTargetIds` / `raisedStrikeNumber` | `rules-carries` |
-| K6–K9 | Rangestrike / LOS / lords / Warlock / dead-adjacent blocks range | pass | `battleStrike.ts` (`titanRange`) | `rules-rangestrike` |
+| K5 | Carries + optional raised SN (announce before roll) | pass | `listStrikeRaiseOptions` / `battleStrike` | `rules-carries` |
+| K6–K9 | Rangestrike / LOS (terrain+chits) / lords / Warlock / dead-adjacent | pass | `battleLos.ts` / `battleStrike.ts` | `rules-rangestrike` |
 | R1–R3 | Defender reinforce turn 4 | pass | `battleReinforce` | `rules-reinforce-summon` |
-| U1–U4 | Angel summon | pass | `battleSummon` | `rules-reinforce-summon` |
+| U1–U4 | Angel summon (one window: first Maneuver after first blood only) | pass | `summonState` / `battleSummon` | `rules-reinforce-summon` |
 | Q4–Q6 | Angels / scoring / titan power | pass | `rules-scoring` | |
 | Q8–Q9 | Leftover half points + markers | pass | `checkTitanDeath` | `rules-engagement-extras`, `titanDeathBattle` |
 | L1–L2 | Dice etiquette | n/a | digital RNG | `rules-gaps` todo |

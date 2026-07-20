@@ -122,6 +122,11 @@ export interface BattleState {
   defenderReinforced: boolean
   attackerSummoned: boolean
   pendingSummon: boolean
+  /**
+   * Colossus AngelSummoningStates: first defender kill opens one summon window
+   * on the attacker's next Maneuver; after that window (used or skipped) → tooLate.
+   */
+  summonState: 'noKills' | 'firstBlood' | 'tooLate'
   /** Flee denies summon */
   denySummon: boolean
   /** Unit ids moved this maneuver phase, newest last (Colossus undo-last stack). */

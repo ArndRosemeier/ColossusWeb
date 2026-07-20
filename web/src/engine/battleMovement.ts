@@ -112,21 +112,27 @@ function findEntryMoves(
   const set = new Set<string>()
   const flies = creature.flies
   for (const label of entrances) {
-    if (occupied.has(label)) continue
     const hex = land.hexByLabel[label]
     if (!hex) continue
+    const blocked = occupied.has(label)
     // Entering the board from the rim: no hexside hazard from the virtual entrance
-    const entryCost = getEntryCost(land, hex, creature, -1)
-    if (entryCost >= IMPASSABLE_COST || entryCost > skill) continue
+    const entryCost = blocked
+      ? IMPASSABLE_COST
+      : getEntryCost(land, hex, creature, -1)
 
-    set.add(label)
-    if (!flies && skill > entryCost) {
-      for (const m of findMoves(land, creature, occupied, label, skill - entryCost, -1, false)) {
-        set.add(m)
+    // May land on this entrance hex when passable and free
+    if (entryCost < IMPASSABLE_COST && entryCost <= skill) {
+      set.add(label)
+      if (!flies && skill > entryCost) {
+        for (const m of findMoves(land, creature, occupied, label, skill - entryCost, -1, false)) {
+          set.add(m)
+        }
       }
     }
-    if (flies && skill > 1) {
-      // After spending 1 to leave the virtual entrance onto `label`, fly onward
+
+    // Flyers ignore hazards (incl. Bog) until they land — overfly for 1 MP even when
+    // the entrance hex is occupied or forbids landing (Colossus canBeFlownOverBy).
+    if (flies && skill > 1 && canFlyOver(hex, creature)) {
       for (const m of findMoves(land, creature, occupied, label, skill - 1, -1, true)) {
         set.add(m)
       }

@@ -15,7 +15,9 @@ import {
   getStrikeDice,
   getUnitPower,
   getUnitSkill,
+  legalCarryTargetIds,
   legalStrikes as findLegalStrikes,
+  listStrikeRaiseOptions,
 } from '../engine/battleStrike'
 import { battleNeighbors } from '../engine/battleland'
 import type { BattleState, BattleUnit, GameCommand, GameState } from '../engine/types'
@@ -37,6 +39,8 @@ export type ScoredBattleStrike = {
   attackerId: string
   defenderId: string
   score: number
+  /** Announced higher Strike-number for carry (optional). */
+  raisedStrikeNumber?: number
 }
 
 /** How close the battle is to turn-7 time-loss (0 early → 1 on turn 7). */
@@ -70,10 +74,15 @@ export function expectedHits(
   attacker: BattleUnit,
   defender: BattleUnit,
   melee: boolean,
+  raisedStrikeNumber?: number,
 ): number {
   const land = battleLand(state, battle)
   const dice = getStrikeDice(state, land, attacker, defender, melee)
-  const need = getStrikeNumber(state, attacker, defender, land, melee)
+  const natural = getStrikeNumber(state, attacker, defender, land, melee)
+  const need =
+    raisedStrikeNumber != null && raisedStrikeNumber > natural
+      ? raisedStrikeNumber
+      : natural
   const pHit = (7 - need) / 6
   return dice * pHit
 }
@@ -250,6 +259,7 @@ function hexDistanceOnLand(
 
 /**
  * Score striking `defender` with `attacker` (current hexes).
+ * Optional raised Strike-number trades hit chance for harder carry targets.
  */
 export function evaluateBattleStrike(
   state: GameState,
@@ -257,10 +267,12 @@ export function evaluateBattleStrike(
   attacker: BattleUnit,
   defender: BattleUnit,
   profile: AiProfile,
+  raisedStrikeNumber?: number,
 ): number {
   if (!attacker.hex || !defender.hex) return -Infinity
+  const land = battleLand(state, battle)
   const melee = isAdjacentHex(state, battle, attacker.hex, defender.hex)
-  const eh = expectedHits(state, battle, attacker, defender, melee)
+  const eh = expectedHits(state, battle, attacker, defender, melee, raisedStrikeNumber)
   const rem = remainingHp(state, defender)
   if (rem <= 0) return -Infinity
 
@@ -281,21 +293,23 @@ export function evaluateBattleStrike(
     score += 12 * tv * profile.attackAppetite * killMul
   }
 
-  // Carry overflow onto other adjacent enemies
+  // Carry overflow onto legal adjacent enemies (respects raised SN)
   if (melee && eh > rem) {
     const overflow = eh - rem
-    const land = battleLand(state, battle)
-    const others = battle.units.filter(
-      (u) =>
-        u.id !== defender.id &&
-        u.playerId === defender.playerId &&
-        isUnitAlive(state, u) &&
-        u.hex &&
-        battleNeighbors(land, attacker.hex!).includes(u.hex),
-    )
-    if (others.length > 0) {
-      const bestOther = Math.max(...others.map((o) => targetValue(state, o, profile)))
-      score += Math.min(overflow, 3) * bestOther * 0.35 * profile.attackAppetite * offenseMul
+    const natural = getStrikeNumber(state, attacker, defender, land, true)
+    const raised =
+      raisedStrikeNumber != null && raisedStrikeNumber > natural
+        ? raisedStrikeNumber
+        : undefined
+    const carryIds = legalCarryTargetIds(state, battle, land, attacker, defender, raised)
+    if (carryIds.length > 0) {
+      const bestOther = Math.max(
+        ...carryIds.map((id) => {
+          const o = battle.units.find((u) => u.id === id)!
+          return targetValue(state, o, profile)
+        }),
+      )
+      score += Math.min(overflow, 3) * bestOther * 0.45 * profile.attackAppetite * offenseMul
     }
   }
 
@@ -582,6 +596,7 @@ export function rankBattleStrikes(
   const strikers = battle.units.filter(
     (u) => u.playerId === battle.activePlayerId && !u.struck && u.hex,
   )
+  const land = battleLand(state, battle)
   const scored: ScoredBattleStrike[] = []
   for (const u of strikers) {
     const targets = legalStrikesFor(state, battle, u)
@@ -593,6 +608,15 @@ export function rankBattleStrikes(
         defenderId,
         score: evaluateBattleStrike(state, battle, u, def, profile),
       })
+      const { options } = listStrikeRaiseOptions(state, battle, land, u, def)
+      for (const opt of options) {
+        scored.push({
+          attackerId: u.id,
+          defenderId,
+          raisedStrikeNumber: opt.need,
+          score: evaluateBattleStrike(state, battle, u, def, profile, opt.need),
+        })
+      }
     }
   }
   scored.sort((a, b) => b.score - a.score)
@@ -677,6 +701,7 @@ export function pickBestBattleStrike(
         bestAtk.hex != null &&
           bestDef.hex != null &&
           isAdjacentHex(state, battle, bestAtk.hex, bestDef.hex),
+        best.raisedStrikeNumber,
       ) >= remainingHp(state, bestDef)
 
     const candidates = band.filter((s) => {
@@ -685,7 +710,10 @@ export function pickBestBattleStrike(
       const def = battle.units.find((u) => u.id === s.defenderId)
       if (!atk || !def || !atk.hex || !def.hex) return false
       const melee = isAdjacentHex(state, battle, atk.hex, def.hex)
-      return expectedHits(state, battle, atk, def, melee) >= remainingHp(state, def)
+      return (
+        expectedHits(state, battle, atk, def, melee, s.raisedStrikeNumber) >=
+        remainingHp(state, def)
+      )
     })
     if (candidates.length > 0) {
       candidates.sort((a, b) => {
@@ -706,6 +734,7 @@ export function pickBestBattleStrike(
     type: 'battleStrike',
     attackerId: pick.attackerId,
     defenderId: pick.defenderId,
+    raisedStrikeNumber: pick.raisedStrikeNumber,
   }
 }
 

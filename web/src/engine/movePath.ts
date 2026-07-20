@@ -226,30 +226,36 @@ export function findBattleMovePath(
 
   if (!unit.hex) {
     for (const label of entrancesFor(battle, unit)) {
-      if (occupied.has(label)) continue
       const hex = land.hexByLabel[label]
       if (!hex) continue
-      const entryCost = getEntryCost(land, hex, creature, -1)
-      if (entryCost >= IMPASSABLE_COST || entryCost > skill) continue
+      const blocked = occupied.has(label)
+      const entryCost = blocked
+        ? IMPASSABLE_COST
+        : getEntryCost(land, hex, creature, -1)
 
       const path = [label]
-      if (label === toHex) return path
-
-      if (!flies && skill > entryCost) {
-        const found = findMovesPath(
-          land,
-          creature,
-          occupied,
-          label,
-          skill - entryCost,
-          -1,
-          false,
-          path,
-          toHex,
-        )
-        if (found) return found
+      if (!blocked && entryCost < IMPASSABLE_COST && entryCost <= skill) {
+        if (label === toHex) return path
+        if (!flies && skill > entryCost) {
+          const found = findMovesPath(
+            land,
+            creature,
+            occupied,
+            label,
+            skill - entryCost,
+            -1,
+            false,
+            path,
+            toHex,
+          )
+          if (found) return found
+        }
       }
-      if (flies && skill > 1) {
+      // Overfly entrance for 1 MP even if landing there is forbidden (e.g. Bog)
+      if (flies && skill > 1 && canFlyOver(hex, creature)) {
+        if (label === toHex && !blocked && entryCost < IMPASSABLE_COST && entryCost <= skill) {
+          return path
+        }
         const found = findMovesPath(
           land,
           creature,

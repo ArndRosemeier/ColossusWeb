@@ -209,7 +209,7 @@ describe('Titan rangestrike range counting', () => {
     )
   })
 
-  it('LOS: Tree on the only intervening hex blocks Ranger; Warlock ignores', () => {
+  it('LOS: Tree on the geometric path blocks Ranger; Warlock ignores', () => {
     const nothing = Array(6).fill('nothing') as (
       | 'nothing'
       | 'dune'
@@ -218,34 +218,39 @@ describe('Titan rangestrike range counting', () => {
       | 'tower'
       | 'river'
     )[]
-    // Linear A — B(Tree) — C
+    // Linear A — B(Tree) — C along +x (Colossus geometric LOS)
     const hexA = {
       label: 'A',
       x: 0,
-      y: 0,
+      y: 2,
       terrain: 'Plains',
       elevation: 0,
       hexsides: [...nothing] as typeof nothing,
       neighbors: ['B', null, null, null, null, null] as (string | null)[],
     }
+    // Even x=0 neighbor dir1 is [1,-1] in odd-delta table... use explicit neighbors matching coords
+    // Place A(0,2)-B(1,2)-C(2,2): for even x, deltas include [1,0] at index 2
+    hexA.neighbors = [null, null, 'B', null, null, null]
     const hexB = {
       label: 'B',
       x: 1,
-      y: 0,
+      y: 2,
       terrain: 'Tree',
       elevation: 0,
       hexsides: [...nothing] as typeof nothing,
-      neighbors: ['C', null, null, 'A', null, null] as (string | null)[],
+      // odd x: [1,0] is index 1
+      neighbors: [null, 'C', null, null, null, 'A'] as (string | null)[],
     }
     const hexC = {
       label: 'C',
       x: 2,
-      y: 0,
+      y: 2,
       terrain: 'Plains',
       elevation: 0,
       hexsides: [...nothing] as typeof nothing,
-      neighbors: [null, null, null, 'B', null, null] as (string | null)[],
+      neighbors: [null, null, null, null, null, 'B'] as (string | null)[],
     }
+    // Wire A→B with odd/even consistent directions via losDirection — rebuild neighbors from deltas
     const land = {
       terrain: 'Test',
       tower: false,
@@ -262,6 +267,33 @@ describe('Titan rangestrike range counting', () => {
       },
     } as ReturnType<typeof import('../battleland').buildBattleland>
 
+    // Fix neighbors using same deltas as battleland
+    const oddDeltas: [number, number][] = [
+      [0, -1],
+      [1, 0],
+      [1, 1],
+      [0, 1],
+      [-1, 1],
+      [-1, 0],
+    ]
+    const evenDeltas: [number, number][] = [
+      [0, -1],
+      [1, -1],
+      [1, 0],
+      [0, 1],
+      [-1, 0],
+      [-1, -1],
+    ]
+    const byXY = new Map([
+      ['0,2', 'A'],
+      ['1,2', 'B'],
+      ['2,2', 'C'],
+    ])
+    for (const h of [hexA, hexB, hexC]) {
+      const deltas = (h.x & 1) === 1 ? oddDeltas : evenDeltas
+      h.neighbors = deltas.map(([dx, dy]) => byXY.get(`${h.x + dx},${h.y + dy}`) ?? null)
+    }
+
     const g = twoPlayerGame(99)
     const ranger = unit({ creatureType: 'Ranger', playerId: 'a', hex: 'A' })
     const warlock = unit({ id: 'wl', creatureType: 'Warlock', playerId: 'a', hex: 'A' })
@@ -269,5 +301,40 @@ describe('Titan rangestrike range counting', () => {
     expect(titanRange(land, 'A', 'C')).toBe(3)
     expect(legalStrikes(g, { units: [ranger, ogre] }, land, ranger, true)).not.toContain(ogre.id)
     expect(legalStrikes(g, { units: [warlock, ogre] }, land, warlock, true)).toContain(ogre.id)
+  })
+
+  it('LOS: intervening creature blocks Ranger rangestrike; Warlock ignores', () => {
+    const { g, land } = battleOn('Plains', ['Ranger', 'Warlock'], ['Ogre'])
+    const origin = land.labels.find((l) => land.hexByLabel[l]?.terrain === 'Plains') ?? land.labels[0]!
+    // Find a range-3 target and an intervening hex on the geometric path
+    let mid: string | null = null
+    let target: string | null = null
+    for (const cand of land.labels) {
+      if (titanRange(land, origin, cand) !== 3) continue
+      // Check each neighbor of origin that steps toward cand
+      for (const n of land.hexByLabel[origin]!.neighbors) {
+        if (!n) continue
+        if (titanRange(land, n, cand) === 2 && titanRange(land, origin, n) === 2) {
+          mid = n
+          target = cand
+          break
+        }
+      }
+      if (mid) break
+    }
+    expect(mid).toBeTruthy()
+    expect(target).toBeTruthy()
+
+    const ranger = unit({ creatureType: 'Ranger', playerId: 'a', hex: origin })
+    const warlock = unit({ id: 'wl', creatureType: 'Warlock', playerId: 'a', hex: origin })
+    const blocker = unit({ id: 'block', creatureType: 'Centaur', playerId: 'a', hex: mid! })
+    const ogre = unit({ creatureType: 'Ogre', playerId: 'b', hex: target! })
+
+    expect(legalStrikes(g, { units: [ranger, blocker, ogre] }, land, ranger, true)).not.toContain(
+      ogre.id,
+    )
+    expect(legalStrikes(g, { units: [warlock, blocker, ogre] }, land, warlock, true)).toContain(
+      ogre.id,
+    )
   })
 })

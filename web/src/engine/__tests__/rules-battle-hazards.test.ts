@@ -3,7 +3,7 @@
  * BattleHex). Keeps terrain modifiers from regressing after the bare skill-chart port.
  */
 import { describe, expect, it } from 'vitest'
-import { startBattle, battleLand } from '../battle'
+import { startBattle, battleLand, legalBattleMovesFor } from '../battle'
 import {
   getAttackerSkill,
   getStrikeDice,
@@ -480,6 +480,84 @@ describe('H14 Movement entry costs tied to hazards', () => {
       ) ?? serpent
     expect(bogNative.native.Bog).toBe(true)
     expect(getEntryCost(land, bog, bogNative, -1)).toBe(1)
+    // Non-native flyers also cannot land on Bog, but may overfly it
+    const garg = v.creatures.Gargoyle!
+    expect(garg.flies).toBe(true)
+    expect(garg.native.Bog).toBe(false)
+    expect(getEntryCost(land, bog, garg, -1)).toBe(IMPASSABLE_COST)
+    expect(canFlyOver(bog, garg)).toBe(true)
+  })
+
+  it('H14g2: flyers are not slowed when overflying Bog (Marsh)', () => {
+    const g = twoPlayerGame(61)
+    const marsh = hexOfMasterTerrain(g, 'Marsh')
+    // Left entry includes A3 (Bog) — old bug skipped that entrance entirely for flyers
+    const atk: Legion = {
+      id: 'atk',
+      markerId: 'Rd01',
+      playerId: g.players[0]!.id,
+      hexLabel: marsh,
+      creatures: [{ type: 'Gargoyle', hits: 0 }],
+      moved: false,
+      teleported: false,
+      recruited: false,
+      musteredThisTurn: null,
+      splitThisTurn: false,
+      splitParentId: null,
+      moveOriginHex: null,
+      enteredFrom: 'Left',
+      knownPublic: ['Gargoyle'],
+    }
+    const def: Legion = {
+      id: 'def',
+      markerId: 'Bu01',
+      playerId: g.players[1]!.id,
+      hexLabel: marsh,
+      creatures: [{ type: 'Ogre', hits: 0 }],
+      moved: false,
+      teleported: false,
+      recruited: false,
+      musteredThisTurn: null,
+      splitThisTurn: false,
+      splitParentId: null,
+      moveOriginHex: null,
+      enteredFrom: null,
+      knownPublic: ['Ogre'],
+    }
+    g.legions = [atk, def]
+    const battle = startBattle(g, atk, def, () => 0.5)
+    g.battle = battle
+    const land = battleLand(g, battle)
+    const garg = battle.units.find((u) => u.creatureType === 'Gargoyle')!
+    expect(garg.hex).toBeNull()
+    expect(battle.attackerEntrances).toContain('A3')
+    expect(land.hexByLabel.A3!.terrain).toBe('Bog')
+
+    const moves = legalBattleMovesFor(g, battle, garg)
+    const entrances = new Set(battle.attackerEntrances)
+    // Must reach inland by overflying Bog A3 (1 MP), not be blocked by Bog
+    expect(moves.some((h) => !entrances.has(h))).toBe(true)
+    // Must not be allowed to land on Bog as a non-native
+    for (const label of land.labels) {
+      if (land.hexByLabel[label]!.terrain !== 'Bog') continue
+      expect(moves.includes(label)).toBe(false)
+    }
+
+    // On-board: from a plains hex adjacent to Bog, overfly to the far side
+    const bogLabel = 'A3'
+    const bog = land.hexByLabel[bogLabel]!
+    const start = bog.neighbors.find((n) => n && land.hexByLabel[n]!.terrain !== 'Bog')
+    expect(start).toBeTruthy()
+    garg.hex = start!
+    const ogre = battle.units.find((u) => u.creatureType === 'Ogre')!
+    ogre.hex = battle.defenderEntrances[0]!
+    const onBoardMoves = legalBattleMovesFor(g, battle, garg)
+    expect(onBoardMoves.includes(bogLabel)).toBe(false)
+    const far = bog.neighbors.find(
+      (n) => n && n !== start && land.hexByLabel[n]!.terrain !== 'Bog',
+    )
+    expect(far).toBeTruthy()
+    expect(onBoardMoves.includes(far!)).toBe(true)
   })
 
   it('H14h: Volcano blocks non-natives; Dragon (native) may enter', () => {

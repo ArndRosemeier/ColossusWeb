@@ -12,6 +12,7 @@ import {
   hasForcedStrike,
   isUnitAlive,
   legalStrikes as findLegalStrikes,
+  listStrikeRaiseOptions,
   resolveStrike as doResolveStrike,
 } from './battleStrike'
 import { eliminateLegionToCaretaker } from './engagement'
@@ -27,7 +28,16 @@ import type {
 } from './types'
 
 export const MAX_BATTLE_TURNS = 7
-export { getStrikeDice, getStrikeNumber, getUnitPower, getUnitSkill, hasForcedStrike, isUnitAlive }
+export {
+  getStrikeDice,
+  getStrikeNumber,
+  getUnitPower,
+  getUnitSkill,
+  hasForcedStrike,
+  isUnitAlive,
+  listStrikeRaiseOptions,
+}
+export type { StrikeRaiseOption } from './battleStrike'
 
 /** Legal turn-4 defender reinforcements (same rules as battleReinforce). */
 export function listBattleReinforceOptions(state: GameState, battle: BattleState): string[] {
@@ -40,7 +50,7 @@ export function listBattleReinforceOptions(state: GameState, battle: BattleState
 export function listBattleSummonSources(state: GameState, battle: BattleState): Legion[] {
   const atk = state.legions.find((l) => l.id === battle.attackerLegionId)
   if (!atk || atk.creatures.length >= 7) return []
-  if (battle.attackerSummoned || battle.denySummon) return []
+  if (battle.attackerSummoned || battle.denySummon || battle.summonState === 'tooLate') return []
   return state.legions.filter((l) => {
     if (l.playerId !== atk.playerId || l.id === atk.id) return false
     if (state.legions.some((e) => e.hexLabel === l.hexLabel && e.playerId !== l.playerId)) {
@@ -48,6 +58,12 @@ export function listBattleSummonSources(state: GameState, battle: BattleState): 
     }
     return l.creatures.some((c) => state.variant.creatures[c.type]?.summonable)
   })
+}
+
+/** End the one-time mid-battle summon window (used, skipped, or unavailable). */
+export function closeSummonWindow(battle: BattleState): void {
+  battle.pendingSummon = false
+  battle.summonState = 'tooLate'
 }
 
 const landCache = new WeakMap<BattleState, BuiltBattleland>()
@@ -140,6 +156,7 @@ export function startBattle(
     defenderReinforced: false,
     attackerSummoned: false,
     pendingSummon: false,
+    summonState: 'noKills',
     denySummon: false,
     moveStack: [],
   }
@@ -262,11 +279,16 @@ export function resolveStrikeFor(
       targetIds: result.carries.targetIds,
     }
   }
+  // First defender kill on the battleland opens a one-time summon window (Colossus FIRST_BLOOD).
+  const struck = battle.units.find((u) => u.id === defenderId)
   if (
-    !battle.attackerSummoned &&
+    battle.summonState === 'noKills' &&
     !battle.denySummon &&
-    battle.units.some((u) => u.legionId === battle.defenderLegionId && !isUnitAlive(state, u))
+    struck &&
+    struck.legionId === battle.defenderLegionId &&
+    !isUnitAlive(state, struck)
   ) {
+    battle.summonState = 'firstBlood'
     battle.pendingSummon = true
   }
   return {
@@ -473,16 +495,23 @@ export function advanceBattlePhase(state: GameState, battle: BattleState): void 
       battle.activeHalf = 'attacker'
       const atk = state.legions.find((l) => l.id === battle.attackerLegionId)
       battle.activePlayerId = atk?.playerId ?? battle.activePlayerId
-      if (battle.pendingSummon && !battle.attackerSummoned && !battle.denySummon) {
+      if (
+        battle.summonState === 'firstBlood' &&
+        battle.pendingSummon &&
+        !battle.attackerSummoned &&
+        !battle.denySummon
+      ) {
         if (listBattleSummonSources(state, battle).length > 0) {
           battle.phase = 'Summon'
         } else {
-          // Nothing available to summon — skip summon UI entirely
-          battle.pendingSummon = false
+          // Nothing available — window closes (Colossus TOO_LATE)
+          closeSummonWindow(battle)
           battle.phase = 'Move'
         }
       } else {
-        battle.pendingSummon = false
+        // Abandoned or unavailable window — never reopen mid-battle
+        if (battle.summonState === 'firstBlood') closeSummonWindow(battle)
+        else battle.pendingSummon = false
         battle.phase = 'Move'
       }
       prepareBattleManeuver(battle)
@@ -511,7 +540,7 @@ export function advanceBattlePhase(state: GameState, battle: BattleState): void 
     }
   } else if (battle.phase === 'Summon' || battle.phase === 'Recruit') {
     if (battle.phase === 'Recruit') battle.defenderReinforced = true
-    if (battle.phase === 'Summon') battle.pendingSummon = false
+    if (battle.phase === 'Summon') closeSummonWindow(battle)
     battle.phase = 'Move'
     // Newly summoned/reinforced units keep hex null as origin; others already snapshotted
     for (const u of battle.units) {
@@ -547,7 +576,7 @@ export function advanceBattlePhase(state: GameState, battle: BattleState): void 
     battle.phase === 'Summon' &&
     listBattleSummonSources(state, battle).length === 0
   ) {
-    battle.pendingSummon = false
+    closeSummonWindow(battle)
     battle.phase = 'Move'
   }
 }

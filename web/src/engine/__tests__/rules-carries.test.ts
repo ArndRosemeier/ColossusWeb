@@ -12,7 +12,7 @@ import {
   advanceBattlePhase,
 } from '../battle'
 import { battleNeighbors } from '../battleland'
-import { legalCarryTargetIds } from '../battleStrike'
+import { legalCarryTargetIds, listStrikeRaiseOptions } from '../battleStrike'
 import { twoPlayerGame } from './helpers'
 
 function plainsCarrySetup(defCreatures: string[]) {
@@ -113,6 +113,18 @@ describe('K5 carries', () => {
     doCarry(state, battle, centaur.id)
     expect(centaur.hits).toBe(before + carryHits)
     expect(battle.pendingCarry).toBeNull()
+  })
+
+  it('K5b2: listStrikeRaiseOptions offers raised SN that unlocks harder carry', () => {
+    const { state, battle, land, ogre, fodder } = plainsCarrySetup(['Lion', 'Centaur'])
+    const lion = fodder.find((u) => u.creatureType === 'Lion')!
+    const centaur = fodder.find((u) => u.creatureType === 'Centaur')!
+    const { naturalNeed, options } = listStrikeRaiseOptions(state, battle, land, ogre, lion)
+    expect(naturalNeed).toBe(getStrikeNumber(state, ogre, lion, land, true))
+    expect(options.length).toBeGreaterThan(0)
+    const unlock = options.find((o) => o.newlyEnabledIds.includes(centaur.id))
+    expect(unlock).toBeTruthy()
+    expect(unlock!.need).toBe(getStrikeNumber(state, ogre, centaur, land, true))
   })
 
   it('K5c: cannot end Strike while pendingCarry remains', () => {

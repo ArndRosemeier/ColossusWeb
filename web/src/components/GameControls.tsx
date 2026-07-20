@@ -1,6 +1,7 @@
 import { AI_PROFILES } from '../ai/profiles'
 import { engagementNeedsHumanInput } from '../ai/engagementDecision'
-import { listBattleReinforceOptions, listBattleSummonSources } from '../engine/battle'
+import { battleLand, listBattleReinforceOptions, listBattleSummonSources } from '../engine/battle'
+import { listStrikeRaiseOptions } from '../engine/battleStrike'
 import { canFlee } from '../engine/engagement'
 import { activePlayer, playerLegions } from '../engine/GameEngine'
 import { publicViewSlots } from '../engine/publicKnowledge'
@@ -14,14 +15,28 @@ import {
 } from './LegionActions'
 import { MarkerChit } from './MarkerChit'
 
+export type PendingStrikeAnnounce = {
+  attackerId: string
+  defenderId: string
+}
+
 interface Props {
   state: GameState
   dispatch: (cmd: GameCommand) => void
   /** When false, phase actions are disabled (AI is acting). */
   interactive?: boolean
+  /** Melee strike awaiting announced Strike-number (raised for carry). */
+  pendingStrike?: PendingStrikeAnnounce | null
+  onCancelPendingStrike?: () => void
 }
 
-export function GameControls({ state, dispatch, interactive = true }: Props) {
+export function GameControls({
+  state,
+  dispatch,
+  interactive = true,
+  pendingStrike = null,
+  onCancelPendingStrike,
+}: Props) {
   const player = activePlayer(state)
   const selected = state.selectedLegionId
     ? state.legions.find((l) => l.id === state.selectedLegionId)
@@ -224,6 +239,64 @@ export function GameControls({ state, dispatch, interactive = true }: Props) {
                   })}
                 </div>
               )}
+              {pendingStrike && !state.battle.pendingCarry && (() => {
+                const atk = state.battle!.units.find((u) => u.id === pendingStrike.attackerId)
+                const def = state.battle!.units.find((u) => u.id === pendingStrike.defenderId)
+                if (!atk || !def) return null
+                const land = battleLand(state, state.battle!)
+                const { naturalNeed, options } = listStrikeRaiseOptions(
+                  state,
+                  state.battle!,
+                  land,
+                  atk,
+                  def,
+                )
+                const nameOf = (id: string) =>
+                  state.battle!.units.find((u) => u.id === id)?.creatureType ?? id
+                return (
+                  <div className="recruit-list strike-announce">
+                    <p className="hint">
+                      Announce strike: {atk.creatureType} → {def.creatureType}. Raise SN to
+                      allow carry onto harder adjacent targets.
+                    </p>
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={() =>
+                        dispatch({
+                          type: 'battleStrike',
+                          attackerId: pendingStrike.attackerId,
+                          defenderId: pendingStrike.defenderId,
+                        })
+                      }
+                    >
+                      Need {naturalNeed}+ (normal)
+                    </button>
+                    {options.map((opt) => (
+                      <button
+                        key={opt.need}
+                        type="button"
+                        onClick={() =>
+                          dispatch({
+                            type: 'battleStrike',
+                            attackerId: pendingStrike.attackerId,
+                            defenderId: pendingStrike.defenderId,
+                            raisedStrikeNumber: opt.need,
+                          })
+                        }
+                      >
+                        Raise to {opt.need}+ (carry →{' '}
+                        {opt.newlyEnabledIds.map(nameOf).join(', ')})
+                      </button>
+                    ))}
+                    {onCancelPendingStrike && (
+                      <button type="button" onClick={onCancelPendingStrike}>
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                )
+              })()}
               {state.battle.phase === 'Recruit' && (
                 <BattleReinforceControls state={state} dispatch={dispatch} />
               )}
@@ -340,10 +413,18 @@ export function GameControls({ state, dispatch, interactive = true }: Props) {
   )
 }
 
-function LegionContents({ state, legion }: { state: GameState; legion: Legion }) {
+function LegionContents({
+  state,
+  legion,
+  tone = 'attack',
+}: {
+  state: GameState
+  legion: Legion
+  tone?: 'attack' | 'defend'
+}) {
   const owner = state.players.find((p) => p.id === legion.playerId)!
   return (
-    <div className="engagement-legion">
+    <div className={`engagement-legion engagement-legion--${tone}`}>
       <div className="selected-head">
         <MarkerChit markerId={legion.markerId} size={36} height={legion.creatures.length} />
         <div>
@@ -473,7 +554,14 @@ function EngagementActions({
           : `Engagement — ${hints.join(' or ')}`}
         {defP?.kind === 'ai' && humanControlsAttacker ? ' AI declined to flee.' : ''}
       </p>
-      <LegionContents state={state} legion={attacker} />
+      <p className="hint muted">
+        {humanControlsAttacker ? 'Your legion (attacker)' : 'Attacker'}
+      </p>
+      <LegionContents state={state} legion={attacker} tone="attack" />
+      <p className="hint muted">
+        {humanControlsDefender ? 'Your legion (defender)' : 'Defender'}
+      </p>
+      <LegionContents state={state} legion={defender} tone="defend" />
       <div className="engagement-actions">
         {canHumanFlee && (
           <button type="button" onClick={() => dispatch({ type: 'flee' })}>

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { isAiActing, pickAiCommand } from '../ai/simpleAi'
 import { createGame, dispatch as engDispatch, getMovesForSelected, activePlayer } from '../engine/GameEngine'
+import { battleLand } from '../engine/battle'
+import { listStrikeRaiseOptions } from '../engine/battleStrike'
 import type { GameCommand, GameState, NewGameOptions } from '../engine/types'
 import {
   loadGameFromLocalStorage,
@@ -19,7 +21,7 @@ import { loadAssetManifest } from '../variant/assets'
 import { loadDefaultVariant } from '../variant/loadVariant'
 import { BattleBoardView } from './BattleBoardView'
 import { DiceOverlay, shouldAnimateDice } from './DiceOverlay'
-import { GameControls } from './GameControls'
+import { GameControls, type PendingStrikeAnnounce } from './GameControls'
 import { phaseEndCommand, applyEnterKeyPhaseEnd } from './LegionActions'
 import { MasterBoardView } from './MasterBoardView'
 import { SetupScreen } from './SetupScreen'
@@ -53,6 +55,7 @@ export default function App() {
   const [saveFlash, setSaveFlash] = useState<string | null>(null)
   const [aiSpeed, setAiSpeed] = useState<AiSpeedId>('normal')
   const [moveAnim, setMoveAnim] = useState<MoveAnim | null>(null)
+  const [pendingStrike, setPendingStrike] = useState<PendingStrikeAnnounce | null>(null)
   const pendingCmdRef = useRef<GameCommand | null>(null)
   const animatingRef = useRef(false)
 
@@ -74,6 +77,7 @@ export default function App() {
     setState(g)
     setSaveFlash(null)
     setMoveAnim(null)
+    setPendingStrike(null)
     pendingCmdRef.current = null
     animatingRef.current = false
     const allAi = options.players.every((p) => p.kind === 'ai')
@@ -97,6 +101,7 @@ export default function App() {
     }
     setSaveFlash(null)
     setMoveAnim(null)
+    setPendingStrike(null)
     pendingCmdRef.current = null
     animatingRef.current = false
   }, [])
@@ -144,6 +149,7 @@ export default function App() {
   const apply = useCallback(
     (cmd: GameCommand, forAi = false) => {
       if (animatingRef.current) return
+      setPendingStrike(null)
       setState((prev) => {
         if (!prev) return prev
         if (prev.pendingDice) return prev
@@ -323,6 +329,16 @@ export default function App() {
     const battle = state.battle
     if (battle.phase === 'Strike' || battle.phase === 'Strikeback') {
       if (battle.selectedUnitId && battle.highlighted.includes(unitId)) {
+        const attacker = battle.units.find((u) => u.id === battle.selectedUnitId)
+        const defender = battle.units.find((u) => u.id === unitId)
+        if (attacker && defender) {
+          const land = battleLand(state, battle)
+          const { options } = listStrikeRaiseOptions(state, battle, land, attacker, defender)
+          if (options.length > 0) {
+            setPendingStrike({ attackerId: attacker.id, defenderId: defender.id })
+            return
+          }
+        }
         apply({
           type: 'battleStrike',
           attackerId: battle.selectedUnitId,
@@ -331,6 +347,7 @@ export default function App() {
         return
       }
     }
+    setPendingStrike(null)
     apply({ type: 'battleSelectUnit', unitId })
   }
 
@@ -345,6 +362,13 @@ export default function App() {
       const isEnter = e.code === 'Enter' || e.key === 'Enter'
       if (!isSpace && !isEnter) return
       if (e.repeat) return
+      if (pendingStrike) {
+        if (isSpace || isEnter) {
+          e.preventDefault()
+          setPendingStrike(null)
+        }
+        return
+      }
       const target = e.target
       if (target instanceof HTMLElement) {
         const tag = target.tagName
@@ -375,7 +399,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [interactive, state, apply])
+  }, [interactive, state, apply, pendingStrike])
 
   if (loading) return <div className="boot">Loading Default variant…</div>
   if (error && !state) return <div className="boot error">Error: {error}</div>
@@ -469,7 +493,13 @@ export default function App() {
             onThrowDone={onDiceThrowDone}
           />
         </div>
-        <GameControls state={state} dispatch={apply} interactive={interactive} />
+        <GameControls
+          state={state}
+          dispatch={apply}
+          interactive={interactive}
+          pendingStrike={pendingStrike}
+          onCancelPendingStrike={() => setPendingStrike(null)}
+        />
       </main>
     </div>
   )

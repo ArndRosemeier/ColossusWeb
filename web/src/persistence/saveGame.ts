@@ -158,6 +158,14 @@ export function deserializeGame(blob: SavedGameBlob, variant: LoadedVariant): Ga
     if (!Array.isArray(state.battle.moveStack)) {
       state.battle.moveStack = []
     }
+    if (state.battle.summonState === undefined) {
+      // Legacy: infer Colossus summon window from flags
+      state.battle.summonState = state.battle.attackerSummoned
+        ? 'tooLate'
+        : state.battle.pendingSummon
+          ? 'firstBlood'
+          : 'noKills'
+    }
     for (const u of state.battle.units) {
       if (u.moveOriginHex === undefined) {
         u.moveOriginHex = u.moved ? null : u.hex

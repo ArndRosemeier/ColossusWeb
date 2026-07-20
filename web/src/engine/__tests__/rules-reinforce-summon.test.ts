@@ -6,6 +6,7 @@ import {
   advanceBattlePhase,
   listBattleReinforceOptions,
   listBattleSummonSources,
+  resolveStrike,
   startBattle,
 } from '../battle'
 import { dispatch } from '../GameEngine'
@@ -109,6 +110,7 @@ describe('R reinforce / U summon', () => {
     const sources = listBattleSummonSources(state, battle)
     expect(sources.some((l) => l.id === donor.id)).toBe(true)
 
+    battle.summonState = 'firstBlood'
     battle.pendingSummon = true
     battle.phase = 'Summon'
     battle.activeHalf = 'attacker'
@@ -188,6 +190,7 @@ describe('R reinforce / U summon', () => {
     const battle = startBattle(state, attacker, defender, () => 0.5)
     state.battle = battle
     battle.denySummon = true
+    battle.summonState = 'firstBlood'
     battle.pendingSummon = true
     battle.phase = 'Strikeback'
     battle.activeHalf = 'defender'
@@ -203,5 +206,88 @@ describe('R reinforce / U summon', () => {
     advanceBattlePhase(state, battle)
     expect(battle.phase).not.toBe('Summon')
     expect(battle.pendingSummon).toBe(false)
+  })
+
+  it('U: summon window is only the first Maneuver after first blood — later kills do not reopen', () => {
+    const state = twoPlayerGame(45)
+    const alice = state.players[0]!
+    const bob = state.players[1]!
+    const attacker = state.legions.find((l) => l.playerId === alice.id)!
+    const defender = state.legions.find((l) => l.playerId === bob.id)!
+    const plains =
+      Object.values(state.variant.board.hexByLabel).find((h) => h.terrain === 'Plains')?.label ??
+      attacker.hexLabel
+    attacker.hexLabel = plains
+    defender.hexLabel = plains
+    attacker.enteredFrom = 'Bottom'
+    attacker.creatures = [
+      { type: 'Titan', hits: 0 },
+      { type: 'Lion', hits: 0 },
+    ]
+    defender.creatures = [
+      { type: 'Titan', hits: 0 },
+      { type: 'Ogre', hits: 0 },
+      { type: 'Centaur', hits: 0 },
+    ]
+    const battle = startBattle(state, attacker, defender, () => 0.5)
+    state.battle = battle
+    expect(battle.summonState).toBe('noKills')
+
+    // Place Lion adjacent to Centaur and kill Centaur (first blood)
+    const lion = battle.units.find(
+      (u) => u.legionId === battle.attackerLegionId && u.creatureType === 'Lion',
+    )!
+    const centaur = battle.units.find(
+      (u) => u.legionId === battle.defenderLegionId && u.creatureType === 'Centaur',
+    )!
+    const ogre = battle.units.find(
+      (u) => u.legionId === battle.defenderLegionId && u.creatureType === 'Ogre',
+    )!
+    const atkHex = battle.attackerEntrances[0]!
+    const defHex = battle.defenderEntrances[0]!
+    lion.hex = atkHex
+    centaur.hex = defHex
+    // Force kill: Centaur power 3 — one more hit finishes it
+    centaur.hits = 2
+    battle.phase = 'Strike'
+    battle.activeHalf = 'attacker'
+    battle.activePlayerId = alice.id
+    resolveStrike(state, battle, lion.id, centaur.id, () => 0.01, [6, 6])
+    expect(battle.summonState).toBe('firstBlood')
+    expect(battle.pendingSummon).toBe(true)
+
+    // Skip summon → tooLate
+    battle.phase = 'Summon'
+    battle.activeHalf = 'attacker'
+    battle.activePlayerId = alice.id
+    let next = dispatch(state, { type: 'battleSkipSummon' })
+    expect(next.battle!.summonState).toBe('tooLate')
+    expect(next.battle!.pendingSummon).toBe(false)
+
+    // Later kill must not reopen
+    const lion2 = next.battle!.units.find((u) => u.id === lion.id)!
+    const ogre2 = next.battle!.units.find((u) => u.id === ogre.id)!
+    ogre2.hex = defHex
+    ogre2.hits = 5
+    next.battle!.phase = 'Strike'
+    next.battle!.activeHalf = 'attacker'
+    next.battle!.activePlayerId = alice.id
+    resolveStrike(next, next.battle!, lion2.id, ogre2.id, () => 0.01, [6, 6])
+    expect(next.battle!.summonState).toBe('tooLate')
+    expect(next.battle!.pendingSummon).toBe(false)
+    expect(listBattleSummonSources(next, next.battle!)).toEqual([])
+
+    // Advancing from defender Strikeback must not enter Summon again
+    next.battle!.phase = 'Strikeback'
+    next.battle!.activeHalf = 'defender'
+    next.battle!.activePlayerId = bob.id
+    next.battle!.pendingSummon = true // stale flag must not matter
+    for (const u of next.battle!.units) {
+      u.struck = true
+    }
+    next.battle!.firstManeuverDone = { attacker: true, defender: true }
+    advanceBattlePhase(next, next.battle!)
+    expect(next.battle!.phase).not.toBe('Summon')
+    expect(next.battle!.summonState).toBe('tooLate')
   })
 })

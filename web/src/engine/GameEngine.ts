@@ -8,6 +8,7 @@ import {
   battleLand,
   canUndoBattleMoves,
   checkTitanDeath,
+  closeSummonWindow,
   doCarry,
   getStrikeDice,
   getStrikeNumber,
@@ -1388,14 +1389,14 @@ function handleBattleCommand(state: GameState, command: GameCommand, rng: () => 
         moveOriginHex: null,
       })
       battle.attackerSummoned = true
-      battle.pendingSummon = false
+      closeSummonWindow(battle)
       battle.phase = 'Move'
       state.log.push(`Attacker summons ${angel.type} from ${src.markerId}`)
       break
     }
     case 'battleSkipSummon': {
       if (battle.phase !== 'Summon') throw new Error('Not summon phase')
-      battle.pendingSummon = false
+      closeSummonWindow(battle)
       battle.phase = 'Move'
       break
     }

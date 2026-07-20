@@ -865,6 +865,10 @@ button:disabled {
   border-left: 3px solid var(--ember);
 }
 
+.engagement-legion--defend {
+  border-left-color: var(--copper);
+}
+
 .engagement-actions {
   display: flex;
   flex-wrap: wrap;

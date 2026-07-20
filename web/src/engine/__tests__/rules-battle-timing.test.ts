@@ -152,6 +152,7 @@ describe('rules-battle-timing', () => {
     }
     battle.firstManeuverDone = { attacker: true, defender: true }
     // Opening stacks: Angel is in the Titan legion (attacker) — no other donor
+    battle.summonState = 'firstBlood'
     battle.pendingSummon = true
     battle.attackerSummoned = false
     battle.denySummon = false
@@ -164,5 +165,6 @@ describe('rules-battle-timing', () => {
     expect(battle.activeHalf).toBe('attacker')
     expect(battle.phase).toBe('Move')
     expect(battle.pendingSummon).toBe(false)
+    expect(battle.summonState).toBe('tooLate')
   })
 })

@@ -5,12 +5,12 @@
 import type { BuiltBattleland } from './battleland'
 import {
   battleNeighbors,
-  blocksLOS,
   directionBetween,
   isNativeIn,
   meleeNeighbors,
   oppositeHazard,
 } from './battleland'
+import { isLosBlocked } from './battleLos'
 import { rollDie } from './movement'
 import type { BattleUnit, GameState } from './types'
 import type { CreatureType } from '../types/variant'
@@ -261,11 +261,6 @@ export function titanRange(land: BuiltBattleland, a: string, b: string): number 
   return steps + 1
 }
 
-function isAdjacent(land: BuiltBattleland, a: string, b: string): boolean {
-  return battleNeighbors(land, a).includes(b)
-}
-
-/** Melee adjacency — excludes cliff hexsides (not engaged / cannot strike across). */
 function isMeleeAdjacent(land: BuiltBattleland, a: string, b: string): boolean {
   return meleeNeighbors(land, a).includes(b)
 }
@@ -305,30 +300,49 @@ export function legalCarryTargetIds(
     .map((u) => u.id)
 }
 
-function losBlocked(land: BuiltBattleland, from: string, to: string): boolean {
-  if (isAdjacent(land, from, to)) return false
-  const dist = hexDistance(land, from, to)
-  const q: { h: string; d: number; blocked: boolean }[] = [{ h: from, d: 0, blocked: false }]
-  const best = new Map<string, boolean>()
-  best.set(from, false)
-  while (q.length) {
-    const cur = q.shift()!
-    if (cur.d >= dist) continue
-    for (const n of battleNeighbors(land, cur.h)) {
-      if (n === to) {
-        if (!cur.blocked) return false
-        continue
-      }
-      const hex = land.hexByLabel[n]
-      const blocked = cur.blocked || (hex ? blocksLOS(hex) : false)
-      const prev = best.get(n)
-      if (prev === false) continue
-      if (prev === true && blocked) continue
-      best.set(n, blocked)
-      q.push({ h: n, d: cur.d + 1, blocked })
+export type StrikeRaiseOption = {
+  /** Announced Strike-number (higher than natural). */
+  need: number
+  /** Carry targets that become legal only because of this raise. */
+  newlyEnabledIds: string[]
+}
+
+/**
+ * Optional raised Strike-numbers that unlock harder adjacent carry targets.
+ * Announce one of these before rolling (Titan Engagements).
+ */
+export function listStrikeRaiseOptions(
+  state: GameState,
+  battle: { units: BattleUnit[] },
+  land: BuiltBattleland,
+  attacker: BattleUnit,
+  primary: BattleUnit,
+): { naturalNeed: number; melee: boolean; options: StrikeRaiseOption[] } {
+  if (!attacker.hex || !primary.hex) {
+    return { naturalNeed: 6, melee: false, options: [] }
+  }
+  const melee = isMeleeAdjacent(land, attacker.hex, primary.hex)
+  const naturalNeed = getStrikeNumber(state, attacker, primary, land, melee)
+  if (!melee) return { naturalNeed, melee: false, options: [] }
+
+  const free = new Set(legalCarryTargetIds(state, battle, land, attacker, primary))
+  const options: StrikeRaiseOption[] = []
+  for (let need = naturalNeed + 1; need <= 6; need++) {
+    const raised = legalCarryTargetIds(state, battle, land, attacker, primary, need)
+    const newlyEnabledIds = raised.filter((id) => !free.has(id))
+    if (newlyEnabledIds.length > 0) {
+      options.push({ need, newlyEnabledIds })
     }
   }
-  return true
+  return { naturalNeed, melee: true, options }
+}
+
+function occupiedHexes(battle: { units: BattleUnit[] }): Set<string> {
+  const set = new Set<string>()
+  for (const u of battle.units) {
+    if (u.hex) set.add(u.hex)
+  }
+  return set
 }
 
 export function legalStrikes(
@@ -349,6 +363,7 @@ export function legalStrikes(
   )
   const inContact = opposingOnBoard.some((e) => isMeleeAdjacent(land, unit.hex!, e.hex!))
   const livingEnemies = opposingOnBoard.filter((u) => isUnitAlive(state, u))
+  const occupied = occupiedHexes(battle)
   const result: string[] = []
 
   for (const e of livingEnemies) {
@@ -367,7 +382,8 @@ export function legalStrikes(
       // Lords (Titan/Angel/Archangel) immune except Warlock (magicMissile).
       // Demilords (Guardian, Warlock) are not immune.
       if (defType?.lord) continue
-      if (losBlocked(land, unit.hex, e.hex!)) continue
+      // Geometric LOS: intervening Tree/Stone or creatures block (Colossus isLOSBlocked).
+      if (isLosBlocked(land, unit.hex, e.hex!, occupied)) continue
     }
     result.push(e.id)
   }
