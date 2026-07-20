@@ -4,7 +4,10 @@ import {
   canUndoMove,
   canUndoRecruit,
   canUndoSplit,
+  dispatch,
+  legionsWithPendingMuster,
 } from '../engine/GameEngine'
+import { bestRecruit } from '../engine/recruit'
 import type { GameCommand, GameState } from '../engine/types'
 import { CreatureChit } from './CreatureChit'
 
@@ -113,6 +116,9 @@ export function MusterForm({
 export function phaseEndCommand(state: GameState): GameCommand | null {
   if (state.pendingDice) return null
   if (state.battle && !state.battle.done) {
+    if (state.battle.pendingCarry) return null
+    if (state.battle.phase === 'Recruit') return { type: 'battleSkipReinforce' }
+    if (state.battle.phase === 'Summon') return { type: 'battleSkipSummon' }
     return { type: 'battleDonePhase' }
   }
   switch (state.phase) {
@@ -132,6 +138,39 @@ export function phaseEndCommand(state: GameState): GameCommand | null {
   }
 }
 
+/**
+ * Enter key phase end. Same as Space except Muster: every legion that can
+ * still muster takes its best recruit (board preview), then the phase ends.
+ * In battle, Space and Enter both advance (skip reinforce/summon when needed).
+ */
+export function applyEnterKeyPhaseEnd(state: GameState): GameState {
+  if (state.pendingDice) return state
+  if (state.battle && !state.battle.done) {
+    const cmd = phaseEndCommand(state)
+    if (!cmd) return state
+    return dispatch(state, cmd)
+  }
+  if (state.phase === 'Muster') {
+    let s = state
+    for (;;) {
+      const pending = legionsWithPendingMuster(s)
+      let progressed = false
+      for (const leg of pending) {
+        const creatureType = bestRecruit(s, leg)
+        if (!creatureType) continue
+        s = dispatch(s, { type: 'recruit', legionId: leg.id, creatureType })
+        progressed = true
+        break
+      }
+      if (!progressed) break
+    }
+    return dispatch(s, { type: 'doneMuster' })
+  }
+  const cmd = phaseEndCommand(state)
+  if (!cmd) return state
+  return dispatch(state, cmd)
+}
+
 export function phaseEndLabel(state: GameState): string | null {
   const cmd = phaseEndCommand(state)
   if (!cmd) return null
@@ -146,6 +185,10 @@ export function phaseEndLabel(state: GameState): string | null {
       return 'Continue to muster'
     case 'battleDonePhase':
       return 'Done with phase'
+    case 'battleSkipReinforce':
+      return 'Skip reinforce'
+    case 'battleSkipSummon':
+      return 'Skip summon'
     default:
       return null
   }

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { isAiActing, pickAiCommand } from '../ai/simpleAi'
-import { createGame, dispatch as engDispatch, getMovesForSelected } from '../engine/GameEngine'
+import { createGame, dispatch as engDispatch, getMovesForSelected, activePlayer } from '../engine/GameEngine'
 import type { GameCommand, GameState, NewGameOptions } from '../engine/types'
 import {
   loadGameFromLocalStorage,
@@ -20,7 +20,7 @@ import { loadDefaultVariant } from '../variant/loadVariant'
 import { BattleBoardView } from './BattleBoardView'
 import { DiceOverlay, shouldAnimateDice } from './DiceOverlay'
 import { GameControls } from './GameControls'
-import { phaseEndCommand } from './LegionActions'
+import { phaseEndCommand, applyEnterKeyPhaseEnd } from './LegionActions'
 import { MasterBoardView } from './MasterBoardView'
 import { SetupScreen } from './SetupScreen'
 
@@ -285,6 +285,28 @@ export default function App() {
       apply({ type: 'deselectLegion' })
       return
     }
+    // Colossus spin cycle: second click on the selected mover ends on the start hex
+    // when an exact-roll loop is legal (tower-adjacent brush, swamp/desert on a 6, etc.).
+    if (
+      state.phase === 'Move' &&
+      state.selectedLegionId === legionId &&
+      !isAiActing(state)
+    ) {
+      const legion = state.legions.find((l) => l.id === legionId)
+      if (legion && legion.playerId === activePlayer(state).id) {
+        const moves = getMovesForSelected(state)
+        const info = moves.get(legion.hexLabel)
+        if (info && !info.teleport) {
+          apply({
+            type: 'move',
+            legionId,
+            toHex: legion.hexLabel,
+            teleport: false,
+          })
+          return
+        }
+      }
+    }
     // Inspection allowed even while AI acts (public knowledge / own stacks)
     apply({ type: 'selectLegion', legionId })
   }
@@ -312,6 +334,49 @@ export default function App() {
     apply({ type: 'battleSelectUnit', unitId })
   }
 
+  const aiActing = state ? isAiActing(state) : false
+  const gameOver = Boolean(state?.winnerId || state?.draw)
+  const interactive = Boolean(state) && !aiActing && !busy && !gameOver
+
+  useEffect(() => {
+    if (!interactive || !state) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isSpace = e.code === 'Space' || e.key === ' '
+      const isEnter = e.code === 'Enter' || e.key === 'Enter'
+      if (!isSpace && !isEnter) return
+      if (e.repeat) return
+      const target = e.target
+      if (target instanceof HTMLElement) {
+        const tag = target.tagName
+        if (
+          tag === 'INPUT' ||
+          tag === 'TEXTAREA' ||
+          tag === 'SELECT' ||
+          tag === 'BUTTON' ||
+          tag === 'A' ||
+          target.isContentEditable ||
+          target.closest('button, a, [role="button"]')
+        ) {
+          return
+        }
+      }
+      if (isEnter) {
+        e.preventDefault()
+        setState((prev) => {
+          if (!prev || animatingRef.current || prev.pendingDice) return prev
+          return applyEnterKeyPhaseEnd(prev)
+        })
+        return
+      }
+      const cmd = phaseEndCommand(state)
+      if (!cmd) return
+      e.preventDefault()
+      apply(cmd)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [interactive, state, apply])
+
   if (loading) return <div className="boot">Loading Default variant…</div>
   if (error && !state) return <div className="boot error">Error: {error}</div>
   if (!state) {
@@ -324,8 +389,6 @@ export default function App() {
     )
   }
 
-  const aiActing = isAiActing(state)
-  const gameOver = Boolean(state.winnerId || state.draw)
   const masterAnim = moveAnim?.board === 'master' ? moveAnim : null
   const battleAnim = moveAnim?.board === 'battle' ? moveAnim : null
   const throwerId = state.pendingDice?.playerId ?? state.diceRoll?.playerId
@@ -333,16 +396,6 @@ export default function App() {
     ? Math.max(0, state.players.findIndex((p) => p.id === throwerId))
     : 0
   const seatCount = state.players.length
-
-  const interactive = !aiActing && !busy && !gameOver
-
-  const onPhaseEndContextMenu = (e: MouseEvent) => {
-    if (!interactive) return
-    const cmd = phaseEndCommand(state)
-    if (!cmd) return
-    e.preventDefault()
-    apply(cmd)
-  }
 
   return (
     <div className="app-shell">
@@ -386,7 +439,7 @@ export default function App() {
         </button>
       </header>
       <main className="play">
-        <div className="board-pane" onContextMenu={onPhaseEndContextMenu}>
+        <div className="board-pane">
           {state.battle && !state.battle.done ? (
             <BattleBoardView
               state={state}

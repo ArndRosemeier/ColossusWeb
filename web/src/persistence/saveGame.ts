@@ -154,6 +154,21 @@ export function deserializeGame(blob: SavedGameBlob, variant: LoadedVariant): Ga
     state.splitSkipWarned = false
   }
   ensureUniqueLegionIds(state)
+  if (state.battle) {
+    if (!Array.isArray(state.battle.moveStack)) {
+      state.battle.moveStack = []
+    }
+    for (const u of state.battle.units) {
+      if (u.moveOriginHex === undefined) {
+        u.moveOriginHex = u.moved ? null : u.hex
+      }
+    }
+    for (const u of state.battle.fallen) {
+      if (u.moveOriginHex === undefined) {
+        u.moveOriginHex = u.hex
+      }
+    }
+  }
   return state
 }
 

@@ -1,12 +1,12 @@
 import { dispatch, getLegalRecruits, playerLegions } from '../engine/GameEngine'
 import {
   isUnitAlive,
+  listBattleReinforceOptions,
+  listBattleSummonSources,
 } from '../engine/battle'
-import { listRecruits } from '../engine/recruit'
-import { canFlee } from '../engine/engagement'
 import type { GameCommand, GameState, Legion } from '../engine/types'
 import { profileFor, type AiProfile } from './profiles'
-import { estimateBattleOutcome } from './battleEstimate'
+import { aiDefenderShouldFlee, engagementNeedsHumanInput } from './engagementDecision'
 import { pickBestMove } from './evaluateMove'
 import {
   pickBestBattleMove,
@@ -136,36 +136,14 @@ function pickMove(state: GameState, profile: AiProfile, rng: () => number): Game
   return pickBestMove(state, profile, rng, anyMoved)
 }
 
-function pickFight(state: GameState, profile: AiProfile, rng: () => number): GameCommand {
+function pickFight(state: GameState, profile: AiProfile, rng: () => number): GameCommand | null {
   if (state.activeEngagement) {
-    if (!state.activeEngagement.revealed) return { type: 'revealEngagement' }
-    const eng = state.activeEngagement
-    const attacker = state.legions.find((l) => l.id === eng.attackerId)!
-    const defender = state.legions.find((l) => l.id === eng.defenderId)!
-    const defPlayer = state.players.find((p) => p.id === defender.playerId)
-    if (defPlayer?.kind === 'ai' && canFlee(state, defender)) {
-      const defProfile = profileFor(defPlayer.aiProfileId)
-      if (defProfile.fleeOutnumberRatio > 0) {
-        // Outcome is from the attacker's perspective
-        const { outcome, ratio } = estimateBattleOutcome(
-          state,
-          attacker,
-          defender,
-          defender.hexLabel,
-        )
-        const heightRatio = attacker.creatures.length / Math.max(1, defender.creatures.length)
-        const attackerCrushing =
-          outcome === 'winMinimal' ||
-          outcome === 'winHeavy' ||
-          (outcome === 'draw' && defProfile.id === 'cautious')
-        if (
-          attackerCrushing ||
-          heightRatio >= defProfile.fleeOutnumberRatio ||
-          ratio >= defProfile.fleeOutnumberRatio
-        ) {
-          return { type: 'flee' }
-        }
-      }
+    if (aiDefenderShouldFlee(state)) {
+      return { type: 'flee' }
+    }
+    // Human is attacker and/or defender — do not decide Fight/Flee for them
+    if (engagementNeedsHumanInput(state)) {
+      return null
     }
     void profile
     void rng
@@ -223,13 +201,10 @@ function pickMuster(state: GameState, profile: AiProfile, rng: () => number): Ga
 
 function pickBattleReinforce(state: GameState, profile: AiProfile, rng: () => number): GameCommand {
   const battle = state.battle!
-  const def = state.legions.find((l) => l.id === battle.defenderLegionId)
-  if (!def || def.creatures.length >= 7) return { type: 'battleSkipReinforce' }
-  def.moved = true
-  const opts = listRecruits(state, def)
-  def.moved = false
+  const opts = listBattleReinforceOptions(state, battle)
   if (opts.length === 0) return { type: 'battleSkipReinforce' }
   if (rng() < profile.skipReinforceChance) return { type: 'battleSkipReinforce' }
+  const def = state.legions.find((l) => l.id === battle.defenderLegionId)!
   let best = opts[0]!
   let bestVal = -Infinity
   for (const c of opts) {
@@ -244,12 +219,14 @@ function pickBattleReinforce(state: GameState, profile: AiProfile, rng: () => nu
 
 function pickBattleSummon(state: GameState, profile: AiProfile, rng: () => number): GameCommand {
   const battle = state.battle!
-  if (battle.attackerSummoned || battle.denySummon) return { type: 'battleSkipSummon' }
-  const atk = state.legions.find((l) => l.id === battle.attackerLegionId)
-  if (!atk || atk.creatures.length >= 7) return { type: 'battleSkipSummon' }
-  const best = findBestSummonable(state, atk)
-  if (!best) return { type: 'battleSkipSummon' }
+  const sources = listBattleSummonSources(state, battle)
+  if (sources.length === 0) return { type: 'battleSkipSummon' }
   if (rng() < profile.skipSummonChance) return { type: 'battleSkipSummon' }
+  const best = findBestSummonable(
+    state,
+    state.legions.find((l) => l.id === battle.attackerLegionId)!,
+  )
+  if (!best) return { type: 'battleSkipSummon' }
   return { type: 'battleSummon', fromLegionId: best.fromLegionId }
 }
 
@@ -336,6 +313,8 @@ export function pickAiCommand(state: GameState, rng = Math.random): GameCommand 
 /** True when the player who must act now is an AI (master or battle). */
 export function isAiActing(state: GameState): boolean {
   if (state.winnerId || state.draw) return false
+  // Engagement reply (flee / fight) may belong to a human even on an AI mover's turn
+  if (engagementNeedsHumanInput(state)) return false
   const player = state.players[state.activePlayerIndex]
   const inBattle = Boolean(state.battle && !state.battle.done)
   const actorId = inBattle ? state.battle!.activePlayerId : player?.id

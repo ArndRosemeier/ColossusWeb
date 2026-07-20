@@ -9,6 +9,7 @@ import {
   getStrikeDice,
   getStrikeNumber,
   getUnitSkill,
+  titanRange,
 } from '../battleStrike'
 import {
   buildBattleland,
@@ -214,10 +215,10 @@ describe('H6–H8 Volcano dice / rangestrike', () => {
     const { g, land } = battleOn('Mountains', ['Lion'], ['Ogre'])
     const volcano = land.labels.find((l) => land.hexByLabel[l]?.terrain === 'Volcano')
     if (!volcano) return
-    const far = land.labels.find(
-      (l) => l !== volcano && land.hexByLabel[l]?.terrain !== 'Volcano',
-    )!
-    const striker = unit({ creatureType: 'Lion', playerId: 'a', hex: far })
+    // Titan range 3 (one hex between) so only the Volcano −1 applies, not range penalty
+    const atRange3 = land.labels.find((l) => titanRange(land, volcano, l) === 3)
+    if (!atRange3) return
+    const striker = unit({ creatureType: 'Lion', playerId: 'a', hex: atRange3 })
     const target = unit({ creatureType: 'Ogre', playerId: 'b', hex: volcano })
     expect(getAttackerSkill(g, land, striker, target, false)).toBe(getUnitSkill(g, striker) - 1)
   })
@@ -282,8 +283,12 @@ describe('H13 Rangestrike brambles / Stone defense', () => {
   it('H13a: native in Brambles vs non-native non-missile rangestrike → +1 strike number', () => {
     const { g, land } = battleOn('Brush', ['Dragon'], ['Cyclops'])
     const bramble = findTerrain(land, 'Brambles')
-    const plains = findTerrain(land, 'Plains')
-    const dragon = unit({ creatureType: 'Dragon', playerId: 'a', hex: plains })
+    const atRange3 = land.labels.find(
+      (l) =>
+        land.hexByLabel[l]?.terrain === 'Plains' && titanRange(land, bramble, l) === 3,
+    )
+    expect(atRange3).toBeTruthy()
+    const dragon = unit({ creatureType: 'Dragon', playerId: 'a', hex: atRange3! })
     const cyc = unit({ creatureType: 'Cyclops', playerId: 'b', hex: bramble })
     expect(getStrikeNumber(g, dragon, cyc, land, false)).toBe(baseNeed(g, dragon, cyc) + 1)
   })

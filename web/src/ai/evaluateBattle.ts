@@ -580,7 +580,7 @@ export function rankBattleStrikes(
   profile: AiProfile,
 ): ScoredBattleStrike[] {
   const strikers = battle.units.filter(
-    (u) => u.playerId === battle.activePlayerId && isUnitAlive(state, u) && !u.struck && u.hex,
+    (u) => u.playerId === battle.activePlayerId && !u.struck && u.hex,
   )
   const scored: ScoredBattleStrike[] = []
   for (const u of strikers) {

@@ -546,7 +546,6 @@ export function MasterBoardView({
             top: overlayPos.top,
           }}
           onClick={(e) => e.stopPropagation()}
-          onContextMenu={(e) => e.stopPropagation()}
         >
           {showSplit && (
             <>

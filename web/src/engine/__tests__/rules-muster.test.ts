@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { applyEnterKeyPhaseEnd } from '../../components/LegionActions'
 import { dispatch, getLegalRecruits } from '../GameEngine'
 import { listAllMoves } from '../movement'
-import { listRecruits } from '../recruit'
+import { bestRecruit, listRecruits } from '../recruit'
 import { turn1SplitChild, twoPlayerGame } from './helpers'
 import type { GameState } from '../types'
 
@@ -95,6 +96,18 @@ describe('rules-muster', () => {
     const skipped = dispatch(warned, { type: 'doneMuster' })
     expect(skipped.phase).toBe('Split')
     expect(skipped.activePlayerIndex).not.toBe(warned.activePlayerIndex)
+  })
+
+  it('Enter auto-musters best for every pending legion then finishes', () => {
+    let { g, movedId } = musterReady(1)
+    const expected = bestRecruit(g, g.legions.find((l) => l.id === movedId)!)
+    expect(expected).toBeTruthy()
+
+    const after = applyEnterKeyPhaseEnd(g)
+    const leg = after.legions.find((l) => l.id === movedId)!
+    expect(leg.recruited).toBe(true)
+    expect(leg.musteredThisTurn).toBe(expected)
+    expect(after.phase).not.toBe('Muster')
   })
 
   it('Q3: tower Warlock requires Titan; Guardian requires 3 identical non-lords', () => {

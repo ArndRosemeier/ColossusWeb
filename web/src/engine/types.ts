@@ -88,6 +88,8 @@ export interface BattleUnit {
   hex: string | null
   struck: boolean
   moved: boolean
+  /** Hex at the start of this maneuver phase (null = off-board); used by undo. */
+  moveOriginHex: string | null
 }
 
 export interface BattleState {
@@ -122,6 +124,8 @@ export interface BattleState {
   pendingSummon: boolean
   /** Flee denies summon */
   denySummon: boolean
+  /** Unit ids moved this maneuver phase, newest last (Colossus undo-last stack). */
+  moveStack: string[]
 }
 
 export interface EngagementOffer {
@@ -231,6 +235,8 @@ export type GameCommand =
   | { type: 'concedeBattle' }
   | { type: 'battleSelectUnit'; unitId: string }
   | { type: 'battleMove'; unitId: string; toHex: string }
+  | { type: 'battleUndoLastMove' }
+  | { type: 'battleUndoAllMoves' }
   | { type: 'battleStrike'; attackerId: string; defenderId: string }
   | { type: 'battleCarry'; targetId: string }
   | { type: 'battleDonePhase' }

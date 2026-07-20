@@ -89,4 +89,40 @@ describe('rules-movement', () => {
     expect(after.teleported).toBe(false)
     expect(after.enteredFrom).toBeNull()
   })
+
+  it('M-spin: exact-roll loops back to start are legal when alone (Colossus spin cycle)', () => {
+    let g = twoPlayerGame(7)
+    const mover = g.legions.find((l) => l.playerId === g.players[0].id)!
+    // Isolate one legion so ending on the start hex is not blocked by a sibling
+    g.legions = g.legions.filter((l) => l.id === mover.id)
+    g.phase = 'Move'
+    g.movementRoll = 6
+    mover.moved = false
+
+    const spinHexes: string[] = []
+    for (const label of Object.keys(g.variant.board.hexByLabel)) {
+      mover.hexLabel = label
+      if (listNormalMoveHexes(g, mover, 6).has(label)) spinHexes.push(label)
+    }
+    expect(spinHexes.length).toBeGreaterThan(0)
+
+    // Prefer a swamp/desert/brush spin the user called out
+    const preferred =
+      spinHexes.find((h) => {
+        const t = g.variant.board.hexByLabel[h]!.terrain
+        return t === 'Swamp' || t === 'Desert' || t === 'Brush'
+      }) ?? spinHexes[0]!
+    mover.hexLabel = preferred
+    const moves = listAllMoves(g, mover, 6)
+    expect(moves.has(preferred)).toBe(true)
+    expect(moves.get(preferred)!.teleport).toBe(false)
+
+    g.selectedLegionId = mover.id
+    g = dispatch(g, { type: 'move', legionId: mover.id, toHex: preferred, teleport: false })
+    const after = g.legions.find((l) => l.id === mover.id)!
+    expect(after.hexLabel).toBe(preferred)
+    expect(after.moved).toBe(true)
+    expect(after.teleported).toBe(false)
+    expect(after.enteredFrom).not.toBeNull()
+  })
 })

@@ -29,6 +29,7 @@ Port modules: `engagement.ts`, `battleland.ts`, `battleMovement.ts`, `battleStri
 |----|------|--------|------|
 | P1–P3 | Split rules (turn-1 = 4:4 + 1 lord each) | pass | `rules-split` |
 | M1–M4, M6–M7 | Movement | pass | `rules-movement` |
+| M-spin | Exact-roll loop back to start (spin cycle) | pass | UI double-click chit + `listNormalMoveHexes` | `rules-movement`, `movePath` |
 | M5, M8 | Engagement hex / arrows | partial | — |
 | M9 | Mulligan | pass | `rules-port` |
 | T1–T2, T4 | Teleport | pass | `rules-teleport` |
@@ -40,7 +41,7 @@ Port modules: `engagement.ts`, `battleland.ts`, `battleMovement.ts`, `battleStri
 | ID | Rule | Status | Code | Test |
 |----|------|--------|------|------|
 | E1 | Mover picks order | pass | `findEngagements` | — |
-| E2 | Reveal stacks | pass | `revealEngagement` | UI |
+| E2 | Reveal stacks | pass | auto on `openEngagement` | — |
 | E3 | Flee half points | pass | `engagement.ts` | `rules-port` |
 | E4 | Fight forfeits flee path | pass | propose fight | — |
 | E5 | Agreement / mutual 0 | pass | `resolveAgreement` | `rules-port` |
@@ -61,10 +62,11 @@ Port modules: `engagement.ts`, `battleland.ts`, `battleMovement.ts`, `battleStri
 | N5 | Occupied hexes | pass | movement | — |
 | N6–N8 | Hazards entry/slow | pass | `getEntryCost` | — |
 | K2 | Must strike | pass | `hasForcedStrike` | — |
+| K2b | Dead creatures strike back before removal | pass | `legalStrikes` / Strikeback | `deadStrikeback` |
 | K3 | Strike chart | pass | `getStrikeNumber` | `rules-port` |
 | K4 | Heal after battle | pass | `applyBattleResult` | `rules-scoring` |
 | K5 | Carries | pass | `pendingCarry` / `battleCarry` | — |
-| K6–K9 | Rangestrike / LOS / lords / Warlock | pass | `battleStrike.ts` | — |
+| K6–K9 | Rangestrike / LOS / lords / Warlock | pass | `battleStrike.ts` (`titanRange`) | `rules-rangestrike` |
 | R1–R3 | Defender reinforce turn 4 | pass | `battleReinforce` | — |
 | U1–U4 | Angel summon | pass | `battleSummon` | — |
 | Q4–Q6 | Angels / scoring / titan power | pass | `rules-scoring` | |

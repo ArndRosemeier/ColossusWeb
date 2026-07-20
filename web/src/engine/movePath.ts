@@ -52,7 +52,6 @@ export function findMasterMovePath(
   roll: number,
   toHex: string,
 ): string[] | null {
-  if (legion.hexLabel === toHex) return [toHex]
   const board = state.variant.board
   const start = board.hexByLabel[legion.hexLabel]
   if (!start || roll < 1) return null

@@ -200,8 +200,20 @@ export function BattleBoardView({
   const scale = 14
   const chit = scale * 2
   const land = battleLand(state, battle)
-  const highlight = new Set(battle.highlighted)
   const selected = battle.selectedUnitId
+  const strikePhase = battle.phase === 'Strike' || battle.phase === 'Strikeback'
+  // Move highlights are hex labels; strike highlights are defender unit ids.
+  const highlightHexes = new Set<string>()
+  const highlightUnitIds = new Set<string>()
+  if (strikePhase) {
+    for (const id of battle.highlighted) {
+      highlightUnitIds.add(id)
+      const target = battle.units.find((u) => u.id === id)
+      if (target?.hex) highlightHexes.add(target.hex)
+    }
+  } else {
+    for (const label of battle.highlighted) highlightHexes.add(label)
+  }
   const hexes = Object.values(land.hexByLabel)
   const entryHighlight = new Set([...battle.attackerEntrances, ...battle.defenderEntrances])
 
@@ -302,7 +314,7 @@ export function BattleBoardView({
         {hexes.map((h) => {
           const { cx, cy } = hexOrigin(h.x, h.y, scale)
           const { x, y } = hexCenter(h.x, h.y, scale)
-          const lit = highlight.has(h.label)
+          const lit = highlightHexes.has(h.label)
           const entry = entryHighlight.has(h.label)
           const bounds = hexBounds(cx, cy, scale)
           const fill = terrainFill(h.terrain, h.elevation)
@@ -345,7 +357,7 @@ export function BattleBoardView({
           )
         })}
         {battle.units
-          .filter((u) => u.hex && isUnitAlive(state, u))
+          .filter((u) => u.hex)
           .map((u) => {
             if (moveAnim?.pieceId === u.id) return null
             const hex = land.hexByLabel[u.hex!]
@@ -354,30 +366,64 @@ export function BattleBoardView({
             const t = state.variant.creatures[u.creatureType]
             const power = getUnitPower(state, u)
             const skill = getUnitSkill(state, u)
+            const dead = !isUnitAlive(state, u)
+            const isSelected = selected === u.id
+            const isStrikeTarget = highlightUnitIds.has(u.id)
             return (
-              <foreignObject
-                key={u.id}
-                x={x - chit / 2}
-                y={y - chit / 2}
-                width={chit}
-                height={chit}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onUnitClick(u.id)
-                }}
-                style={{ cursor: 'pointer' }}
-              >
-                <div className={selected === u.id ? 'battle-chit selected' : 'battle-chit'}>
-                  <CreatureChit
-                    creature={u.creatureType}
-                    power={power}
-                    skill={skill}
-                    baseColor={t?.baseColor}
-                    size={chit}
-                    hits={u.hits > 0 && u.hits < 999 ? u.hits : 0}
+              <g key={u.id}>
+                {isSelected && (
+                  <rect
+                    x={x - chit / 2 - 3}
+                    y={y - chit / 2 - 3}
+                    width={chit + 6}
+                    height={chit + 6}
+                    fill="none"
+                    stroke="#e08a45"
+                    strokeWidth={3}
+                    rx={2}
+                    pointerEvents="none"
                   />
-                </div>
-              </foreignObject>
+                )}
+                {isStrikeTarget && !isSelected && (
+                  <rect
+                    x={x - chit / 2 - 2}
+                    y={y - chit / 2 - 2}
+                    width={chit + 4}
+                    height={chit + 4}
+                    fill="none"
+                    stroke="#c45c26"
+                    strokeWidth={2.5}
+                    rx={2}
+                    pointerEvents="none"
+                    className="battle-strike-target"
+                  />
+                )}
+                <foreignObject
+                  x={x - chit / 2}
+                  y={y - chit / 2}
+                  width={chit}
+                  height={chit}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onUnitClick(u.id)
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div
+                    className={['battle-chit', dead ? 'dead' : ''].filter(Boolean).join(' ')}
+                  >
+                    <CreatureChit
+                      creature={u.creatureType}
+                      power={power}
+                      skill={skill}
+                      baseColor={t?.baseColor}
+                      size={chit}
+                      hits={u.hits > 0 && u.hits < 999 ? u.hits : 0}
+                    />
+                    {dead && <span className="battle-chit-dead-x" aria-label="slain">✕</span>}
+                  </div>
+                </foreignObject>
+              </g>
             )
           })}
         {[

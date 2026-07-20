@@ -1,11 +1,12 @@
 import type { LoadedVariant } from '../variant/loadVariant'
+import { aiDefenderShouldFlee } from '../ai/engagementDecision'
 import { resolveAiProfileId } from '../ai/profiles'
 import {
   applyBattleResult,
   advanceBattlePhase,
   activePlayerHasLegalStrike,
   battleLand,
-  checkBattleEnd,
+  canUndoBattleMoves,
   checkTitanDeath,
   doCarry,
   getStrikeDice,
@@ -13,8 +14,11 @@ import {
   isUnitAlive,
   legalBattleMovesFor,
   legalStrikes,
+  listBattleReinforceOptions,
   resolveStrike,
   startBattle,
+  undoAllBattleMoves,
+  undoLastBattleMove,
   MAX_BATTLE_TURNS,
 } from './battle'
 import { battleNeighbors } from './battleland'
@@ -464,9 +468,8 @@ function commitPendingDice(state: GameState, rng: () => number, forced?: number[
     battle.selectedUnitId = null
     battle.highlighted = []
     state.pendingDice = null
-    checkBattleEnd(state, battle)
-    if (battle.done) finishBattle(state)
-    else if (!battle.pendingCarry && !activePlayerHasLegalStrike(state, battle)) {
+    // Side elimination waits until removeDeadCreatures after Strikeback.
+    if (!battle.pendingCarry && !activePlayerHasLegalStrike(state, battle)) {
       advanceBattlePhase(state, battle)
       if (battle.done) finishBattle(state)
       else {
@@ -488,11 +491,29 @@ function openEngagement(state: GameState, attackerId: string, defenderId: string
   state.activeEngagement = {
     attackerId,
     defenderId,
-    revealed: false,
+    revealed: true,
     proposal: null,
     proposedBy: null,
   }
-  state.message = `Engagement ${attacker.markerId} vs ${defender.markerId} — reveal, flee, agree, concede, or fight`
+  revealAll(attacker)
+  revealAll(defender)
+  state.log.push(
+    `Engagement ${attacker.markerId}=[${formatPublicContents(state, attacker)}] vs ${defender.markerId}=[${formatPublicContents(state, defender)}]`,
+  )
+
+  // AI defender flees immediately when hopeless — humans never decide that for them
+  if (aiDefenderShouldFlee(state)) {
+    resolveEngagementConcession(state, defender, attacker, true)
+    state.log.push(`${defender.markerId} flees — half points to attacker`)
+    finishEngagementResolution(state, attacker.playerId)
+    return
+  }
+
+  const defPlayer = state.players.find((p) => p.id === defender.playerId)
+  state.message =
+    defPlayer?.kind === 'human' && canFlee(state, defender)
+      ? `Engagement ${attacker.markerId} vs ${defender.markerId} — flee or fight`
+      : `Engagement ${attacker.markerId} vs ${defender.markerId} — fight`
 }
 
 function handleEngagementCommand(
@@ -1144,7 +1165,15 @@ function handleBattleCommand(state: GameState, command: GameCommand, rng: () => 
   switch (command.type) {
     case 'battleSelectUnit': {
       const unit = battle.units.find((u) => u.id === command.unitId)
-      if (!unit || !isUnitAlive(state, unit)) throw new Error('Invalid unit')
+      if (!unit) throw new Error('Invalid unit')
+      // Dead chits remain selectable during Strike / Strikeback for strikeback.
+      if (
+        !isUnitAlive(state, unit) &&
+        battle.phase !== 'Strike' &&
+        battle.phase !== 'Strikeback'
+      ) {
+        throw new Error('Invalid unit')
+      }
       if (unit.playerId !== battle.activePlayerId) throw new Error('Not your unit')
       battle.selectedUnitId = unit.id
       if (battle.phase === 'Move') {
@@ -1158,13 +1187,34 @@ function handleBattleCommand(state: GameState, command: GameCommand, rng: () => 
       const unit = battle.units.find((u) => u.id === command.unitId)
       if (!unit) throw new Error('Unit not found')
       if (battle.phase !== 'Move') throw new Error('Not move phase')
+      if (unit.playerId !== battle.activePlayerId) throw new Error('Not your unit')
       const legal = legalBattleMovesFor(state, battle, unit)
       if (!legal.includes(command.toHex)) throw new Error('Illegal battle move')
       unit.hex = command.toHex
       unit.moved = true
+      if (!battle.moveStack) battle.moveStack = []
+      battle.moveStack.push(unit.id)
       battle.selectedUnitId = null
       battle.highlighted = []
       state.message = `${unit.creatureType} moves to ${command.toHex}`
+      break
+    }
+    case 'battleUndoLastMove': {
+      if (battle.phase !== 'Move') throw new Error('Not move phase')
+      if (!canUndoBattleMoves(battle)) throw new Error('No battle move to undo')
+      const unitId = battle.moveStack[battle.moveStack.length - 1]!
+      const unit = battle.units.find((u) => u.id === unitId)
+      undoLastBattleMove(battle)
+      state.message = unit
+        ? `Undo: ${unit.creatureType} returns to start`
+        : 'Battle move undone'
+      break
+    }
+    case 'battleUndoAllMoves': {
+      if (battle.phase !== 'Move') throw new Error('Not move phase')
+      if (!canUndoBattleMoves(battle)) throw new Error('No battle move to undo')
+      undoAllBattleMoves(battle)
+      state.message = 'All battle moves undone'
       break
     }
     case 'battleStrike': {
@@ -1214,9 +1264,8 @@ function handleBattleCommand(state: GameState, command: GameCommand, rng: () => 
       }
       battle.selectedUnitId = null
       battle.highlighted = []
-      checkBattleEnd(state, battle)
-      if (battle.done) finishBattle(state)
-      else if (!battle.pendingCarry && !activePlayerHasLegalStrike(state, battle)) {
+      // Side elimination waits until removeDeadCreatures after Strikeback.
+      if (!battle.pendingCarry && !activePlayerHasLegalStrike(state, battle)) {
         advanceBattlePhase(state, battle)
         if (battle.done) finishBattle(state)
         else {
@@ -1228,8 +1277,7 @@ function handleBattleCommand(state: GameState, command: GameCommand, rng: () => 
     case 'battleCarry': {
       doCarry(state, battle, command.targetId)
       state.message = 'Carry applied'
-      if (battle.done) finishBattle(state)
-      else if (!battle.pendingCarry && !activePlayerHasLegalStrike(state, battle)) {
+      if (!battle.pendingCarry && !activePlayerHasLegalStrike(state, battle)) {
         advanceBattlePhase(state, battle)
         if (battle.done) finishBattle(state)
         else {
@@ -1261,10 +1309,7 @@ function handleBattleCommand(state: GameState, command: GameCommand, rng: () => 
       const def = state.legions.find((l) => l.id === battle.defenderLegionId)!
       if (def.creatures.length >= 7) throw new Error('Legion full')
       if ((state.caretaker[command.creatureType] ?? 0) <= 0) throw new Error('Caretaker empty')
-      // Must be a legal recruit for the engagement terrain
-      def.moved = true
-      const opts = listRecruits(state, def)
-      def.moved = false
+      const opts = listBattleReinforceOptions(state, battle)
       if (!opts.includes(command.creatureType)) throw new Error('Illegal reinforcement')
       state.caretaker[command.creatureType] -= 1
       def.creatures.push({ type: command.creatureType, hits: 0 })
@@ -1278,6 +1323,7 @@ function handleBattleCommand(state: GameState, command: GameCommand, rng: () => 
         hex: null,
         struck: false,
         moved: false,
+        moveOriginHex: null,
       })
       battle.defenderReinforced = true
       battle.phase = 'Move'
@@ -1326,6 +1372,7 @@ function handleBattleCommand(state: GameState, command: GameCommand, rng: () => 
         hex: null,
         struck: false,
         moved: false,
+        moveOriginHex: null,
       })
       battle.attackerSummoned = true
       battle.pendingSummon = false

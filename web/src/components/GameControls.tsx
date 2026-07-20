@@ -1,5 +1,7 @@
 import { AI_PROFILES } from '../ai/profiles'
-import { activePlayer, getLegalRecruits, playerLegions } from '../engine/GameEngine'
+import { listBattleReinforceOptions, listBattleSummonSources } from '../engine/battle'
+import { canFlee } from '../engine/engagement'
+import { activePlayer, playerLegions } from '../engine/GameEngine'
 import { publicViewSlots } from '../engine/publicKnowledge'
 import type { GameCommand, GameState } from '../engine/types'
 import { CreatureChit, UnknownChit } from './CreatureChit'
@@ -49,7 +51,11 @@ export function GameControls({ state, dispatch, interactive = true }: Props) {
           <p className="hint ai-watching">Watching AI — adjust speed in the top bar.</p>
         )}
         {interactive && endLabel && (
-          <p className="hint rmb-hint">Right-click board: {endLabel}</p>
+          <p className="hint phase-end-hint">
+            {state.phase === 'Muster' && !(state.battle && !state.battle.done)
+              ? `Space: ${endLabel} · Enter: muster best for all, then done`
+              : `Space / Enter: ${endLabel}`}
+          </p>
         )}
       </div>
 
@@ -133,60 +139,7 @@ export function GameControls({ state, dispatch, interactive = true }: Props) {
           )}
 
           {state.phase === 'Fight' && state.activeEngagement && (
-            <>
-              <p className="hint">Resolve engagement: reveal, flee, agree, concede, or fight.</p>
-              <button type="button" onClick={() => dispatch({ type: 'revealEngagement' })}>
-                Reveal stacks
-              </button>
-              <button type="button" onClick={() => dispatch({ type: 'flee' })}>
-                Defender flees
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  dispatch({
-                    type: 'concedeEngagement',
-                    loserId: state.activeEngagement!.attackerId,
-                  })
-                }
-              >
-                Attacker concedes
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  dispatch({
-                    type: 'concedeEngagement',
-                    loserId: state.activeEngagement!.defenderId,
-                  })
-                }
-              >
-                Defender concedes
-              </button>
-              <button
-                type="button"
-                onClick={() => dispatch({ type: 'proposeAgreement', kind: 'mutual' })}
-              >
-                Propose mutual elimination
-              </button>
-              {state.activeEngagement.proposal && state.activeEngagement.proposal !== 'fight' && (
-                <>
-                  <button type="button" onClick={() => dispatch({ type: 'acceptAgreement' })}>
-                    Accept agreement
-                  </button>
-                  <button type="button" onClick={() => dispatch({ type: 'refuseAgreement' })}>
-                    Refuse
-                  </button>
-                </>
-              )}
-              <button
-                type="button"
-                className="primary"
-                onClick={() => dispatch({ type: 'proposeAgreement', kind: 'fight' })}
-              >
-                Fight!
-              </button>
-            </>
+            <EngagementActions state={state} dispatch={dispatch} />
           )}
 
           {state.phase === 'Fight' && !state.activeEngagement && (
@@ -244,6 +197,7 @@ export function GameControls({ state, dispatch, interactive = true }: Props) {
             <>
               <p className="hint">
                 Battle turn {state.battle.turn}/7 ({state.battle.activeHalf}) — {state.battle.phase}.
+                {state.battle.phase === 'Move' ? ' Undo moves before Done if needed.' : ''}{' '}
                 Time-loss after turn 7: defender wins, no points.
               </p>
               {state.battle.pendingCarry && (
@@ -270,9 +224,29 @@ export function GameControls({ state, dispatch, interactive = true }: Props) {
               {state.battle.phase === 'Summon' && (
                 <BattleSummonControls state={state} dispatch={dispatch} />
               )}
-              {state.battle.phase !== 'Recruit' && state.battle.phase !== 'Summon' && endCmd && (
+              {state.battle.phase === 'Move' &&
+                state.battle.moveStack &&
+                state.battle.moveStack.length > 0 && (
+                <div className="battle-undo-row">
+                  <button
+                    type="button"
+                    onClick={() => dispatch({ type: 'battleUndoLastMove' })}
+                  >
+                    Undo last move
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => dispatch({ type: 'battleUndoAllMoves' })}
+                  >
+                    Undo all moves
+                  </button>
+                </div>
+              )}
+              {endCmd && (
                 <button type="button" className="primary" onClick={() => dispatch(endCmd)}>
-                  Done {state.battle.phase}
+                  {state.battle.phase === 'Recruit' || state.battle.phase === 'Summon'
+                    ? endLabel
+                    : `Done ${state.battle.phase}`}
                 </button>
               )}
               <button
@@ -368,15 +342,11 @@ function BattleReinforceControls({
   dispatch: (cmd: GameCommand) => void
 }) {
   const battle = state.battle!
-  const def = state.legions.find((l) => l.id === battle.defenderLegionId)
-  if (!def) return null
-  const opts = getLegalRecruits(
-    { ...state, legions: state.legions.map((l) => (l.id === def.id ? { ...l, moved: true } : l)) },
-    def.id,
-  )
+  const opts = listBattleReinforceOptions(state, battle)
+  if (opts.length === 0) return null
   return (
     <div className="recruit-list">
-      <p className="hint">Defender reinforce (turn 4) or skip:</p>
+      <p className="hint">Defender reinforce (turn 4):</p>
       {opts.map((r) => {
         const t = state.variant.creatures[r]
         return (
@@ -397,9 +367,6 @@ function BattleReinforceControls({
           </button>
         )
       })}
-      <button type="button" onClick={() => dispatch({ type: 'battleSkipReinforce' })}>
-        Skip reinforce
-      </button>
     </div>
   )
 }
@@ -412,18 +379,11 @@ function BattleSummonControls({
   dispatch: (cmd: GameCommand) => void
 }) {
   const battle = state.battle!
-  const atk = state.legions.find((l) => l.id === battle.attackerLegionId)
-  if (!atk) return null
-  const sources = state.legions.filter((l) => {
-    if (l.playerId !== atk.playerId || l.id === atk.id) return false
-    if (state.legions.some((e) => e.hexLabel === l.hexLabel && e.playerId !== l.playerId)) {
-      return false
-    }
-    return l.creatures.some((c) => state.variant.creatures[c.type]?.summonable)
-  })
+  const sources = listBattleSummonSources(state, battle)
+  if (sources.length === 0) return null
   return (
     <div className="recruit-list">
-      <p className="hint">Summon an angel from another legion, or skip:</p>
+      <p className="hint">Summon an angel from another legion:</p>
       {sources.map((src) => (
         <button
           key={src.id}
@@ -434,9 +394,74 @@ function BattleSummonControls({
           Summon from {src.markerId}
         </button>
       ))}
-      <button type="button" onClick={() => dispatch({ type: 'battleSkipSummon' })}>
-        Skip summon
-      </button>
     </div>
+  )
+}
+
+/** Role-aware engagement choices — never decide flee/concede for an AI opponent. */
+function EngagementActions({
+  state,
+  dispatch,
+}: {
+  state: GameState
+  dispatch: (cmd: GameCommand) => void
+}) {
+  const eng = state.activeEngagement!
+  const attacker = state.legions.find((l) => l.id === eng.attackerId)
+  const defender = state.legions.find((l) => l.id === eng.defenderId)
+  if (!attacker || !defender) return null
+  const atkP = state.players.find((p) => p.id === attacker.playerId)
+  const defP = state.players.find((p) => p.id === defender.playerId)
+  const humans = state.players.filter((p) => p.kind === 'human' && !p.dead)
+  // Local hotseat: any living human may act for their side
+  const humanControlsAttacker = humans.some((h) => h.id === attacker.playerId)
+  const humanControlsDefender = humans.some((h) => h.id === defender.playerId)
+  const bothHuman = atkP?.kind === 'human' && defP?.kind === 'human'
+  const canHumanFlee = humanControlsDefender && canFlee(state, defender)
+
+  const hints: string[] = []
+  if (canHumanFlee) hints.push('flee')
+  hints.push('fight')
+  if (bothHuman) hints.push('agree')
+
+  return (
+    <>
+      <p className="hint">
+        Resolve engagement — {hints.join(' or ')}.
+        {defP?.kind === 'ai' && humanControlsAttacker ? ' AI declined to flee.' : ''}
+      </p>
+      {canHumanFlee && (
+        <button type="button" onClick={() => dispatch({ type: 'flee' })}>
+          Flee
+        </button>
+      )}
+      {bothHuman && (
+        <button
+          type="button"
+          onClick={() => dispatch({ type: 'proposeAgreement', kind: 'mutual' })}
+        >
+          Propose mutual elimination
+        </button>
+      )}
+      {bothHuman && eng.proposal && eng.proposal !== 'fight' && (
+        <>
+          <button type="button" onClick={() => dispatch({ type: 'acceptAgreement' })}>
+            Accept agreement
+          </button>
+          <button type="button" onClick={() => dispatch({ type: 'refuseAgreement' })}>
+            Refuse
+          </button>
+        </>
+      )}
+      {(humanControlsAttacker || humanControlsDefender) && (
+        <button
+          type="button"
+          className="primary"
+          onClick={() => dispatch({ type: 'proposeAgreement', kind: 'fight' })}
+        >
+          Fight!
+        </button>
+      )}
+    </>
   )
 }

@@ -15,6 +15,7 @@ import {
   resolveStrike as doResolveStrike,
 } from './battleStrike'
 import { eliminateLegionToCaretaker } from './engagement'
+import { listRecruits } from './recruit'
 import { revealAll, revealCreatures } from './publicKnowledge'
 import type {
   BattleHalf,
@@ -26,7 +27,28 @@ import type {
 } from './types'
 
 export const MAX_BATTLE_TURNS = 7
-export { getStrikeDice, getStrikeNumber, getUnitPower, getUnitSkill, isUnitAlive }
+export { getStrikeDice, getStrikeNumber, getUnitPower, getUnitSkill, hasForcedStrike, isUnitAlive }
+
+/** Legal turn-4 defender reinforcements (same rules as battleReinforce). */
+export function listBattleReinforceOptions(state: GameState, battle: BattleState): string[] {
+  const def = state.legions.find((l) => l.id === battle.defenderLegionId)
+  if (!def || def.creatures.length >= 7) return []
+  return listRecruits(state, { ...def, moved: true, recruited: false })
+}
+
+/** Friendly unengaged legions that can donate a summonable creature to the attacker. */
+export function listBattleSummonSources(state: GameState, battle: BattleState): Legion[] {
+  const atk = state.legions.find((l) => l.id === battle.attackerLegionId)
+  if (!atk || atk.creatures.length >= 7) return []
+  if (battle.attackerSummoned || battle.denySummon) return []
+  return state.legions.filter((l) => {
+    if (l.playerId !== atk.playerId || l.id === atk.id) return false
+    if (state.legions.some((e) => e.hexLabel === l.hexLabel && e.playerId !== l.playerId)) {
+      return false
+    }
+    return l.creatures.some((c) => state.variant.creatures[c.type]?.summonable)
+  })
+}
 
 const landCache = new WeakMap<BattleState, BuiltBattleland>()
 
@@ -73,6 +95,7 @@ export function startBattle(
       hex: null,
       struck: false,
       moved: false,
+      moveOriginHex: null,
     })
   }
   for (const c of defender.creatures) {
@@ -90,6 +113,7 @@ export function startBattle(
       hex: land.tower ? startHex : null,
       struck: false,
       moved: false,
+      moveOriginHex: land.tower ? startHex : null,
     })
   }
 
@@ -117,6 +141,7 @@ export function startBattle(
     attackerSummoned: false,
     pendingSummon: false,
     denySummon: false,
+    moveStack: [],
   }
   landCache.set(battle, land)
   return battle
@@ -124,6 +149,46 @@ export function startBattle(
 
 function booleanFalse(): boolean {
   return false
+}
+
+/** Snapshot origins and clear moved flags for a new maneuver half. */
+export function prepareBattleManeuver(battle: BattleState): void {
+  for (const u of battle.units) {
+    u.moved = false
+    u.struck = false
+    u.moveOriginHex = u.hex
+  }
+  battle.moveStack = []
+  battle.selectedUnitId = null
+  battle.highlighted = []
+}
+
+export function undoBattleUnitMove(battle: BattleState, unitId: string): void {
+  const unit = battle.units.find((u) => u.id === unitId)
+  if (!unit || !unit.moved) throw new Error('Unit has not moved')
+  unit.hex = unit.moveOriginHex
+  unit.moved = false
+  battle.moveStack = battle.moveStack.filter((id) => id !== unitId)
+  if (battle.selectedUnitId === unitId) {
+    battle.selectedUnitId = null
+    battle.highlighted = []
+  }
+}
+
+export function undoLastBattleMove(battle: BattleState): void {
+  const unitId = battle.moveStack[battle.moveStack.length - 1]
+  if (!unitId) throw new Error('No battle move to undo')
+  undoBattleUnitMove(battle, unitId)
+}
+
+export function undoAllBattleMoves(battle: BattleState): void {
+  while (battle.moveStack.length > 0) {
+    undoLastBattleMove(battle)
+  }
+}
+
+export function canUndoBattleMoves(battle: BattleState): boolean {
+  return battle.phase === 'Move' && !battle.done && battle.moveStack.length > 0
 }
 
 export function legalBattleMovesFor(
@@ -154,10 +219,10 @@ export function legalStrikes(
 
 /** True if the active battle player still has any unstruck unit with a legal target. */
 export function activePlayerHasLegalStrike(state: GameState, battle: BattleState): boolean {
+  // Dead units may still strike until removeDeadCreatures (Strikeback).
   return battle.units.some(
     (u) =>
       u.playerId === battle.activePlayerId &&
-      isUnitAlive(state, u) &&
       !u.struck &&
       legalStrikesFor(state, battle, u).length > 0,
   )
@@ -264,7 +329,7 @@ function killUnentered(state: GameState, battle: BattleState, half: BattleHalf):
       state.log.push(`${u.creatureType} failed to enter — eliminated`)
     }
   }
-  checkBattleEnd(state, battle)
+  // Elimination is checked only after removeDeadCreatures (caller).
 }
 
 /**
@@ -390,14 +455,17 @@ export function advanceBattlePhase(state: GameState, battle: BattleState): void 
       const atk = state.legions.find((l) => l.id === battle.attackerLegionId)
       battle.activePlayerId = atk?.playerId ?? battle.activePlayerId
       if (battle.pendingSummon && !battle.attackerSummoned && !battle.denySummon) {
-        battle.phase = 'Summon'
+        if (listBattleSummonSources(state, battle).length > 0) {
+          battle.phase = 'Summon'
+        } else {
+          // Nothing available to summon — skip summon UI entirely
+          battle.pendingSummon = false
+          battle.phase = 'Move'
+        }
       } else {
         battle.phase = 'Move'
       }
-      for (const u of battle.units) {
-        u.moved = false
-        u.struck = false
-      }
+      prepareBattleManeuver(battle)
     } else {
       const nextTurn = battle.turn + 1
       if (nextTurn > MAX_BATTLE_TURNS) {
@@ -409,17 +477,27 @@ export function advanceBattlePhase(state: GameState, battle: BattleState): void 
       const def = state.legions.find((l) => l.id === battle.defenderLegionId)
       battle.activePlayerId = def?.playerId ?? battle.activePlayerId
       if (nextTurn === 4 && !battle.defenderReinforced) {
-        battle.phase = 'Recruit'
+        if (listBattleReinforceOptions(state, battle).length > 0) {
+          battle.phase = 'Recruit'
+        } else {
+          // Nothing to muster — skip reinforce UI entirely
+          battle.defenderReinforced = true
+          battle.phase = 'Move'
+        }
       } else {
         battle.phase = 'Move'
       }
-      for (const u of battle.units) {
-        u.moved = false
-        u.struck = false
-      }
+      prepareBattleManeuver(battle)
     }
   } else if (battle.phase === 'Summon' || battle.phase === 'Recruit') {
+    if (battle.phase === 'Recruit') battle.defenderReinforced = true
+    if (battle.phase === 'Summon') battle.pendingSummon = false
     battle.phase = 'Move'
+    // Newly summoned/reinforced units keep hex null as origin; others already snapshotted
+    for (const u of battle.units) {
+      if (u.moveOriginHex === undefined) u.moveOriginHex = u.hex
+    }
+    if (!battle.moveStack) battle.moveStack = []
   }
 
   battle.selectedUnitId = null
@@ -433,6 +511,24 @@ export function advanceBattlePhase(state: GameState, battle: BattleState): void 
     !activePlayerHasLegalStrike(state, battle)
   ) {
     advanceBattlePhase(state, battle)
+  }
+  // Empty reinforce: never pause on Recruit with no options
+  if (
+    !battle.done &&
+    battle.phase === 'Recruit' &&
+    listBattleReinforceOptions(state, battle).length === 0
+  ) {
+    battle.defenderReinforced = true
+    battle.phase = 'Move'
+  }
+  // Empty summon: never pause on Summon with no donor angel
+  if (
+    !battle.done &&
+    battle.phase === 'Summon' &&
+    listBattleSummonSources(state, battle).length === 0
+  ) {
+    battle.pendingSummon = false
+    battle.phase = 'Move'
   }
 }
 
@@ -668,5 +764,5 @@ export function doCarry(state: GameState, battle: BattleState, targetId: string)
   if (!carry || !carry.targetIds.includes(targetId)) throw new Error('Illegal carry')
   applyCarry(state, battle, targetId, carry.hitsLeft)
   battle.pendingCarry = null
-  checkBattleEnd(state, battle)
+  // Side elimination waits until removeDeadCreatures after Strikeback.
 }

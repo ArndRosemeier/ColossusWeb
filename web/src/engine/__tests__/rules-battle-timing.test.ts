@@ -112,4 +112,57 @@ describe('rules-battle-timing', () => {
     expect(battle.phase === 'Move' || battle.phase === 'Summon').toBe(true)
     expect(battle.activeHalf).toBe('attacker')
   })
+
+  it('R: turn-4 Recruit is skipped when defender has nothing to muster', () => {
+    const { state, battle } = battleOnTerrain('Plains')
+    const defender = state.legions.find((l) => l.id === battle.defenderLegionId)!
+    // Lone Titan cannot reinforce on Plains
+    defender.creatures = [{ type: 'Titan', hits: 0 }]
+    battle.units = battle.units.filter(
+      (u) => u.legionId !== battle.defenderLegionId || u.creatureType === 'Titan',
+    )
+    for (const u of battle.units) {
+      u.hex =
+        u.legionId === battle.attackerLegionId
+          ? battle.attackerEntrances[0]!
+          : battle.defenderEntrances[0]!
+    }
+    battle.firstManeuverDone = { attacker: true, defender: true }
+    battle.turn = 3
+    battle.activeHalf = 'attacker'
+    battle.phase = 'Strikeback'
+    battle.defenderReinforced = false
+    battle.activePlayerId = state.legions.find((l) => l.id === battle.defenderLegionId)!.playerId
+
+    advanceBattlePhase(state, battle)
+
+    expect(battle.turn).toBe(4)
+    expect(battle.phase).toBe('Move')
+    expect(battle.defenderReinforced).toBe(true)
+    expect(battle.activeHalf).toBe('defender')
+  })
+
+  it('U: Summon is skipped when attacker has no summonable donor', () => {
+    const { state, battle } = battleOnTerrain('Plains')
+    for (const u of battle.units) {
+      u.hex =
+        u.legionId === battle.attackerLegionId
+          ? battle.attackerEntrances[0]!
+          : battle.defenderEntrances[0]!
+    }
+    battle.firstManeuverDone = { attacker: true, defender: true }
+    // Opening stacks: Angel is in the Titan legion (attacker) — no other donor
+    battle.pendingSummon = true
+    battle.attackerSummoned = false
+    battle.denySummon = false
+    battle.activeHalf = 'defender'
+    battle.phase = 'Strikeback'
+    battle.activePlayerId = state.legions.find((l) => l.id === battle.defenderLegionId)!.playerId
+
+    advanceBattlePhase(state, battle)
+
+    expect(battle.activeHalf).toBe('attacker')
+    expect(battle.phase).toBe('Move')
+    expect(battle.pendingSummon).toBe(false)
+  })
 })

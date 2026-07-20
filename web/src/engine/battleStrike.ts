@@ -170,7 +170,8 @@ export function getAttackerSkill(
       }
     }
   } else if (!atkType?.magicMissile) {
-    const range = hexDistance(land, attacker.hex, defender.hex)
+    // Titan range is inclusive at both ends (adjacent = 2). Penalty only at range ≥ 4.
+    const range = titanRange(land, attacker.hex, defender.hex)
     if (range >= 4) skill -= range - 3
     if (!nativeTerrain(atkType, 'Brambles')) {
       skill -= countInterveningBrambles(land, attacker.hex, defender.hex)
@@ -248,6 +249,17 @@ export function hexDistance(land: BuiltBattleland, a: string, b: string): number
   return 99
 }
 
+/**
+ * Titan / Colossus rangestrike range: inclusive at both ends (own hex + target +
+ * intervening). Adjacent = 2; one empty hex between = 3; two empty = 4 (max).
+ * Matches Colossus `Battle.getRange` for connected battle hexes.
+ */
+export function titanRange(land: BuiltBattleland, a: string, b: string): number {
+  const steps = hexDistance(land, a, b)
+  if (steps >= 99) return 99
+  return steps + 1
+}
+
 function isAdjacent(land: BuiltBattleland, a: string, b: string): boolean {
   return battleNeighbors(land, a).includes(b)
 }
@@ -285,7 +297,8 @@ export function legalStrikes(
   unit: BattleUnit,
   allowRangestrike: boolean,
 ): string[] {
-  if (!unit.hex || unit.struck || !isUnitAlive(state, unit)) return []
+  // Dead strikers still act until removeDeadCreatures (simultaneous combat / Strikeback).
+  if (!unit.hex || unit.struck) return []
   const type = state.variant.creatures[unit.creatureType]
   const enemies = battle.units.filter(
     (u) => u.playerId !== unit.playerId && isUnitAlive(state, u) && u.hex,
@@ -299,13 +312,16 @@ export function legalStrikes(
       continue
     }
     if (!allowRangestrike || !type?.rangestrikes || inContact) continue
-    const dist = hexDistance(land, unit.hex, e.hex!)
+    // Titan range (inclusive): max = min(skill, 4); non-missile needs range ≥ 3.
+    const range = titanRange(land, unit.hex, e.hex!)
     const skill = getUnitSkill(state, unit)
-    if (dist < 2 || dist > Math.min(skill, 4)) continue
+    if (range > Math.min(skill, 4)) continue
     if (!type.magicMissile) {
-      if (dist < 3) continue
+      if (range < 3) continue
       const defType = state.variant.creatures[e.creatureType]
-      if (defType?.lord || defType?.demilord) continue
+      // Lords (Titan/Angel/Archangel) immune except Warlock (magicMissile).
+      // Demilords (Guardian, Warlock) are not immune.
+      if (defType?.lord) continue
       if (losBlocked(land, unit.hex, e.hex!)) continue
     }
     result.push(e.id)
@@ -319,10 +335,11 @@ export function hasForcedStrike(
   land: BuiltBattleland,
   playerId: string,
 ): boolean {
+  // Colossus isForcedStrikeRemaining: dead strikers still forced if in contact
+  // with a living enemy (countDead=false for the contact target).
   return battle.units.some(
     (u) =>
       u.playerId === playerId &&
-      isUnitAlive(state, u) &&
       !u.struck &&
       u.hex != null &&
       battle.units.some(

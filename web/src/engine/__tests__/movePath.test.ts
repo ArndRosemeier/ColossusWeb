@@ -55,4 +55,30 @@ describe('movePath', () => {
     }
     expect(found).toBe(true)
   })
+
+  it('reconstructs a full circular path for spin-cycle destinations', () => {
+    let g = twoPlayerGame(7)
+    const mover = g.legions.find((l) => l.playerId === g.players[0].id)!
+    g.legions = g.legions.filter((l) => l.id === mover.id)
+    const roll = 6
+    let spinHex: string | null = null
+    for (const label of Object.keys(g.variant.board.hexByLabel)) {
+      mover.hexLabel = label
+      mover.moved = false
+      if (listNormalMoveHexes(g, mover, roll).has(label)) {
+        spinHex = label
+        break
+      }
+    }
+    expect(spinHex).not.toBeNull()
+    mover.hexLabel = spinHex!
+    const path = findMasterMovePath(g, mover, roll, spinHex!)
+    expect(path).not.toBeNull()
+    expect(path![0]).toBe(spinHex)
+    expect(path![path!.length - 1]).toBe(spinHex)
+    expect(path!.length - 1).toBe(roll)
+    // Must actually leave and return — not a degenerate single-hex path
+    expect(path!.length).toBeGreaterThan(2)
+    expect(new Set(path!).size).toBeGreaterThan(1)
+  })
 })
