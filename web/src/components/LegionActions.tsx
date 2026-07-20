@@ -194,6 +194,32 @@ export function phaseEndLabel(state: GameState): string | null {
   }
 }
 
+/** What Space / Enter do right now — null when neither key has an effect. */
+export function phaseKeyboardHints(
+  state: GameState,
+  pendingStrike = false,
+): { space: string; enter: string } | null {
+  if (state.pendingDice) return null
+  if (pendingStrike) {
+    return { space: 'Cancel strike announce', enter: 'Cancel strike announce' }
+  }
+  if (state.battle && !state.battle.done) {
+    if (state.battle.pendingCarry) return null
+    const label = phaseEndLabel(state)
+    if (!label) return null
+    return { space: label, enter: label }
+  }
+  if (state.phase === 'Muster') {
+    return {
+      space: 'Done mustering',
+      enter: 'Muster best for all, then done',
+    }
+  }
+  const label = phaseEndLabel(state)
+  if (!label) return null
+  return { space: label, enter: label }
+}
+
 /** Per-legion undo for the current selection (Colossus-style). */
 export function undoCommandForLegion(
   state: GameState,

@@ -6,6 +6,7 @@ import { CreatureChit, UnknownChit } from './CreatureChit'
 import {
   phaseEndCommand,
   phaseEndLabel,
+  phaseKeyboardHints,
   undoCommandForLegion,
   undoLabelForCommand,
 } from './LegionActions'
@@ -40,6 +41,7 @@ export function GameControls({
   const endLabel = phaseEndLabel(state)
   const endCmd = phaseEndCommand(state)
   const boardDecision = hasBoardDecision(state, pendingStrike)
+  const keyHints = interactive ? phaseKeyboardHints(state, Boolean(pendingStrike)) : null
   // Don't duplicate Done/Skip while a board overlay owns the decision
   const showPhaseEnd =
     Boolean(endCmd) &&
@@ -76,11 +78,19 @@ export function GameControls({
         {!interactive && player.kind === 'ai' && (
           <p className="hint ai-watching">Watching AI — adjust speed in the top bar.</p>
         )}
-        {interactive && endLabel && !engagementFocus && (
-          <p className="hint phase-end-hint">
-            {state.phase === 'Muster' && !(state.battle && !state.battle.done)
-              ? `Space: ${endLabel} · Enter: muster best for all, then done`
-              : `Space / Enter: ${endLabel}`}
+        {keyHints && (
+          <p className="hint phase-end-hint" aria-live="polite">
+            {keyHints.space === keyHints.enter ? (
+              <>
+                <kbd>Space</kbd> / <kbd>Enter</kbd> — {keyHints.space}
+              </>
+            ) : (
+              <>
+                <kbd>Space</kbd> — {keyHints.space}
+                <span className="key-hint-sep"> · </span>
+                <kbd>Enter</kbd> — {keyHints.enter}
+              </>
+            )}
           </p>
         )}
       </div>
