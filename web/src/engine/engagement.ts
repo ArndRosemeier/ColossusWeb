@@ -2,7 +2,7 @@
  * Pre-battle engagement resolution (Colossus GameServerSide flee / concede / negotiate).
  */
 import type { GameState, Legion } from './types'
-import { isLord } from './recruit'
+import { isLord, returnEliminatedCreature } from './recruit'
 import { revealAll } from './publicKnowledge'
 
 export function legionPointValue(state: GameState, legion: Legion, full: boolean): number {
@@ -25,8 +25,9 @@ export function canFlee(state: GameState, defender: Legion): boolean {
 }
 
 export function eliminateLegionToCaretaker(state: GameState, legion: Legion): void {
+  // Only immortals recycle; ordinary creatures are permanently removed (Titan 9.5 / Colossus).
   for (const c of legion.creatures) {
-    state.caretaker[c.type] = (state.caretaker[c.type] ?? 0) + 1
+    returnEliminatedCreature(state, c.type)
   }
   const owner = state.players.find((p) => p.id === legion.playerId)
   if (owner && !owner.markersAvailable.includes(legion.markerId)) {

@@ -61,10 +61,15 @@ describe('AI personalities', () => {
     const cmd = pickAiCommand(state, () => 0.5)
     expect(cmd).toEqual({ type: 'flee' })
 
-    // Same spot but defender aggressive → fight
+    // Same spot but defender aggressive → still fights this odds (not utterly crushed)
     bob.aiProfileId = 'aggressive'
     const cmd2 = pickAiCommand(state, () => 0.5)
     expect(cmd2).toEqual({ type: 'proposeAgreement', kind: 'fight' })
+
+    // Balanced flees clear attacker wins (denies summon; same half points as a wipe)
+    bob.aiProfileId = 'balanced'
+    const cmd3 = pickAiCommand(state, () => 0.5)
+    expect(cmd3).toEqual({ type: 'flee' })
   })
 
   it('aggressive prefers weaker-enemy attacks more than cautious', () => {

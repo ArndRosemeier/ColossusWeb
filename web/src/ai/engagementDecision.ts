@@ -1,5 +1,8 @@
 /**
  * Shared engagement AI decisions (flee) used by simpleAi and GameEngine auto-resolve.
+ *
+ * Titan: pre-battle **flee** (defender, no lords) awards half points and denies summon.
+ * Mid-battle / engagement **concede** awards full points — AI must not confuse the two.
  */
 import { canFlee } from '../engine/engagement'
 import type { GameState } from '../engine/types'
@@ -32,8 +35,8 @@ export function aiDefenderShouldFlee(state: GameState): boolean {
   const defPlayer = state.players.find((p) => p.id === defender.playerId)
   if (!defPlayer || defPlayer.kind !== 'ai' || defPlayer.dead) return false
   if (!canFlee(state, defender)) return false
+
   const defProfile = profileFor(defPlayer.aiProfileId)
-  if (defProfile.fleeOutnumberRatio <= 0) return false
   const { outcome, ratio } = estimateBattleOutcome(
     state,
     attacker,
@@ -41,13 +44,25 @@ export function aiDefenderShouldFlee(state: GameState): boolean {
     defender.hexLabel,
   )
   const heightRatio = attacker.creatures.length / Math.max(1, defender.creatures.length)
+
   const attackerCrushing =
     outcome === 'winMinimal' ||
     outcome === 'winHeavy' ||
     (outcome === 'draw' && defProfile.id === 'cautious')
-  return (
-    attackerCrushing ||
-    heightRatio >= defProfile.fleeOutnumberRatio ||
-    ratio >= defProfile.fleeOutnumberRatio
-  )
+
+  // Aggressive still fights many bad odds; only flee when utterly crushed
+  // (flee denies angel summon while scoring the same half points as a wipe).
+  if (defProfile.id === 'aggressive') {
+    return attackerCrushing && (ratio >= 3.0 || heightRatio >= 4)
+  }
+
+  if (attackerCrushing) return true
+
+  if (defProfile.fleeOutnumberRatio > 0) {
+    return (
+      heightRatio >= defProfile.fleeOutnumberRatio ||
+      ratio >= defProfile.fleeOutnumberRatio
+    )
+  }
+  return false
 }

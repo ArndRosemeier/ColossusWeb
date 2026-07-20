@@ -12,6 +12,21 @@ export function isLord(creatures: Record<string, CreatureType>, type: string): b
   return Boolean(c?.lord || c?.demilord)
 }
 
+/**
+ * Colossus `CreatureType.isImmortal` — Lords/Demi-Lords recycle to the caretaker.
+ * Titans are lords but not immortal; ordinary creatures are removed from the game when slain.
+ */
+export function isImmortal(creatures: Record<string, CreatureType>, type: string): boolean {
+  if (type === 'Titan') return false
+  return isLord(creatures, type)
+}
+
+/** Return a slain character to caretaker stacks only if immortal (Angel, Archangel, Guardian, Warlock). */
+export function returnEliminatedCreature(state: GameState, creatureType: string): void {
+  if (!isImmortal(state.variant.creatures, creatureType)) return
+  state.caretaker[creatureType] = (state.caretaker[creatureType] ?? 0) + 1
+}
+
 function isConcreteRecruit(name: string): boolean {
   return (
     name !== 'Anything' &&

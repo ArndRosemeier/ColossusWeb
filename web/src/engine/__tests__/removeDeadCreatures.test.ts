@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { advanceBattlePhase, removeDeadCreatures, startBattle } from '../battle'
 import { getUnitPower } from '../battleStrike'
+import { isImmortal } from '../recruit'
 import { twoPlayerGame } from './helpers'
 
 describe('removeDeadCreatures', () => {
@@ -26,7 +27,10 @@ describe('removeDeadCreatures', () => {
     battle.firstManeuverDone = { attacker: true, defender: true }
 
     const victim = battle.units.find(
-      (u) => u.legionId === battle.defenderLegionId && u.creatureType !== 'Titan',
+      (u) =>
+        u.legionId === battle.defenderLegionId &&
+        u.creatureType !== 'Titan' &&
+        !isImmortal(state.variant.creatures, u.creatureType),
     )!
     const victimType = victim.creatureType
     const caretakerBefore = state.caretaker[victimType] ?? 0
@@ -48,7 +52,8 @@ describe('removeDeadCreatures', () => {
     expect(battle.units.some((u) => u.id === victim.id)).toBe(false)
     expect(battle.fallen.some((u) => u.id === victim.id)).toBe(true)
     expect(defender.creatures.length).toBe(defCreaturesBefore - 1)
-    expect(state.caretaker[victimType] ?? 0).toBe(caretakerBefore + 1)
+    // Ordinary creatures do not recycle mid-battle (or ever)
+    expect(state.caretaker[victimType] ?? 0).toBe(caretakerBefore)
     expect(battle.phase).toBe('Move')
   })
 

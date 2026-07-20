@@ -20,8 +20,12 @@ import {
 import { loadAssetManifest } from '../variant/assets'
 import { loadDefaultVariant } from '../variant/loadVariant'
 import { BattleBoardView } from './BattleBoardView'
+import {
+  BoardDecisionOverlay,
+  type PendingStrikeAnnounce,
+} from './BoardDecisionOverlay'
 import { DiceOverlay, shouldAnimateDice } from './DiceOverlay'
-import { GameControls, type PendingStrikeAnnounce } from './GameControls'
+import { GameControls } from './GameControls'
 import { phaseEndCommand, applyEnterKeyPhaseEnd } from './LegionActions'
 import { MasterBoardView } from './MasterBoardView'
 import { SetupScreen } from './SetupScreen'
@@ -484,6 +488,13 @@ export default function App() {
               interactive={interactive}
             />
           )}
+          <BoardDecisionOverlay
+            state={state}
+            dispatch={apply}
+            interactive={interactive}
+            pendingStrike={pendingStrike}
+            onCancelPendingStrike={() => setPendingStrike(null)}
+          />
           <DiceOverlay
             pending={state.pendingDice}
             settled={state.diceRoll}
@@ -498,7 +509,6 @@ export default function App() {
           dispatch={apply}
           interactive={interactive}
           pendingStrike={pendingStrike}
-          onCancelPendingStrike={() => setPendingStrike(null)}
         />
       </main>
     </div>

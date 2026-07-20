@@ -30,6 +30,8 @@ export type BattleMoveAnim = {
   skill: number
   baseColor?: string
   hits: number
+  /** Attacker chits face opposite the defender (rotated 180°). */
+  isAttacker: boolean
 }
 
 export type MoveAnim = MasterMoveAnim | BattleMoveAnim
@@ -189,6 +191,7 @@ export function buildMoveAnim(
       skill: getUnitSkill(state, unit),
       baseColor: t?.baseColor,
       hits: unit.hits,
+      isAttacker: unit.legionId === battle.attackerLegionId,
     }
   }
   return null

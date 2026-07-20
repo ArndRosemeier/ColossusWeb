@@ -391,6 +391,44 @@ button:disabled {
     linear-gradient(160deg, #1a2830 0%, #243038 40%, #2a3228 100%);
 }
 
+.board-decision-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(8, 12, 16, 0.52);
+  backdrop-filter: blur(2px);
+}
+
+.board-decision-card {
+  width: min(440px, 94vw);
+  max-height: min(78vh, 640px);
+  overflow: auto;
+  padding: 1rem 1.1rem 1.15rem;
+  border-radius: 10px;
+  background: rgba(18, 26, 30, 0.94);
+  border: 1px solid rgba(224, 138, 69, 0.45);
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+}
+
+.board-decision-title {
+  margin: 0 0 0.45rem;
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 1.15rem;
+  letter-spacing: 0.04em;
+  color: #f0e6d8;
+}
+
+.board-decision-card .recruit-list,
+.board-decision-card .engagement-actions {
+  margin-top: 0.65rem;
+}
+
 .master-board-wrap {
   position: relative;
   width: 100%;
@@ -1038,6 +1076,17 @@ button:disabled {
   align-items: center;
   justify-content: center;
   position: relative;
+  border-radius: 3px;
+}
+
+/* Side tint: defender green, attacker red (and rotated 180°) */
+.battle-chit.defender {
+  background: rgba(46, 125, 50, 0.28);
+}
+
+.battle-chit.attacker {
+  transform: rotate(180deg);
+  background: rgba(183, 28, 28, 0.28);
 }
 
 .battle-strike-target {

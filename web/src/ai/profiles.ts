@@ -71,13 +71,14 @@ export const AI_PROFILES: Record<ResolvedAiProfileId, AiProfile> = {
     recruitPreference: 1.85,
     fightLossPenalty: 1.1,
     strongMoveThreshold: 8,
-    fleeOutnumberRatio: 0,
+    fleeOutnumberRatio: 1.4,
     battleApproachEnemy: 1,
     battleTitanValue: 80,
     battleMoveThreshold: 0,
     skipReinforceChance: 1,
     skipSummonChance: 1,
     musterGreed: 1,
+    // Mid-battle concede = full points; never gift that when combat wipe is half
     concedeWhenHopelessChance: 0,
   },
   aggressive: {
@@ -93,6 +94,7 @@ export const AI_PROFILES: Record<ResolvedAiProfileId, AiProfile> = {
     recruitPreference: 0.95,
     fightLossPenalty: 0.7,
     strongMoveThreshold: 3,
+    /** 0 = never use ratio alone; crushing flee uses a higher bar in engagementDecision */
     fleeOutnumberRatio: 0,
     battleApproachEnemy: 1.4,
     battleTitanValue: 120,
@@ -122,7 +124,7 @@ export const AI_PROFILES: Record<ResolvedAiProfileId, AiProfile> = {
     skipReinforceChance: 0.5,
     skipSummonChance: 0.6,
     musterGreed: 0.7,
-    concedeWhenHopelessChance: 0.35,
+    concedeWhenHopelessChance: 0,
   },
   expander: {
     id: 'expander',

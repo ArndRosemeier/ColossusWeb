@@ -16,7 +16,7 @@ import {
   resolveStrike as doResolveStrike,
 } from './battleStrike'
 import { eliminateLegionToCaretaker } from './engagement'
-import { listRecruits } from './recruit'
+import { listRecruits, returnEliminatedCreature } from './recruit'
 import { revealAll, revealCreatures } from './publicKnowledge'
 import type {
   BattleHalf,
@@ -375,8 +375,9 @@ function killUnentered(state: GameState, battle: BattleState, half: BattleHalf):
 
 /**
  * Colossus removeDeadCreatures — after Strikeback, dead chits leave the board
- * (and their legion), returned to the caretaker. Survivors stay in `units`;
- * casualties move to `fallen` for end-of-battle point tally.
+ * (and their legion). Survivors stay in `units`; casualties move to `fallen`
+ * for end-of-battle point tally. Caretaker recycle waits until the engagement
+ * ends (immortals only) so slain Lords/Demi-Lords are not available mid-battle.
  */
 export function removeDeadCreatures(state: GameState, battle: BattleState): void {
   const dead = battle.units.filter((u) => !isUnitAlive(state, u))
@@ -395,7 +396,6 @@ export function removeDeadCreatures(state: GameState, battle: BattleState): void
       const idx = legion.creatures.findIndex((c) => c.type === u.creatureType)
       if (idx >= 0) {
         legion.creatures.splice(idx, 1)
-        state.caretaker[u.creatureType] = (state.caretaker[u.creatureType] ?? 0) + 1
       }
     }
     state.log.push(`${u.creatureType} eliminated from the battle`)
@@ -586,21 +586,24 @@ export function applyBattleResult(state: GameState, battle: BattleState): void {
   const defender = state.legions.find((l) => l.id === battle.defenderLegionId)
   if (!attacker || !defender) return
 
+  // Colossus resurrectImmortals — after the engagement, recycle Lords/Demi-Lords.
+  for (const u of battle.fallen) {
+    returnEliminatedCreature(state, u.creatureType)
+  }
+
   const syncLegion = (legion: Legion) => {
     const survivors = battle.units.filter(
       (u) => u.legionId === legion.id && isUnitAlive(state, u),
     )
-    const deadTypes = [...legion.creatures]
+    // Dead units still sitting on the board (e.g. concede hits=999) recycle now.
+    for (const u of battle.units) {
+      if (u.legionId !== legion.id) continue
+      if (isUnitAlive(state, u)) continue
+      returnEliminatedCreature(state, u.creatureType)
+    }
     legion.creatures = survivors.map((u) => ({ type: u.creatureType, hits: 0 }))
     // Battle survivors are fully public
     revealAll(legion)
-    const before = deadTypes.map((c) => c.type)
-    const after = legion.creatures.map((c) => c.type)
-    for (const t of before) {
-      const idx = after.indexOf(t)
-      if (idx >= 0) after.splice(idx, 1)
-      else state.caretaker[t] = (state.caretaker[t] ?? 0) + 1
-    }
   }
 
   const pointsFor = (loserLegionId: string, fullValue: boolean) => {

@@ -136,7 +136,7 @@ function BattleAnimOverlay({
         />
       )}
       <foreignObject x={pos.x - chit / 2} y={pos.y - chit / 2} width={chit} height={chit}>
-        <div className="battle-chit moving">
+        <div className={['battle-chit', 'moving', anim.isAttacker ? 'attacker' : 'defender'].filter(Boolean).join(' ')}>
           <CreatureChit
             creature={anim.creatureType}
             power={anim.power}
@@ -369,6 +369,7 @@ export function BattleBoardView({
             const dead = !isUnitAlive(state, u)
             const isSelected = selected === u.id
             const isStrikeTarget = highlightUnitIds.has(u.id)
+            const isAttacker = u.legionId === battle.attackerLegionId
             return (
               <g key={u.id}>
                 {isSelected && (
@@ -410,7 +411,13 @@ export function BattleBoardView({
                   style={{ cursor: 'pointer' }}
                 >
                   <div
-                    className={['battle-chit', dead ? 'dead' : ''].filter(Boolean).join(' ')}
+                    className={[
+                      'battle-chit',
+                      isAttacker ? 'attacker' : 'defender',
+                      dead ? 'dead' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
                   >
                     <CreatureChit
                       creature={u.creatureType}
@@ -427,9 +434,9 @@ export function BattleBoardView({
             )
           })}
         {[
-          ...offBoardAtk.map((u, i) => ({ u, pos: atkStaging[i]! })),
-          ...offBoardDef.map((u, i) => ({ u, pos: defStaging[i]! })),
-        ].map(({ u, pos }) => {
+          ...offBoardAtk.map((u, i) => ({ u, pos: atkStaging[i]!, isAttacker: true })),
+          ...offBoardDef.map((u, i) => ({ u, pos: defStaging[i]!, isAttacker: false })),
+        ].map(({ u, pos, isAttacker }) => {
           const t = state.variant.creatures[u.creatureType]
           const power = getUnitPower(state, u)
           const skill = getUnitSkill(state, u)
@@ -459,9 +466,15 @@ export function BattleBoardView({
                 style={{ cursor: mine ? 'pointer' : 'default' }}
               >
                 <div
-                  className={`battle-chit staging${selected === u.id ? ' selected' : ''}${
-                    mine ? '' : ' dim'
-                  }`}
+                  className={[
+                    'battle-chit',
+                    'staging',
+                    isAttacker ? 'attacker' : 'defender',
+                    selected === u.id ? 'selected' : '',
+                    mine ? '' : 'dim',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
                 >
                   <CreatureChit
                     creature={u.creatureType}
