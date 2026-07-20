@@ -85,6 +85,10 @@ describe('AI personalities', () => {
     // Force enemy onto a hex adjacent via cloning mover destination candidates later
     enemy.creatures = [{ type: 'Centaur', hits: 0 }, { type: 'Ogre', hits: 0 }]
 
+    // Avoid turn-1 mulligan path so this test measures move preference
+    g.movementRoll = 3
+    g.mulliganAvailable = false
+
     g.players[0].aiProfileId = 'aggressive'
     const agg = pickAiCommand(g, () => 0.1)
 
@@ -94,5 +98,36 @@ describe('AI personalities', () => {
     // Both should return a move or doneMove; profiles may pick different hexes
     expect(agg?.type === 'move' || agg?.type === 'doneMove').toBe(true)
     expect(cau?.type === 'move' || cau?.type === 'doneMove').toBe(true)
+  })
+
+  it('mulligans on turn 1 when the movement roll is 2 or 5', () => {
+    let g = twoPlayerGame(7)
+    const parent = g.legions.find((l) => l.playerId === g.players[0].id)!
+    g = dispatch(g, {
+      type: 'split',
+      parentId: parent.id,
+      childCreatures: turn1SplitChild(g, parent),
+    })
+    g = dispatch(g, { type: 'doneSplit' })
+    g.players[0].kind = 'ai'
+    g.players[0].aiProfileId = 'balanced'
+
+    g.movementRoll = 2
+    g.mulliganAvailable = true
+    expect(pickAiCommand(g, () => 0.5)).toEqual({ type: 'mulligan' })
+
+    g.movementRoll = 5
+    expect(pickAiCommand(g, () => 0.5)).toEqual({ type: 'mulligan' })
+
+    g.movementRoll = 3
+    expect(pickAiCommand(g, () => 0.5)?.type).not.toBe('mulligan')
+
+    g.movementRoll = 2
+    g.mulliganAvailable = false
+    expect(pickAiCommand(g, () => 0.5)?.type).not.toBe('mulligan')
+
+    g.mulliganAvailable = true
+    g.turnNumber = 2
+    expect(pickAiCommand(g, () => 0.5)?.type).not.toBe('mulligan')
   })
 })

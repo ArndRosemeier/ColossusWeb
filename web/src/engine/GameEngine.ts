@@ -86,8 +86,30 @@ export function createRng(seed: number): () => number {
 
 let legionSeq = 1
 
-function markerId(shortName: string, n: number): string {
-  return `${shortName}${String(n).padStart(2, '0')}`
+export const MARKERS_PER_COLOR = 12
+
+/** Colossus marker ids for a color: Rd01…Rd09, Rd10…Rd12. */
+export function allMarkersForColor(shortName: string): string[] {
+  const out: string[] = []
+  for (let i = 1; i <= MARKERS_PER_COLOR; i++) {
+    out.push(`${shortName}${String(i).padStart(2, '0')}`)
+  }
+  return out
+}
+
+/** Take the lowest free marker id (sorted). */
+export function takeMarker(player: PlayerState): string {
+  if (player.markersAvailable.length === 0) {
+    throw new Error('No legion markers available (maximum 12 legions)')
+  }
+  player.markersAvailable.sort((a, b) => a.localeCompare(b))
+  return player.markersAvailable.shift()!
+}
+
+export function returnMarker(player: PlayerState, markerIdValue: string): void {
+  if (!player.markersAvailable.includes(markerIdValue)) {
+    player.markersAvailable.push(markerIdValue)
+  }
 }
 
 export function createGame(variant: LoadedVariant, options: NewGameOptions): GameState {
@@ -120,7 +142,7 @@ export function createGame(variant: LoadedVariant, options: NewGameOptions): Gam
       dead: false,
       titanPower: 6,
       hasTeleported: false,
-      nextMarker: 2,
+      markersAvailable: allMarkersForColor(color.shortName),
     }
   })
 
@@ -150,9 +172,10 @@ export function createGame(variant: LoadedVariant, options: NewGameOptions): Gam
       }
     }
 
+    const startingMarker = takeMarker(player)
     legions.push({
       id: `leg-${legionSeq++}`,
-      markerId: markerId(player.color.shortName, 1),
+      markerId: startingMarker,
       playerId: player.id,
       hexLabel: player.startingTower,
       creatures,
@@ -551,9 +574,12 @@ function doSplit(state: GameState, parentId: string, childTypes: string[]): void
   parent.creatures = remaining
 
   const player = activePlayer(state)
+  if (player.markersAvailable.length === 0) {
+    throw new Error('No legion markers available (maximum 12 legions)')
+  }
   const child: Legion = {
     id: `leg-${legionSeq++}`,
-    markerId: markerId(player.color.shortName, player.nextMarker++),
+    markerId: takeMarker(player),
     playerId: player.id,
     hexLabel: parent.hexLabel,
     creatures: childCreatures,

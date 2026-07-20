@@ -65,7 +65,13 @@ function mustSplitLegions(state: GameState) {
 }
 
 function pickSplit(state: GameState, profile: AiProfile, rng: () => number): GameCommand {
-  const legs = playerLegions(state, state.players[state.activePlayerIndex].id)
+  const player = state.players[state.activePlayerIndex]!
+  // Colossus: cannot split without a free marker (12 per color, plus any claimed from kills)
+  if (player.markersAvailable.length === 0) {
+    return { type: 'doneSplit' }
+  }
+
+  const legs = playerLegions(state, player.id)
   const forced = mustSplitLegions(state)
 
   if (state.turnNumber === 1 && forced.length > 0) {
@@ -309,6 +315,14 @@ export function pickAiCommand(state: GameState, rng = Math.random): GameCommand 
   }
 
   if (state.phase === 'Move' && state.movementRoll != null) {
+    // Colossus SimpleAI.handleMulligans: turn 1, roll 2 or 5 → mulligan once
+    if (
+      state.turnNumber === 1 &&
+      state.mulliganAvailable &&
+      (state.movementRoll === 2 || state.movementRoll === 5)
+    ) {
+      return { type: 'mulligan' }
+    }
     return pickMove(state, profile, rng)
   }
 

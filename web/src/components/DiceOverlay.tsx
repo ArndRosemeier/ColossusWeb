@@ -239,7 +239,9 @@ export function DiceOverlay({
         }
         const cube = node.querySelector('.die3d') as HTMLElement | null
         if (cube) {
-          cube.style.transform = `rotateX(84deg) ${matrix}`
+          // -84deg: look down at the table so the face-up pip faces the camera.
+          // (CSS +Y is down; paired with quatToCssMatrix's Y-up→Y-down conversion.)
+          cube.style.transform = `rotateX(-84deg) ${matrix}`
           cube.style.setProperty('--die-size', `${size}px`)
         }
         const wrap = node.querySelector('.die3d-wrap') as HTMLElement | null

@@ -68,6 +68,9 @@ describe('Titan death mid-battle', () => {
     expect(alice.dead).toBe(false)
     expect(state.winnerId).toBe(alice.id)
     expect(state.legions.some((l) => l.playerId === bob.id)).toBe(false)
+    // Slayer receives the victim's free marker pool (Colossus handleSlaying)
+    expect(alice.markersAvailable.length).toBeGreaterThan(11)
+    expect(bob.markersAvailable).toHaveLength(0)
   })
 
   it('S4: mutual Titan death (Strike + Strikeback) is a draw', () => {

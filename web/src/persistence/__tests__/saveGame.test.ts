@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { dispatch } from '../../engine/GameEngine'
 import { listAllMoves } from '../../engine/movement'
 import { turn1SplitChild, twoPlayerGame } from '../../engine/__tests__/helpers'
-import { deserializeGame, serializeGame } from '../saveGame'
+import { deserializeGame, migrateMarkerPools, serializeGame } from '../saveGame'
+import type { SavedGameBlob } from '../saveGame'
 
 describe('saveGame', () => {
   it('round-trips game state without the variant payload', () => {
@@ -33,5 +34,28 @@ describe('saveGame', () => {
     expect(restored.players.map((p) => p.name)).toEqual(g.players.map((p) => p.name))
     expect(restored.caretaker).toEqual(g.caretaker)
     expect(restored.variant).toBe(g.variant)
+    expect(restored.players[0]!.markersAvailable).toHaveLength(10)
+  })
+
+  it('migrates legacy nextMarker saves and remaps Rd13+ onto free 01–12 markers', () => {
+    const g = twoPlayerGame(9)
+    const alice = g.players[0]!
+    const short = alice.color.shortName
+    const leg = g.legions.find((l) => l.playerId === alice.id)!
+    leg.markerId = `${short}13`
+    // Simulate pre-pool save shape
+    const legacyPlayer = alice as typeof alice & { nextMarker?: number; markersAvailable?: string[] }
+    legacyPlayer.nextMarker = 14
+    delete (legacyPlayer as { markersAvailable?: string[] }).markersAvailable
+
+    migrateMarkerPools(g)
+    expect(leg.markerId).toBe(`${short}01`)
+    expect(alice.markersAvailable).toHaveLength(11)
+    expect(alice.markersAvailable.every((m) => Number(m.replace(/\D/g, '')) <= 12)).toBe(true)
+    expect('nextMarker' in alice).toBe(false)
+
+    const blob: SavedGameBlob = serializeGame(g)
+    const restored = deserializeGame(blob, g.variant)
+    expect(restored.legions[0]!.markerId).toMatch(/0[1-9]|1[0-2]$/)
   })
 })

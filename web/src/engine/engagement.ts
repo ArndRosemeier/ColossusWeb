@@ -27,6 +27,10 @@ export function eliminateLegionToCaretaker(state: GameState, legion: Legion): vo
   for (const c of legion.creatures) {
     state.caretaker[c.type] = (state.caretaker[c.type] ?? 0) + 1
   }
+  const owner = state.players.find((p) => p.id === legion.playerId)
+  if (owner && !owner.markersAvailable.includes(legion.markerId)) {
+    owner.markersAvailable.push(legion.markerId)
+  }
   state.legions = state.legions.filter((l) => l.id !== legion.id)
 }
 

@@ -1,5 +1,6 @@
 import type { LoadedVariant } from '../variant/loadVariant'
-import type { GameState } from '../engine/types'
+import { allMarkersForColor } from '../engine/GameEngine'
+import type { GameState, PlayerState } from '../engine/types'
 
 export const SAVE_STORAGE_KEY = 'colossusweb.save.v1'
 export const SAVE_VERSION = 1 as const
@@ -36,6 +37,68 @@ export function serializeGame(state: GameState): SavedGameBlob {
   }
 }
 
+/** Rebuild free-marker pools; remap illegal Rd13+ ids onto free 01–12 markers. */
+export function migrateMarkerPools(state: GameState): void {
+  for (const player of state.players) {
+    const legacy = player as PlayerState & { nextMarker?: number }
+    const living = state.legions.filter((l) => l.playerId === player.id)
+    const ownPool = allMarkersForColor(player.color.shortName)
+    const ownSet = new Set(ownPool)
+
+    // Include full 01–12 sets for any foreign colors already worn by this player's legions
+    const legalAll = [...ownPool]
+    const seenPrefix = new Set<string>([player.color.shortName])
+    for (const leg of living) {
+      const m = /^([A-Za-z]+)(\d+)$/.exec(leg.markerId)
+      if (!m) continue
+      const prefix = m[1]!
+      const n = Number(m[2])
+      if (n < 1 || n > 12 || seenPrefix.has(prefix)) continue
+      seenPrefix.add(prefix)
+      for (const id of allMarkersForColor(prefix)) {
+        if (!ownSet.has(id)) legalAll.push(id)
+      }
+    }
+    const legalSet = new Set(legalAll)
+
+    const used = new Set<string>()
+    let remapped = false
+    for (const leg of living) {
+      if (legalSet.has(leg.markerId) && !used.has(leg.markerId)) {
+        used.add(leg.markerId)
+        continue
+      }
+      const free = legalAll.find((id) => !used.has(id))
+      if (!free) {
+        throw new Error(`Cannot migrate markers for ${player.name}: more than 12 living legions`)
+      }
+      leg.markerId = free
+      used.add(free)
+      remapped = true
+    }
+
+    const needsRebuild =
+      !Array.isArray(legacy.markersAvailable) ||
+      legacy.nextMarker !== undefined ||
+      remapped
+
+    if (needsRebuild) {
+      const foreignFree = Array.isArray(legacy.markersAvailable)
+        ? legacy.markersAvailable.filter((id) => !ownSet.has(id) && !used.has(id))
+        : []
+      player.markersAvailable = [
+        ...ownPool.filter((id) => !used.has(id)),
+        ...foreignFree,
+      ].sort((a, b) => a.localeCompare(b))
+    } else {
+      player.markersAvailable = [
+        ...new Set(player.markersAvailable.filter((id) => !used.has(id))),
+      ].sort((a, b) => a.localeCompare(b))
+    }
+    delete legacy.nextMarker
+  }
+}
+
 export function deserializeGame(blob: SavedGameBlob, variant: LoadedVariant): GameState {
   if (blob.version !== SAVE_VERSION) {
     throw new Error(`Unsupported save version: ${String(blob.version)}`)
@@ -65,6 +128,7 @@ export function deserializeGame(blob: SavedGameBlob, variant: LoadedVariant): Ga
   if (state.diceRoll && state.diceRoll.playerId === undefined) {
     state.diceRoll.playerId = state.players[state.activePlayerIndex]?.id ?? ''
   }
+  migrateMarkerPools(state)
   return state
 }
 

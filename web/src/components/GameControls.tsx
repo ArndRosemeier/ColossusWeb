@@ -77,9 +77,14 @@ export function GameControls({ state, dispatch, interactive = true }: Props) {
             <p className="hint">
               {state.turnNumber === 1
                 ? 'Turn 1: split the opening 8 into 4 and 4 with exactly one Lord (Titan or Angel) in each.'
-                : 'Select a legion, then split off 2+ creatures (keep 2+).'}
+                : player.markersAvailable.length === 0
+                  ? 'No free legion markers (12-legion limit). You cannot split until a legion is eliminated.'
+                  : 'Select a legion, then split off 2+ creatures (keep 2+).'}
             </p>
-            {selected && selected.playerId === player.id && selected.creatures.length >= 4 && (
+            {selected &&
+              selected.playerId === player.id &&
+              selected.creatures.length >= 4 &&
+              player.markersAvailable.length > 0 && (
               <SplitForm
                 state={state}
                 creatures={selected.creatures.map((c) => c.type)}

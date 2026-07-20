@@ -53,8 +53,11 @@ export interface PlayerState {
   dead: boolean
   titanPower: number
   hasTeleported: boolean
-  /** Marker letters available: e.g. Rd, Bk */
-  nextMarker: number
+  /**
+   * Unused legion markers for this player (and any eliminated colors they hold).
+   * Colossus: each color has 12 markers (e.g. Rd01–Rd12); splitting requires one free.
+   */
+  markersAvailable: string[]
 }
 
 export type BattlePhase = 'Summon' | 'Recruit' | 'Move' | 'Strike' | 'Strikeback'

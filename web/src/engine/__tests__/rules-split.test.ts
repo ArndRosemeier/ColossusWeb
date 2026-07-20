@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { eliminateLegionToCaretaker } from '../engagement'
 import { dispatch } from '../GameEngine'
 import { turn1SplitChild, twoPlayerGame } from './helpers'
 
@@ -108,5 +109,61 @@ describe('rules-split', () => {
       childCreatures: ['Centaur', 'Ogre'],
     })
     expect(second.message).toMatch(/Cannot split twice on turn 1/i)
+  })
+
+  it('enforces 12 markers per color — 13th split fails and elimination returns a marker', () => {
+    let g = twoPlayerGame(7)
+    const alice = g.players[0]!
+    expect(alice.markersAvailable).toHaveLength(11) // starting legion took one
+    expect(g.legions[0]!.markerId).toMatch(/01$/)
+
+    const template = g.legions.find((l) => l.playerId === alice.id)!
+    for (let i = 0; i < 11; i++) {
+      const marker = alice.markersAvailable.shift()!
+      g.legions.push({
+        id: `leg-extra-${i}`,
+        markerId: marker,
+        playerId: alice.id,
+        hexLabel: template.hexLabel,
+        creatures: [
+          { type: 'Ogre', hits: 0 },
+          { type: 'Ogre', hits: 0 },
+          { type: 'Centaur', hits: 0 },
+          { type: 'Centaur', hits: 0 },
+        ],
+        moved: false,
+        teleported: false,
+        recruited: false,
+        enteredFrom: null,
+      })
+    }
+    expect(alice.markersAvailable).toHaveLength(0)
+    expect(g.legions.filter((l) => l.playerId === alice.id)).toHaveLength(12)
+
+    g.phase = 'Split'
+    g.turnNumber = 3
+    const fat = g.legions.find((l) => l.playerId === alice.id)!
+    fat.creatures.push({ type: 'Gargoyle', hits: 0 }, { type: 'Gargoyle', hits: 0 })
+    const blocked = dispatch(g, {
+      type: 'split',
+      parentId: fat.id,
+      childCreatures: ['Ogre', 'Ogre'],
+    })
+    expect(blocked.message).toMatch(/No legion markers available|maximum 12/i)
+    expect(blocked.legions.filter((l) => l.playerId === alice.id)).toHaveLength(12)
+
+    const victim = g.legions.find((l) => l.playerId === alice.id && l.id !== fat.id)!
+    const returnedMarker = victim.markerId
+    eliminateLegionToCaretaker(g, victim)
+    expect(alice.markersAvailable).toContain(returnedMarker)
+
+    const after = dispatch(g, {
+      type: 'split',
+      parentId: fat.id,
+      childCreatures: ['Ogre', 'Ogre'],
+    })
+    expect(after.message).not.toMatch(/No legion markers/i)
+    expect(after.legions.filter((l) => l.playerId === alice.id)).toHaveLength(12)
+    expect(after.players[0]!.markersAvailable).toHaveLength(0)
   })
 })

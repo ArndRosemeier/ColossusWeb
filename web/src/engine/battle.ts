@@ -588,30 +588,39 @@ export function checkTitanDeath(state: GameState, slayerId: string | null): void
       player.dead = true
       state.log.push(`${player.name} is eliminated (Titan slain)!`)
       const leftovers = state.legions.filter((l) => l.playerId === player.id)
-      if (slayerId) {
-        const slayer = state.players.find((p) => p.id === slayerId)
-        if (slayer) {
-          let bonus = 0
-          for (const leg of leftovers) {
-            for (const c of leg.creatures) {
-              const t = state.variant.creatures[c.type]
-              if (!t) continue
-              bonus += Math.floor((t.power * t.skill) / 2)
-            }
-            // Transfer marker availability (Q9)
-            slayer.nextMarker = Math.max(slayer.nextMarker, Number(leg.markerId.replace(/\D/g, '')) + 1 || slayer.nextMarker)
+      // Colossus PlayerServerSide.die: half-points for unengaged leftovers, then markers to slayer
+      const slayer = slayerId ? state.players.find((p) => p.id === slayerId) : undefined
+      if (slayer) {
+        let bonus = 0
+        for (const leg of leftovers) {
+          for (const c of leg.creatures) {
+            const t = state.variant.creatures[c.type]
+            if (!t) continue
+            const power =
+              c.type === 'Titan'
+                ? (player.titanPower ?? 6)
+                : t.power
+            bonus += Math.floor((power * t.skill) / 2)
           }
-          if (bonus > 0) {
-            slayer.score += bonus
-            // No angels from these points — skip maybeAcquireAngel
-            state.log.push(
-              `${slayer.name} scores ${bonus} half-points for ${player.name}'s remaining legions (no angels)`,
-            )
-          }
+        }
+        if (bonus > 0) {
+          slayer.score += bonus
+          state.log.push(
+            `${slayer.name} scores ${bonus} half-points for ${player.name}'s remaining legions (no angels)`,
+          )
         }
       }
       for (const leg of [...leftovers]) {
         eliminateLegionToCaretaker(state, leg)
+      }
+      // After leftovers return their markers, transfer the entire free pool to the slayer
+      if (slayer && player.markersAvailable.length > 0) {
+        for (const m of player.markersAvailable) {
+          if (!slayer.markersAvailable.includes(m)) {
+            slayer.markersAvailable.push(m)
+          }
+        }
+        player.markersAvailable = []
       }
     }
   }

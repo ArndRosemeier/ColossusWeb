@@ -353,11 +353,19 @@ export function createDiceThrow(opts: {
   }
 }
 
-/** Cannon quaternion → CSS matrix3d (column-major). */
+/** Cannon quaternion → CSS matrix3d (column-major).
+ *
+ * Cannon is right-handed Y-up; CSS 3D is Y-down (+Z toward the viewer).
+ * Negating qx and qz converts the rotation so the face on world +Y appears
+ * toward screen-up. Call sites then apply `rotateX(-84deg)` so that face
+ * turns toward the camera. Without this conversion, faces 2 and 5 (top/bottom)
+ * appear swapped — the classic “see a 5, engine uses a 2” bug.
+ */
 export function quatToCssMatrix(qx: number, qy: number, qz: number, qw: number): string {
-  const x = qx
+  // Y-up (Cannon) → Y-down (CSS)
+  const x = -qx
   const y = qy
-  const z = qz
+  const z = -qz
   const w = qw
   const x2 = x + x
   const y2 = y + y
