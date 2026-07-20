@@ -3,9 +3,12 @@ import { resolveAiProfileId } from '../ai/profiles'
 import {
   applyBattleResult,
   advanceBattlePhase,
+  battleLand,
   checkBattleEnd,
   checkTitanDeath,
   doCarry,
+  getStrikeDice,
+  getStrikeNumber,
   isUnitAlive,
   legalBattleMovesFor,
   legalStrikes,
@@ -13,6 +16,7 @@ import {
   startBattle,
   MAX_BATTLE_TURNS,
 } from './battle'
+import { battleNeighbors } from './battleland'
 import {
   canFlee,
   resolveAgreement,
@@ -21,13 +25,49 @@ import {
 import { listAllMoves, rollDie } from './movement'
 import { applyRecruit, listRecruits } from './recruit'
 import {
+  type DiceRollDisplay,
   type GameCommand,
   type GameState,
   type Legion,
   type NewGameOptions,
+  type PendingDiceRoll,
   type PlayerState,
   PLAYER_COLORS,
 } from './types'
+
+function newDiceId(): string {
+  return `dice-${Date.now()}-${Math.floor(Math.random() * 1e6)}`
+}
+
+function setDiceRoll(
+  state: GameState,
+  id: string,
+  partial: Omit<DiceRollDisplay, 'id'>,
+): void {
+  state.diceRoll = { id, ...partial }
+}
+
+function clearDiceRoll(state: GameState): void {
+  state.diceRoll = null
+}
+
+function setPendingDice(state: GameState, partial: Omit<PendingDiceRoll, 'id'>): void {
+  state.pendingDice = { id: newDiceId(), ...partial }
+  state.diceRoll = null
+}
+
+function rollFaces(count: number, rng: () => number, forced?: number[]): number[] {
+  if (forced != null) {
+    if (forced.length !== count) {
+      throw new Error(`Expected ${count} dice, got ${forced.length}`)
+    }
+    for (const d of forced) {
+      if (d < 1 || d > 6) throw new Error(`Invalid die face ${d}`)
+    }
+    return [...forced]
+  }
+  return Array.from({ length: count }, () => rollDie(rng))
+}
 
 function mulberry32(seed: number): () => number {
   let t = seed >>> 0
@@ -132,6 +172,9 @@ export function createGame(variant: LoadedVariant, options: NewGameOptions): Gam
     activePlayerIndex: 0,
     turnNumber: 1,
     movementRoll: null,
+    diceRoll: null,
+    pendingDice: null,
+    diceMode: options.diceMode ?? 'rng',
     mulliganAvailable: true,
     selectedLegionId: null,
     legalHexes: [],
@@ -170,6 +213,15 @@ export function dispatch(state: GameState, command: GameCommand, rng = Math.rand
 }
 
 function applyCommand(state: GameState, command: GameCommand, rng: () => number): void {
+  if (command.type === 'commitDice') {
+    commitPendingDice(state, rng, command.values)
+    return
+  }
+  if (state.pendingDice) {
+    state.message = 'Waiting for dice to settle'
+    return
+  }
+
   if (state.battle && state.battle.done === false) {
     handleBattleCommand(state, command, rng)
     return
@@ -237,9 +289,97 @@ function doMulligan(state: GameState, rng: () => number): void {
     throw new Error('Cannot mulligan after moving')
   }
   state.mulliganAvailable = false
-  state.movementRoll = rollDie(rng)
-  state.message = `${activePlayer(state).name} mulligans — new roll ${state.movementRoll}`
-  state.log.push(state.message)
+  const player = activePlayer(state)
+  if (state.diceMode === 'physical') {
+    setPendingDice(state, {
+      context: 'mulligan',
+      dieCount: 1,
+      playerId: player.id,
+      label: `${player.name} mulligan`,
+    })
+    state.message = `${player.name} mulligans — rolling…`
+    return
+  }
+  applyMovementRoll(state, rng, 'mulligan', `${player.name} mulligan`, player.id)
+}
+
+function applyMovementRoll(
+  state: GameState,
+  rng: () => number,
+  context: 'movement' | 'mulligan',
+  label: string,
+  playerId: string,
+  forced?: number[],
+  rollId?: string,
+): void {
+  const values = rollFaces(1, rng, forced)
+  state.movementRoll = values[0]!
+  setDiceRoll(state, rollId ?? newDiceId(), {
+    context,
+    values,
+    label,
+    playerId,
+  })
+  if (context === 'mulligan') {
+    state.message = `${activePlayer(state).name} mulligans — new roll ${state.movementRoll}`
+    state.log.push(state.message)
+  } else {
+    state.message = `${activePlayer(state).name}: Move phase — rolled ${state.movementRoll}${
+      state.turnNumber === 1 && state.mulliganAvailable ? ' (mulligan available)' : ''
+    }`
+    state.log.push(`Turn ${state.turnNumber}: ${activePlayer(state).name} rolls ${state.movementRoll}`)
+  }
+}
+
+function commitPendingDice(state: GameState, rng: () => number, forced?: number[]): void {
+  const pending = state.pendingDice
+  if (!pending) return
+
+  if (pending.context === 'movement' || pending.context === 'mulligan') {
+    applyMovementRoll(
+      state,
+      rng,
+      pending.context,
+      pending.label,
+      pending.playerId,
+      forced,
+      pending.id,
+    )
+    state.pendingDice = null
+    return
+  }
+
+  if (pending.context === 'strike') {
+    const battle = state.battle
+    if (!battle || !pending.strike) throw new Error('No strike pending')
+    const values = rollFaces(pending.dieCount, rng, forced)
+    const result = resolveStrike(
+      state,
+      battle,
+      pending.strike.attackerId,
+      pending.strike.defenderId,
+      rng,
+      values,
+    )
+    state.log.push(result.message)
+    state.message = result.message
+    setDiceRoll(state, pending.id, {
+      context: 'strike',
+      values: result.rolls,
+      need: result.need,
+      hits: result.hits,
+      label: pending.label,
+      playerId: pending.playerId,
+    })
+    battle.selectedUnitId = null
+    battle.highlighted = []
+    state.pendingDice = null
+    checkBattleEnd(state, battle)
+    if (battle.done) finishBattle(state)
+    return
+  }
+
+  throw new Error(`Unknown pending dice context`)
 }
 
 function openEngagement(state: GameState, attackerId: string, defenderId: string): void {
@@ -430,7 +570,6 @@ function doSplit(state: GameState, parentId: string, childTypes: string[]): void
 
 function beginMovePhase(state: GameState, rng: () => number): void {
   state.phase = 'Move'
-  state.movementRoll = rollDie(rng)
   state.selectedLegionId = null
   state.legalHexes = []
   for (const l of playerLegions(state, activePlayer(state).id)) {
@@ -440,10 +579,19 @@ function beginMovePhase(state: GameState, rng: () => number): void {
   }
   activePlayer(state).hasTeleported = false
   if (state.turnNumber !== 1) state.mulliganAvailable = false
-  state.message = `${activePlayer(state).name}: Move phase — rolled ${state.movementRoll}${
-    state.turnNumber === 1 && state.mulliganAvailable ? ' (mulligan available)' : ''
-  }`
-  state.log.push(`Turn ${state.turnNumber}: ${activePlayer(state).name} rolls ${state.movementRoll}`)
+  const player = activePlayer(state)
+  if (state.diceMode === 'physical') {
+    state.movementRoll = null
+    setPendingDice(state, {
+      context: 'movement',
+      dieCount: 1,
+      playerId: player.id,
+      label: `${player.name} movement`,
+    })
+    state.message = `${player.name}: Move phase — rolling…`
+    return
+  }
+  applyMovementRoll(state, rng, 'movement', `${player.name} movement`, player.id)
 }
 
 function doMove(state: GameState, legionId: string, toHex: string): void {
@@ -493,6 +641,10 @@ function doMove(state: GameState, legionId: string, toHex: string): void {
 
 function beginFightPhase(state: GameState): void {
   state.phase = 'Fight'
+  state.movementRoll = null
+  if (state.diceRoll?.context === 'movement' || state.diceRoll?.context === 'mulligan') {
+    clearDiceRoll(state)
+  }
   state.selectedLegionId = null
   state.legalHexes = []
   state.pendingEngagements = findEngagements(state)
@@ -540,6 +692,8 @@ function beginMusterPhase(state: GameState): void {
     return
   }
   state.phase = 'Muster'
+  state.movementRoll = null
+  clearDiceRoll(state)
   state.selectedLegionId = null
   state.legalHexes = []
   // Titan/Colossus: only legions that moved this turn may muster
@@ -584,6 +738,8 @@ function advanceToNextLivingPlayer(state: GameState): void {
   state.activePlayerIndex = next
   state.phase = 'Split'
   state.movementRoll = null
+  clearDiceRoll(state)
+  state.pendingDice = null
   state.mulliganAvailable = state.turnNumber <= 1
   state.selectedLegionId = null
   state.legalHexes = []
@@ -644,9 +800,46 @@ function handleBattleCommand(state: GameState, command: GameCommand, rng: () => 
         throw new Error('Not strike phase')
       }
       if (battle.pendingCarry) throw new Error('Resolve carry first')
-      const msg = resolveStrike(state, battle, command.attackerId, command.defenderId, rng)
-      state.log.push(msg)
-      state.message = msg
+      const attacker = battle.units.find((u) => u.id === command.attackerId)
+      const defender = battle.units.find((u) => u.id === command.defenderId)
+      if (!attacker || !defender || !attacker.hex || !defender.hex) {
+        throw new Error('Invalid strike')
+      }
+
+      if (state.diceMode === 'physical') {
+        const land = battleLand(state, battle)
+        const meleeStrike = battleNeighbors(land, attacker.hex).includes(defender.hex)
+        const dieCount = getStrikeDice(state, land, attacker, defender, meleeStrike)
+        const need = getStrikeNumber(state, attacker, defender, land, meleeStrike)
+        if (dieCount < 1) throw new Error('No dice for strike')
+        setPendingDice(state, {
+          context: 'strike',
+          dieCount,
+          playerId: battle.activePlayerId,
+          label: `${attacker.creatureType} vs ${defender.creatureType}`,
+          strike: {
+            attackerId: command.attackerId,
+            defenderId: command.defenderId,
+            need,
+          },
+        })
+        state.message = `${attacker.creatureType} strikes ${defender.creatureType}…`
+        break
+      }
+
+      const result = resolveStrike(state, battle, command.attackerId, command.defenderId, rng)
+      state.log.push(result.message)
+      state.message = result.message
+      if (result.rolls.length > 0) {
+        setDiceRoll(state, newDiceId(), {
+          context: 'strike',
+          values: result.rolls,
+          need: result.need,
+          hits: result.hits,
+          label: `${result.attackerType} vs ${result.defenderType}`,
+          playerId: battle.activePlayerId,
+        })
+      }
       battle.selectedUnitId = null
       battle.highlighted = []
       checkBattleEnd(state, battle)
@@ -661,7 +854,11 @@ function handleBattleCommand(state: GameState, command: GameCommand, rng: () => 
     }
     case 'battleDonePhase': {
       try {
+        const prevPhase = battle.phase
         advanceBattlePhase(state, battle)
+        if (prevPhase === 'Strike' || prevPhase === 'Strikeback') {
+          if (state.diceRoll?.context === 'strike') clearDiceRoll(state)
+        }
       } catch (e) {
         state.message = e instanceof Error ? e.message : String(e)
         break
@@ -771,6 +968,8 @@ function handleBattleCommand(state: GameState, command: GameCommand, rng: () => 
 function finishBattle(state: GameState): void {
   const battle = state.battle!
   applyBattleResult(state, battle)
+  clearDiceRoll(state)
+  state.pendingDice = null
   if (battle.timeLoss) {
     state.log.push('Battle over — defender wins by time-loss (no points)')
   } else {

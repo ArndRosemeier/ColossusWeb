@@ -81,6 +81,11 @@ export interface BattleState {
   activeHalf: BattleHalf
   phase: BattlePhase
   units: BattleUnit[]
+  /**
+   * Creatures removed after Strikeback (Colossus removeDeadCreatures).
+   * Kept for end-of-battle scoring; not shown on the board.
+   */
+  fallen: BattleUnit[]
   turn: number
   highlighted: string[]
   selectedUnitId: string | null
@@ -88,6 +93,8 @@ export interface BattleState {
   done: boolean
   winnerPlayerId: string | null
   timeLoss: boolean
+  /** Battle ended because a Titan was removed after Strikeback (player eliminated). */
+  endedByTitanKill?: boolean
   /** Full points on concede (vs half on combat) */
   concededFullPoints?: boolean
   attackerEntrances: string[]
@@ -109,6 +116,43 @@ export interface EngagementOffer {
   proposedBy: string | null
 }
 
+/** Shown as 3D dice on the board until the roll stops mattering. */
+export type DiceRollContext = 'movement' | 'mulligan' | 'strike'
+
+/** `physical` = UI throws dice and commits faces; `rng` = headless/sim. */
+export type DiceRollMode = 'rng' | 'physical'
+
+export interface DiceRollDisplay {
+  /** Changes on every roll so the UI can replay the tumble animation. */
+  id: string
+  context: DiceRollContext
+  values: number[]
+  /** Strike number that counts as a hit (strike rolls only). */
+  need?: number
+  hits?: number
+  label: string
+  /** Player whose seat the throw came from. */
+  playerId: string
+}
+
+/**
+ * Awaiting a physical (or deferred) die throw before rules resolve.
+ * Present only when `diceMode === 'physical'`.
+ */
+export interface PendingDiceRoll {
+  id: string
+  context: DiceRollContext
+  dieCount: number
+  playerId: string
+  label: string
+  /** Strike: resolve after faces are known. */
+  strike?: {
+    attackerId: string
+    defenderId: string
+    need: number
+  }
+}
+
 export interface GameState {
   variant: LoadedVariant
   players: PlayerState[]
@@ -118,6 +162,15 @@ export interface GameState {
   activePlayerIndex: number
   turnNumber: number
   movementRoll: number | null
+  /**
+   * Last settled die roll for the board overlay (movement or strike).
+   * Cleared when the roll is no longer relevant.
+   */
+  diceRoll: DiceRollDisplay | null
+  /** When set, the UI must throw and `commitDice` before play continues. */
+  pendingDice: PendingDiceRoll | null
+  /** Visual UI uses `physical`; sims/tests leave default `rng`. */
+  diceMode: DiceRollMode
   /** Turn-1 mulligan still available for active player */
   mulliganAvailable: boolean
   selectedLegionId: string | null
@@ -161,6 +214,11 @@ export type GameCommand =
   | { type: 'recruit'; legionId: string; creatureType: string }
   | { type: 'doneMuster' }
   | { type: 'pass' }
+  /**
+   * Finish `pendingDice`. With `values`, use those faces (physical throw).
+   * Without `values`, roll via rng (instant AI / reduced motion / sims).
+   */
+  | { type: 'commitDice'; values?: number[] }
 
 export interface NewGameOptions {
   players: {
@@ -171,4 +229,6 @@ export interface NewGameOptions {
     aiProfileId?: AiProfileId
   }[]
   seed?: number
+  /** Default `rng`. App UI should pass `physical`. */
+  diceMode?: DiceRollMode
 }

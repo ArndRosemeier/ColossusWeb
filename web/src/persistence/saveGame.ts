@@ -49,7 +49,23 @@ export function deserializeGame(blob: SavedGameBlob, variant: LoadedVariant): Ga
   if (!Array.isArray(s.players) || !Array.isArray(s.legions) || typeof s.phase !== 'string') {
     throw new Error('Save file is corrupt or incomplete')
   }
-  return { ...structuredClone(s), variant }
+  const state = { ...structuredClone(s), variant } as GameState
+  if (state.battle && !Array.isArray(state.battle.fallen)) {
+    state.battle.fallen = []
+  }
+  if (state.diceRoll === undefined) {
+    state.diceRoll = null
+  }
+  if (state.pendingDice === undefined) {
+    state.pendingDice = null
+  }
+  if (state.diceMode === undefined) {
+    state.diceMode = 'physical'
+  }
+  if (state.diceRoll && state.diceRoll.playerId === undefined) {
+    state.diceRoll.playerId = state.players[state.activePlayerIndex]?.id ?? ''
+  }
+  return state
 }
 
 export function saveGameToLocalStorage(state: GameState): SavedGameBlob {

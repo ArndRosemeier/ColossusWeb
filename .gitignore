@@ -7,6 +7,9 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 
+# Local FTP deploy cache (hashes only; no secrets)
+.deploy/
+
 # Web (Vite / Node)
 web/node_modules/
 web/dist/

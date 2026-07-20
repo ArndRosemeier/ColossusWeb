@@ -1,0 +1,26 @@
+# Apache (domainfactory) — SPA / static Colossus deploy
+DirectoryIndex index.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # RewriteBase is patched by deploy-clean.ps1 to match -BasePath
+  RewriteBase /ColossusWeb/
+
+  # Don't rewrite real files or directories
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Fallback to index for client routes (none today; keeps deep links safe)
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Cache hashed Vite assets aggressively
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|css|gif|png|svg|woff2?)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.(html|json)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>

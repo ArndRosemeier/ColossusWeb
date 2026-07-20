@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { isAiActing, pickAiCommand } from '../ai/simpleAi'
 import { createGame, dispatch as engDispatch, getMovesForSelected } from '../engine/GameEngine'
 import type { GameCommand, GameState, NewGameOptions } from '../engine/types'
@@ -8,33 +8,38 @@ import {
   saveGameToLocalStorage,
   type SavedGameMeta,
 } from '../persistence/saveGame'
+import { AI_SPEEDS, type AiSpeedId } from '../ui/aiSpeed'
+import {
+  buildMoveAnim,
+  isMoveCommand,
+  shouldSkipMoveAnim,
+  type MoveAnim,
+} from '../ui/moveAnimation'
 import { loadAssetManifest } from '../variant/assets'
 import { loadDefaultVariant } from '../variant/loadVariant'
 import { BattleBoardView } from './BattleBoardView'
+import { DiceOverlay, shouldAnimateDice } from './DiceOverlay'
 import { GameControls } from './GameControls'
 import { MasterBoardView } from './MasterBoardView'
 import { SetupScreen } from './SetupScreen'
 
-export type AiSpeedId = 'paused' | 'slow' | 'normal' | 'fast' | 'instant'
-
-const AI_SPEEDS: Record<
-  AiSpeedId,
-  { label: string; delayMs: number | null; batch: number }
-> = {
-  paused: { label: 'Paused', delayMs: null, batch: 0 },
-  slow: { label: 'Slow', delayMs: 750, batch: 1 },
-  normal: { label: 'Normal', delayMs: 300, batch: 1 },
-  fast: { label: 'Fast', delayMs: 90, batch: 1 },
-  instant: { label: 'Instant', delayMs: 0, batch: 20 },
-}
+export type { AiSpeedId }
 
 function stepAi(state: GameState, batch: number): GameState {
   let s = state
   for (let i = 0; i < batch; i++) {
     if (!isAiActing(s)) break
+    // Instant / batch AI: resolve any pending physical roll via rng
+    while (s.pendingDice) {
+      s = engDispatch(s, { type: 'commitDice' })
+    }
+    if (!isAiActing(s)) break
     const cmd = pickAiCommand(s)
     if (!cmd) break
     s = engDispatch(s, cmd)
+  }
+  while (s.pendingDice) {
+    s = engDispatch(s, { type: 'commitDice' })
   }
   return s
 }
@@ -46,6 +51,9 @@ export default function App() {
   const [saveMeta, setSaveMeta] = useState<SavedGameMeta | null>(null)
   const [saveFlash, setSaveFlash] = useState<string | null>(null)
   const [aiSpeed, setAiSpeed] = useState<AiSpeedId>('normal')
+  const [moveAnim, setMoveAnim] = useState<MoveAnim | null>(null)
+  const pendingCmdRef = useRef<GameCommand | null>(null)
+  const animatingRef = useRef(false)
 
   useEffect(() => {
     Promise.all([loadDefaultVariant(), loadAssetManifest()])
@@ -61,10 +69,12 @@ export default function App() {
 
   const start = useCallback(async (options: NewGameOptions) => {
     const variant = await loadDefaultVariant()
-    const g = createGame(variant, options)
+    const g = createGame(variant, { ...options, diceMode: 'physical' })
     setState(g)
     setSaveFlash(null)
-    // All-AI: keep visible pace; with humans, Normal is fine for opponent turns
+    setMoveAnim(null)
+    pendingCmdRef.current = null
+    animatingRef.current = false
     const allAi = options.players.every((p) => p.kind === 'ai')
     setAiSpeed(allAi ? 'normal' : 'fast')
   }, [])
@@ -76,8 +86,18 @@ export default function App() {
       setSaveMeta(null)
       return
     }
-    setState(loaded)
+    // Resume in the UI with physical dice; clear any mid-throw pending
+    loaded.diceMode = 'physical'
+    if (loaded.pendingDice) {
+      const resumed = engDispatch(loaded, { type: 'commitDice' })
+      setState(resumed)
+    } else {
+      setState(loaded)
+    }
     setSaveFlash(null)
+    setMoveAnim(null)
+    pendingCmdRef.current = null
+    animatingRef.current = false
   }, [])
 
   const save = useCallback(() => {
@@ -93,47 +113,136 @@ export default function App() {
     return () => window.clearTimeout(t)
   }, [saveFlash])
 
-  // Keep localStorage in sync so a refresh can Continue
+  // Autosave — skip while dice are in the air so localStorage I/O can't stall the throw
   useEffect(() => {
     if (!state) return
-    saveGameToLocalStorage(state)
-    setSaveMeta(peekSavedGameMeta())
+    if (state.pendingDice) return
+    const t = window.setTimeout(() => {
+      saveGameToLocalStorage(state)
+      setSaveMeta(peekSavedGameMeta())
+    }, 0)
+    return () => window.clearTimeout(t)
   }, [state])
 
-  // Paced AI autoplay — one (or a small batch) of commands at a time so the board updates
+  const onMoveAnimDone = useCallback(() => {
+    const cmd = pendingCmdRef.current
+    pendingCmdRef.current = null
+    animatingRef.current = false
+    setMoveAnim(null)
+    if (!cmd) return
+    setState((prev) => (prev ? engDispatch(prev, cmd) : prev))
+  }, [])
+
+  const onDiceThrowDone = useCallback((values: number[] | undefined) => {
+    setState((prev) => {
+      if (!prev?.pendingDice) return prev
+      return engDispatch(prev, { type: 'commitDice', values })
+    })
+  }, [])
+
+  const apply = useCallback(
+    (cmd: GameCommand, forAi = false) => {
+      if (animatingRef.current) return
+      setState((prev) => {
+        if (!prev) return prev
+        if (prev.pendingDice) return prev
+        if (isMoveCommand(cmd) && !shouldSkipMoveAnim(aiSpeed, forAi)) {
+          const anim = buildMoveAnim(prev, cmd, { aiSpeed, forAi })
+          if (anim) {
+            animatingRef.current = true
+            pendingCmdRef.current = cmd
+            queueMicrotask(() => setMoveAnim(anim))
+            return prev
+          }
+        }
+        let next = engDispatch(prev, cmd)
+        // Instant AI / reduced-motion: resolve without a visible throw
+        if (next.pendingDice && !shouldAnimateDice(aiSpeed, forAi)) {
+          while (next.pendingDice) {
+            next = engDispatch(next, { type: 'commitDice' })
+          }
+        }
+        return next
+      })
+    },
+    [aiSpeed],
+  )
+
+  // Paced AI autoplay — blocked while a physical throw is pending
   useEffect(() => {
     if (!state) return
+    if (moveAnim || animatingRef.current) return
+    if (state.pendingDice) return
     if (state.winnerId || state.draw) return
     if (!isAiActing(state)) return
     const cfg = AI_SPEEDS[aiSpeed]
     if (cfg.delayMs == null || cfg.batch <= 0) return
 
     const id = window.setTimeout(() => {
+      if (aiSpeed === 'instant' || cfg.batch > 1) {
+        setState((prev) => {
+          if (!prev || !isAiActing(prev)) return prev
+          return stepAi(prev, cfg.batch)
+        })
+        return
+      }
       setState((prev) => {
-        if (!prev || !isAiActing(prev)) return prev
-        return stepAi(prev, cfg.batch)
+        if (!prev || !isAiActing(prev) || animatingRef.current) return prev
+        if (prev.pendingDice) return prev
+        const cmd = pickAiCommand(prev)
+        if (!cmd) return prev
+        if (isMoveCommand(cmd) && !shouldSkipMoveAnim(aiSpeed, true)) {
+          const anim = buildMoveAnim(prev, cmd, { aiSpeed, forAi: true })
+          if (anim) {
+            animatingRef.current = true
+            pendingCmdRef.current = cmd
+            queueMicrotask(() => setMoveAnim(anim))
+            return prev
+          }
+        }
+        let next = engDispatch(prev, cmd)
+        if (next.pendingDice && !shouldAnimateDice(aiSpeed, true)) {
+          while (next.pendingDice) {
+            next = engDispatch(next, { type: 'commitDice' })
+          }
+        }
+        return next
       })
     }, cfg.delayMs)
     return () => window.clearTimeout(id)
-  }, [state, aiSpeed])
-
-  const apply = useCallback((cmd: GameCommand) => {
-    setState((prev) => {
-      if (!prev) return prev
-      // Human command only — AI continues via the paced effect
-      return engDispatch(prev, cmd)
-    })
-  }, [])
+  }, [state, aiSpeed, moveAnim])
 
   const stepOnce = useCallback(() => {
+    if (animatingRef.current) return
     setState((prev) => {
       if (!prev || !isAiActing(prev)) return prev
-      return stepAi(prev, 1)
+      if (prev.pendingDice) return prev
+      const cmd = pickAiCommand(prev)
+      if (!cmd) return prev
+      if (isMoveCommand(cmd) && !shouldSkipMoveAnim(aiSpeed, true)) {
+        const anim = buildMoveAnim(prev, cmd, { aiSpeed, forAi: true })
+        if (anim) {
+          animatingRef.current = true
+          pendingCmdRef.current = cmd
+          queueMicrotask(() => setMoveAnim(anim))
+          return prev
+        }
+      }
+      let next = engDispatch(prev, cmd)
+      if (next.pendingDice && !shouldAnimateDice(aiSpeed, true)) {
+        while (next.pendingDice) {
+          next = engDispatch(next, { type: 'commitDice' })
+        }
+      }
+      return next
     })
-  }, [])
+  }, [aiSpeed])
+
+  const busy = Boolean(moveAnim) || animatingRef.current || Boolean(state?.pendingDice)
 
   const onHexClick = (label: string) => {
-    if (!state || isAiActing(state)) return
+    if (!state || isAiActing(state) || busy) return
+    if (state.pendingDice) return
     if (state.battle && !state.battle.done) {
       const battle = state.battle
       if (battle.phase === 'Move' && battle.selectedUnitId) {
@@ -156,19 +265,19 @@ export default function App() {
   }
 
   const onLegionClick = (legionId: string) => {
-    if (!state || isAiActing(state)) return
+    if (!state || isAiActing(state) || busy) return
     apply({ type: 'selectLegion', legionId })
   }
 
   const onBattleHex = (hex: string) => {
-    if (!state?.battle?.selectedUnitId || isAiActing(state)) return
+    if (!state?.battle?.selectedUnitId || isAiActing(state) || busy) return
     if (state.battle.phase === 'Move') {
       apply({ type: 'battleMove', unitId: state.battle.selectedUnitId, toHex: hex })
     }
   }
 
   const onBattleUnit = (unitId: string) => {
-    if (!state?.battle || isAiActing(state)) return
+    if (!state?.battle || isAiActing(state) || busy) return
     const battle = state.battle
     if (battle.phase === 'Strike' || battle.phase === 'Strikeback') {
       if (battle.selectedUnitId && battle.highlighted.includes(unitId)) {
@@ -197,6 +306,13 @@ export default function App() {
 
   const aiActing = isAiActing(state)
   const gameOver = Boolean(state.winnerId || state.draw)
+  const masterAnim = moveAnim?.board === 'master' ? moveAnim : null
+  const battleAnim = moveAnim?.board === 'battle' ? moveAnim : null
+  const throwerId = state.pendingDice?.playerId ?? state.diceRoll?.playerId
+  const seatIndex = throwerId
+    ? Math.max(0, state.players.findIndex((p) => p.id === throwerId))
+    : 0
+  const seatCount = state.players.length
 
   return (
     <div className="app-shell">
@@ -228,7 +344,7 @@ export default function App() {
           </label>
         )}
         {aiActing && aiSpeed === 'paused' && (
-          <button type="button" className="ghost" onClick={stepOnce}>
+          <button type="button" className="ghost" onClick={stepOnce} disabled={busy}>
             Step AI
           </button>
         )}
@@ -247,16 +363,28 @@ export default function App() {
               battle={state.battle}
               onHexClick={onBattleHex}
               onUnitClick={onBattleUnit}
+              moveAnim={battleAnim}
+              onMoveAnimDone={onMoveAnimDone}
             />
           ) : (
             <MasterBoardView
               state={state}
               onHexClick={onHexClick}
               onLegionClick={onLegionClick}
+              moveAnim={masterAnim}
+              onMoveAnimDone={onMoveAnimDone}
             />
           )}
+          <DiceOverlay
+            pending={state.pendingDice}
+            settled={state.diceRoll}
+            seatIndex={seatIndex}
+            seatCount={seatCount}
+            animate={shouldAnimateDice(aiSpeed, aiActing)}
+            onThrowDone={onDiceThrowDone}
+          />
         </div>
-        <GameControls state={state} dispatch={apply} interactive={!aiActing} />
+        <GameControls state={state} dispatch={apply} interactive={!aiActing && !busy} />
       </main>
     </div>
   )

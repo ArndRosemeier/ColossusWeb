@@ -382,6 +382,7 @@ button:disabled {
 }
 
 .board-pane {
+  position: relative;
   overflow: auto;
   padding: 1rem;
   background:
@@ -452,6 +453,185 @@ button:disabled {
   .legal-hex-stroke,
   .recruit-preview {
     animation: none;
+  }
+}
+
+.move-anim {
+  pointer-events: none;
+}
+
+/* ——— Physics dice on the board (cannon-es) ——— */
+.dice-overlay {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  overflow: hidden;
+}
+
+.dice-board-field {
+  position: absolute;
+  inset: 0;
+  perspective: 1200px;
+  perspective-origin: 50% 45%;
+  transform-style: preserve-3d;
+}
+
+.die-throw {
+  position: absolute;
+  transform-style: preserve-3d;
+  z-index: 2;
+  will-change: transform, left, top;
+}
+
+.die-throw.landed {
+  transition: filter 0.2s ease;
+}
+
+.die-shadow {
+  position: absolute;
+  left: 50%;
+  top: 78%;
+  width: 82%;
+  height: 30%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(0, 0, 0, 0.5), transparent 70%);
+  filter: blur(2px);
+  z-index: 0;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.dice-tray {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 5;
+  max-width: min(420px, calc(100% - 1.5rem));
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: rgba(12, 18, 22, 0.88);
+  border: 1px solid rgba(224, 138, 69, 0.35);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+  transition: opacity 0.25s ease;
+}
+
+.dice-tray.dim {
+  opacity: 0.2;
+}
+
+.dice-tray-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.65rem;
+  margin-bottom: 0.4rem;
+}
+
+.dice-tray-title {
+  font-family: Cinzel, Georgia, serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #f0e6d4;
+}
+
+.dice-tray-meta {
+  font-size: 0.72rem;
+  color: #c4b8a4;
+}
+
+.dice-tray-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  perspective: 500px;
+}
+
+.die3d-wrap {
+  position: relative;
+  flex: 0 0 auto;
+  perspective: 700px;
+  transform-style: preserve-3d;
+  z-index: 1;
+}
+
+.die3d {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transform: rotateX(0deg) rotateY(0deg);
+}
+
+.die-side {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  border-radius: 14%;
+  background: linear-gradient(145deg, #faf6ee 0%, #e8dcc8 50%, #d0c2a8 100%);
+  border: 1px solid #7a6a52;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.4),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.12);
+}
+
+.die-side.front {
+  transform: translateZ(calc(var(--die-size) / 2));
+}
+.die-side.back {
+  transform: rotateY(180deg) translateZ(calc(var(--die-size) / 2));
+}
+.die-side.right {
+  transform: rotateY(90deg) translateZ(calc(var(--die-size) / 2));
+}
+.die-side.left {
+  transform: rotateY(-90deg) translateZ(calc(var(--die-size) / 2));
+}
+.die-side.top {
+  transform: rotateX(90deg) translateZ(calc(var(--die-size) / 2));
+}
+.die-side.bottom {
+  transform: rotateX(-90deg) translateZ(calc(var(--die-size) / 2));
+}
+
+.die-face {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  width: 100%;
+  height: 100%;
+  padding: 16%;
+  box-sizing: border-box;
+}
+
+.pip {
+  width: 72%;
+  height: 72%;
+  margin: auto;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #4a3428, #140e0c 75%);
+  box-shadow: 0 1px 1px rgba(255, 255, 255, 0.2);
+}
+
+.pip.empty {
+  visibility: hidden;
+}
+
+.die-hit .die-side {
+  border-color: #c45a2a;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 200, 140, 0.45),
+    0 0 12px rgba(224, 138, 69, 0.5);
+}
+
+.die-miss {
+  opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .die-throw {
+    will-change: auto;
   }
 }
 

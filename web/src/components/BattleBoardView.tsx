@@ -1,5 +1,7 @@
-import { battleLand, getUnitPower, getUnitSkill } from '../engine/battle'
+import { battleLand, getUnitPower, getUnitSkill, isUnitAlive } from '../engine/battle'
 import type { BattleState, GameState } from '../engine/types'
+import type { BattleMoveAnim } from '../ui/moveAnimation'
+import { pointsToSvg, usePathTween } from '../ui/usePathTween'
 import { hazardImageUrl } from '../variant/assets'
 import { CreatureChit } from './CreatureChit'
 import { SafeSvgImage } from './SafeSvgImage'
@@ -80,9 +82,83 @@ interface Props {
   battle: BattleState
   onHexClick: (hex: string) => void
   onUnitClick: (unitId: string) => void
+  moveAnim?: BattleMoveAnim | null
+  onMoveAnimDone?: () => void
 }
 
-export function BattleBoardView({ state, battle, onHexClick, onUnitClick }: Props) {
+function BattleAnimOverlay({
+  land,
+  scale,
+  chit,
+  anim,
+  mapCenter,
+  onDone,
+}: {
+  land: ReturnType<typeof battleLand>
+  scale: number
+  chit: number
+  anim: BattleMoveAnim
+  mapCenter: { x: number; y: number }
+  onDone: () => void
+}) {
+  const centers = anim.pathLabels.map((label) => {
+    const hex = land.hexByLabel[label]
+    if (!hex) return { x: 0, y: 0 }
+    return hexCenter(hex.x, hex.y, scale)
+  })
+  let points = centers
+  if (anim.fromOffBoard && centers.length > 0) {
+    const first = centers[0]
+    const dx = first.x - mapCenter.x
+    const dy = first.y - mapCenter.y
+    const len = Math.hypot(dx, dy) || 1
+    const rim = 48
+    points = [
+      { x: first.x + (dx / len) * rim, y: first.y + (dy / len) * rim },
+      ...centers,
+    ]
+  }
+  const { pos, trail } = usePathTween(points, anim.durationMs, false, onDone)
+  const trailD = trail.length >= 2 ? pointsToSvg(trail) : ''
+
+  return (
+    <g className="move-anim" pointerEvents="none">
+      {trailD && (
+        <polyline
+          points={trailD}
+          fill="none"
+          stroke="#e08a45"
+          strokeWidth={2}
+          strokeOpacity={0.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeDasharray="4 3"
+        />
+      )}
+      <foreignObject x={pos.x - chit / 2} y={pos.y - chit / 2} width={chit} height={chit}>
+        <div className="battle-chit moving">
+          <CreatureChit
+            creature={anim.creatureType}
+            power={anim.power}
+            skill={anim.skill}
+            baseColor={anim.baseColor}
+            size={chit}
+            hits={anim.hits > 0 && anim.hits < 999 ? anim.hits : 0}
+          />
+        </div>
+      </foreignObject>
+    </g>
+  )
+}
+
+export function BattleBoardView({
+  state,
+  battle,
+  onHexClick,
+  onUnitClick,
+  moveAnim = null,
+  onMoveAnimDone,
+}: Props) {
   // Colossus HexMap uses scale = 2 * Scale.get(); we pick a readable web size.
   // Battle chits are 4*Scale in Colossus while hex scale is 2*Scale → chit ≈ 2*scale.
   const scale = 14
@@ -106,6 +182,10 @@ export function BattleBoardView({ state, battle, onHexClick, onUnitClick }: Prop
     maxY = Math.max(maxY, b.y + b.height)
   }
   const pad = 40
+  const mapCenter = {
+    x: (minX + maxX) / 2,
+    y: (minY + maxY) / 2,
+  }
 
   return (
     <div className="battle-wrap">
@@ -180,15 +260,15 @@ export function BattleBoardView({ state, battle, onHexClick, onUnitClick }: Prop
           )
         })}
         {battle.units
-          .filter((u) => u.hex)
+          .filter((u) => u.hex && isUnitAlive(state, u))
           .map((u) => {
+            if (moveAnim?.pieceId === u.id) return null
             const hex = land.hexByLabel[u.hex!]
             if (!hex) return null
             const { x, y } = hexCenter(hex.x, hex.y, scale)
             const t = state.variant.creatures[u.creatureType]
             const power = getUnitPower(state, u)
             const skill = getUnitSkill(state, u)
-            const dead = u.hits >= power
             return (
               <foreignObject
                 key={u.id}
@@ -200,7 +280,7 @@ export function BattleBoardView({ state, battle, onHexClick, onUnitClick }: Prop
                   e.stopPropagation()
                   onUnitClick(u.id)
                 }}
-                style={{ cursor: 'pointer', opacity: dead ? 0.35 : 1 }}
+                style={{ cursor: 'pointer' }}
               >
                 <div className={selected === u.id ? 'battle-chit selected' : 'battle-chit'}>
                   <CreatureChit
@@ -215,6 +295,16 @@ export function BattleBoardView({ state, battle, onHexClick, onUnitClick }: Prop
               </foreignObject>
             )
           })}
+        {moveAnim && onMoveAnimDone && (
+          <BattleAnimOverlay
+            land={land}
+            scale={scale}
+            chit={chit}
+            anim={moveAnim}
+            mapCenter={mapCenter}
+            onDone={onMoveAnimDone}
+          />
+        )}
       </svg>
     </div>
   )

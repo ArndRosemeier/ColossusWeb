@@ -9,7 +9,7 @@ export interface LoadedVariant {
 }
 
 export async function loadDefaultVariant(): Promise<LoadedVariant> {
-  const res = await fetch('/variants/Default/variant.json')
+  const res = await fetch(`${import.meta.env.BASE_URL}variants/Default/variant.json`)
   if (!res.ok) {
     throw new Error(`Failed to load variant: ${res.status}`)
   }

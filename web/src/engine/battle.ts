@@ -5,6 +5,8 @@ import { buildBattleland, defenderEntryKey, type BuiltBattleland } from './battl
 import { legalBattleMoves } from './battleMovement'
 import {
   applyCarry,
+  getStrikeDice,
+  getStrikeNumber,
   getUnitPower,
   getUnitSkill,
   hasForcedStrike,
@@ -23,7 +25,7 @@ import type {
 } from './types'
 
 export const MAX_BATTLE_TURNS = 7
-export { getUnitPower, getUnitSkill, isUnitAlive }
+export { getStrikeDice, getStrikeNumber, getUnitPower, getUnitSkill, isUnitAlive }
 
 const landCache = new WeakMap<BattleState, BuiltBattleland>()
 
@@ -99,6 +101,7 @@ export function startBattle(
     activeHalf: defenderFirst ? 'defender' : 'attacker',
     phase: land.tower ? 'Move' : 'Move',
     units,
+    fallen: [],
     turn: 1,
     highlighted: [],
     selectedUnitId: null,
@@ -154,11 +157,23 @@ export function resolveStrikeFor(
   attackerId: string,
   defenderId: string,
   rng: () => number,
-): string {
+  forcedRolls?: number[],
+): {
+  message: string
+  rolls: number[]
+  need: number
+  hits: number
+  attackerType: string
+  defenderType: string
+} {
   const land = battleLand(state, battle)
-  const { message, carries } = doResolveStrike(state, battle, land, attackerId, defenderId, rng)
-  if (carries) {
-    battle.pendingCarry = { fromUnitId: attackerId, hitsLeft: carries.hitsLeft, targetIds: carries.targetIds }
+  const result = doResolveStrike(state, battle, land, attackerId, defenderId, rng, forcedRolls)
+  if (result.carries) {
+    battle.pendingCarry = {
+      fromUnitId: attackerId,
+      hitsLeft: result.carries.hitsLeft,
+      targetIds: result.carries.targetIds,
+    }
   }
   if (
     !battle.attackerSummoned &&
@@ -167,7 +182,14 @@ export function resolveStrikeFor(
   ) {
     battle.pendingSummon = true
   }
-  return message
+  return {
+    message: result.message,
+    rolls: result.rolls,
+    need: result.need,
+    hits: result.hits,
+    attackerType: result.attackerType,
+    defenderType: result.defenderType,
+  }
 }
 
 /** Back-compat name used by GameEngine */
@@ -177,8 +199,16 @@ export function resolveStrike(
   attackerId: string,
   defenderId: string,
   rng: () => number,
-): string {
-  return resolveStrikeFor(state, battle, attackerId, defenderId, rng)
+  forcedRolls?: number[],
+): {
+  message: string
+  rolls: number[]
+  need: number
+  hits: number
+  attackerType: string
+  defenderType: string
+} {
+  return resolveStrikeFor(state, battle, attackerId, defenderId, rng, forcedRolls)
 }
 
 export function checkBattleEnd(state: GameState, battle: BattleState): void {
@@ -225,6 +255,85 @@ function killUnentered(state: GameState, battle: BattleState, half: BattleHalf):
   checkBattleEnd(state, battle)
 }
 
+/**
+ * Colossus removeDeadCreatures — after Strikeback, dead chits leave the board
+ * (and their legion), returned to the caretaker. Survivors stay in `units`;
+ * casualties move to `fallen` for end-of-battle point tally.
+ */
+export function removeDeadCreatures(state: GameState, battle: BattleState): void {
+  const dead = battle.units.filter((u) => !isUnitAlive(state, u))
+  if (dead.length === 0) {
+    checkBattleEnd(state, battle)
+    return
+  }
+
+  const deadIds = new Set(dead.map((u) => u.id))
+  battle.fallen.push(...dead)
+  battle.units = battle.units.filter((u) => !deadIds.has(u.id))
+
+  for (const u of dead) {
+    const legion = state.legions.find((l) => l.id === u.legionId)
+    if (legion) {
+      const idx = legion.creatures.findIndex((c) => c.type === u.creatureType)
+      if (idx >= 0) {
+        legion.creatures.splice(idx, 1)
+        state.caretaker[u.creatureType] = (state.caretaker[u.creatureType] ?? 0) + 1
+      }
+    }
+    state.log.push(`${u.creatureType} eliminated from the battle`)
+  }
+
+  if (battle.selectedUnitId && deadIds.has(battle.selectedUnitId)) {
+    battle.selectedUnitId = null
+    battle.highlighted = []
+  }
+  if (battle.pendingCarry && deadIds.has(battle.pendingCarry.fromUnitId)) {
+    battle.pendingCarry = null
+  } else if (battle.pendingCarry) {
+    battle.pendingCarry = {
+      ...battle.pendingCarry,
+      targetIds: battle.pendingCarry.targetIds.filter((id) => !deadIds.has(id)),
+    }
+    if (battle.pendingCarry.targetIds.length === 0) battle.pendingCarry = null
+  }
+
+  // Official Titan / Colossus: Titan waits until end of strike cycle, then player
+  // is out and the battle ends immediately. Mutual Titan death → draw.
+  checkBattleTitanElimination(state, battle)
+  if (!battle.done) checkBattleEnd(state, battle)
+}
+
+/**
+ * After dead are removed: if a Titan left the board this cycle, end the battle.
+ * Draw only when both Titans are among the fallen (typically Strike + Strikeback).
+ */
+export function checkBattleTitanElimination(state: GameState, battle: BattleState): void {
+  if (battle.done) return
+
+  const atkTitanDead = battle.fallen.some(
+    (u) => u.legionId === battle.attackerLegionId && u.creatureType === 'Titan',
+  )
+  const defTitanDead = battle.fallen.some(
+    (u) => u.legionId === battle.defenderLegionId && u.creatureType === 'Titan',
+  )
+  if (!atkTitanDead && !defTitanDead) return
+
+  battle.done = true
+  battle.endedByTitanKill = true
+  battle.pendingCarry = null
+
+  if (atkTitanDead && defTitanDead) {
+    battle.winnerPlayerId = null
+    state.log.push('Both Titans slain — mutual elimination')
+  } else if (atkTitanDead) {
+    battle.winnerPlayerId = state.legions.find((l) => l.id === battle.defenderLegionId)?.playerId ?? null
+    state.log.push('Attacker Titan slain — battle ends')
+  } else {
+    battle.winnerPlayerId = state.legions.find((l) => l.id === battle.attackerLegionId)?.playerId ?? null
+    state.log.push('Defender Titan slain — battle ends')
+  }
+}
+
 export function advanceBattlePhase(state: GameState, battle: BattleState): void {
   if (battle.done) return
   const land = battleLand(state, battle)
@@ -252,16 +361,22 @@ export function advanceBattlePhase(state: GameState, battle: BattleState): void 
     battle.activePlayerId = other?.playerId ?? battle.activePlayerId
     for (const u of battle.units) u.struck = false
   } else if (battle.phase === 'Strikeback') {
+    // First-maneuver failures become dead, then Colossus removeDeadCreatures
+    if (battle.activeHalf === 'defender' && !battle.firstManeuverDone.defender) {
+      killUnentered(state, battle, 'defender')
+      battle.firstManeuverDone.defender = true
+    } else if (battle.activeHalf === 'attacker' && !battle.firstManeuverDone.attacker) {
+      killUnentered(state, battle, 'attacker')
+      battle.firstManeuverDone.attacker = true
+    }
+
+    removeDeadCreatures(state, battle)
+    if (battle.done) return
+
     if (battle.activeHalf === 'defender') {
-      if (!battle.firstManeuverDone.defender) {
-        killUnentered(state, battle, 'defender')
-        battle.firstManeuverDone.defender = true
-        if (battle.done) return
-      }
       battle.activeHalf = 'attacker'
       const atk = state.legions.find((l) => l.id === battle.attackerLegionId)
       battle.activePlayerId = atk?.playerId ?? battle.activePlayerId
-      // Summon phase before attacker move if pending
       if (battle.pendingSummon && !battle.attackerSummoned && !battle.denySummon) {
         battle.phase = 'Summon'
       } else {
@@ -272,11 +387,6 @@ export function advanceBattlePhase(state: GameState, battle: BattleState): void 
         u.struck = false
       }
     } else {
-      if (!battle.firstManeuverDone.attacker) {
-        killUnentered(state, battle, 'attacker')
-        battle.firstManeuverDone.attacker = true
-        if (battle.done) return
-      }
       const nextTurn = battle.turn + 1
       if (nextTurn > MAX_BATTLE_TURNS) {
         applyTimeLoss(state, battle)
@@ -286,7 +396,6 @@ export function advanceBattlePhase(state: GameState, battle: BattleState): void 
       battle.activeHalf = 'defender'
       const def = state.legions.find((l) => l.id === battle.defenderLegionId)
       battle.activePlayerId = def?.playerId ?? battle.activePlayerId
-      // Reinforce at start of defender's 4th maneuver
       if (nextTurn === 4 && !battle.defenderReinforced) {
         battle.phase = 'Recruit'
       } else {
@@ -327,7 +436,8 @@ export function applyBattleResult(state: GameState, battle: BattleState): void {
 
   const pointsFor = (loserLegionId: string, fullValue: boolean) => {
     let pts = 0
-    for (const u of battle.units) {
+    const pool = [...battle.units, ...battle.fallen]
+    for (const u of pool) {
       if (u.legionId !== loserLegionId) continue
       if (isUnitAlive(state, u)) continue
       const t = state.variant.creatures[u.creatureType]
@@ -348,6 +458,62 @@ export function applyBattleResult(state: GameState, battle: BattleState): void {
     state.log.push('Time-loss — defender survives, no points awarded')
     checkTitanDeath(state, defender.playerId)
     return
+  }
+
+  // Titan kill after Strikeback: living remnants of the Titan legion do not score;
+  // checkTitanDeath removes the eliminated player's remaining forces.
+  if (battle.endedByTitanKill) {
+    const atkTitanDead = battle.fallen.some(
+      (u) => u.legionId === attacker.id && u.creatureType === 'Titan',
+    )
+    const defTitanDead = battle.fallen.some(
+      (u) => u.legionId === defender.id && u.creatureType === 'Titan',
+    )
+    const atkAlive = battle.units.some(
+      (u) => u.legionId === attacker.id && isUnitAlive(state, u),
+    )
+    const defAlive = battle.units.some(
+      (u) => u.legionId === defender.id && isUnitAlive(state, u),
+    )
+
+    if (atkTitanDead && defTitanDead) {
+      syncLegion(attacker)
+      syncLegion(defender)
+      if (!atkAlive) eliminateLegionToCaretaker(state, attacker)
+      if (!defAlive) eliminateLegionToCaretaker(state, defender)
+      checkTitanDeath(state, null)
+      return
+    }
+
+    if (defTitanDead) {
+      const winner = state.players.find((p) => p.id === attacker.playerId)!
+      if (atkAlive) {
+        const scoreBefore = winner.score
+        winner.score += pointsFor(defender.id, false)
+        syncLegion(attacker)
+        maybeAcquireAngel(state, winner.id, attacker, scoreBefore)
+      } else {
+        syncLegion(attacker)
+        eliminateLegionToCaretaker(state, attacker)
+      }
+      checkTitanDeath(state, atkAlive ? attacker.playerId : null)
+      return
+    }
+
+    if (atkTitanDead) {
+      const winner = state.players.find((p) => p.id === defender.playerId)!
+      if (defAlive) {
+        const scoreBefore = winner.score
+        winner.score += pointsFor(attacker.id, false)
+        syncLegion(defender)
+        maybeAcquireAngel(state, winner.id, defender, scoreBefore)
+      } else {
+        syncLegion(defender)
+        eliminateLegionToCaretaker(state, defender)
+      }
+      checkTitanDeath(state, defAlive ? defender.playerId : null)
+      return
+    }
   }
 
   const atkAlive = battle.units.some(

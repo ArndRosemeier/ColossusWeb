@@ -9,6 +9,8 @@ import {
 import { getMovesForSelected } from '../engine/GameEngine'
 import { bestRecruitAt } from '../engine/recruit'
 import type { GameState, Legion } from '../engine/types'
+import type { MasterMoveAnim } from '../ui/moveAnimation'
+import { pointsToSvg, usePathTween } from '../ui/usePathTween'
 import { SafeSvgImage } from './SafeSvgImage'
 
 const WALK_STROKE = '#e08a45'
@@ -67,9 +69,110 @@ interface Props {
   state: GameState
   onHexClick: (label: string) => void
   onLegionClick: (legionId: string) => void
+  moveAnim?: MasterMoveAnim | null
+  onMoveAnimDone?: () => void
 }
 
-export function MasterBoardView({ state, onHexClick, onLegionClick }: Props) {
+function markerCenter(
+  board: BuiltBoard,
+  hex: MasterHex,
+  scale: number,
+  stackIndex: number,
+  stackCount: number,
+  markerSize: number,
+): { x: number; y: number } {
+  const { cx, cy } = hexPixel(board, hex, scale)
+  const ox = (stackIndex - (stackCount - 1) / 2) * (markerSize + 2)
+  return {
+    x: cx + scale + ox,
+    y: cy + 1.85 * SQRT3 * scale,
+  }
+}
+
+function MasterAnimOverlay({
+  board,
+  scale,
+  markerSize,
+  anim,
+  onDone,
+}: {
+  board: BuiltBoard
+  scale: number
+  markerSize: number
+  anim: MasterMoveAnim
+  onDone: () => void
+}) {
+  const points = anim.pathLabels.map((label) => {
+    const hex = board.hexByLabel[label]
+    if (!hex) return { x: 0, y: 0 }
+    return markerCenter(board, hex, scale, 0, 1, markerSize)
+  })
+  const { pos, trail, opacity } = usePathTween(points, anim.durationMs, anim.teleport, onDone)
+  const ghostOp = anim.teleport
+    ? opacity.ghost > 0.02
+      ? opacity.ghost
+      : opacity.origin
+    : 1
+  const trailD = trail.length >= 2 ? pointsToSvg(trail) : ''
+
+  return (
+    <g className="move-anim" pointerEvents="none">
+      {trailD && (
+        <polyline
+          points={trailD}
+          fill="none"
+          stroke={anim.teleport ? TELEPORT_STROKE : WALK_STROKE}
+          strokeWidth={2.2}
+          strokeOpacity={0.55}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeDasharray="5 4"
+        />
+      )}
+      {ghostOp > 0.02 && (
+        <g opacity={ghostOp} transform={`translate(${pos.x - markerSize / 2}, ${pos.y - markerSize / 2})`}>
+          <rect
+            width={markerSize}
+            height={markerSize}
+            fill={markerPlainColor(anim.markerId)}
+            stroke={anim.markerId.startsWith('Bk') ? '#ffffff' : '#000000'}
+            strokeWidth={1}
+          />
+          <SafeSvgImage
+            href={markerImageUrl(anim.markerId)}
+            x={0}
+            y={0}
+            width={markerSize}
+            height={markerSize}
+            preserveAspectRatio="xMidYMid meet"
+          />
+          <text
+            x={markerSize * 0.78}
+            y={markerSize * 0.78}
+            textAnchor="middle"
+            fontSize={Math.max(9, markerSize * 0.42)}
+            fontWeight={700}
+            fontFamily="sans-serif"
+            fill="#000"
+            stroke="#fff"
+            strokeWidth={3}
+            paintOrder="stroke"
+          >
+            {anim.count}
+          </text>
+        </g>
+      )}
+    </g>
+  )
+}
+
+export function MasterBoardView({
+  state,
+  onHexClick,
+  onLegionClick,
+  moveAnim = null,
+  onMoveAnimDone,
+}: Props) {
   const board = state.variant.board
   const scale = 14
   const markerSize = 28
@@ -221,8 +324,9 @@ export function MasterBoardView({ state, onHexClick, onLegionClick }: Props) {
         const hex = board.hexByLabel[hexLabel]
         if (!hex) return null
         const { cx, cy } = hexPixel(board, hex, scale)
-        return legs.map((leg, i) => {
-          const ox = (i - (legs.length - 1) / 2) * (markerSize + 2)
+        const visible = legs.filter((leg) => leg.id !== moveAnim?.pieceId)
+        return visible.map((leg, i) => {
+          const ox = (i - (visible.length - 1) / 2) * (markerSize + 2)
           const selectedLeg = leg.id === state.selectedLegionId
           const x = cx + scale + ox - markerSize / 2
           const y = cy + 1.85 * SQRT3 * scale - markerSize / 2
@@ -283,6 +387,15 @@ export function MasterBoardView({ state, onHexClick, onLegionClick }: Props) {
           )
         })
       })}
+      {moveAnim && onMoveAnimDone && (
+        <MasterAnimOverlay
+          board={board}
+          scale={scale}
+          markerSize={markerSize}
+          anim={moveAnim}
+          onDone={onMoveAnimDone}
+        />
+      )}
     </svg>
   )
 }

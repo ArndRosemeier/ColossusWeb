@@ -21,7 +21,7 @@ Port modules: `engagement.ts`, `battleland.ts`, `battleMovement.ts`, `battleStri
 | A4 | Max battle turns 7; time-loss | pass | `battle` | `rules-battle-timing` |
 | S1 | Unique towers | pass | `createGame` | `rules-setup` |
 | S2 | Starting Titan+Angel+6 | colossus-diff | `createGame` | `rules-setup` |
-| S3–S4 | Titan death / last titan wins | pass | `checkTitanDeath` | `rules-scoring` |
+| S3–S4 | Titan death / last titan wins; mid-battle Titan ends after Strikeback (mutual → draw) | pass | `checkBattleTitanElimination` | `titanDeathBattle`, `rules-scoring` |
 
 ## Split / Movement / Teleport / Muster
 

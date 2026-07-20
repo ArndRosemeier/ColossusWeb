@@ -342,11 +342,29 @@ export function resolveStrike(
   attackerId: string,
   defenderId: string,
   rng: () => number,
-): { message: string; carries: { hitsLeft: number; targetIds: string[] } | null } {
+  /** When set, use these faces instead of rolling (physical dice / tests). */
+  forcedRolls?: number[],
+): {
+  message: string
+  carries: { hitsLeft: number; targetIds: string[] } | null
+  rolls: number[]
+  need: number
+  hits: number
+  attackerType: string
+  defenderType: string
+} {
   const attacker = battle.units.find((u) => u.id === attackerId)
   const defender = battle.units.find((u) => u.id === defenderId)
   if (!attacker || !defender || !attacker.hex || !defender.hex) {
-    return { message: 'Invalid strike', carries: null }
+    return {
+      message: 'Invalid strike',
+      carries: null,
+      rolls: [],
+      need: 6,
+      hits: 0,
+      attackerType: '?',
+      defenderType: '?',
+    }
   }
 
   const melee = isAdjacent(land, attacker.hex, defender.hex)
@@ -354,10 +372,21 @@ export function resolveStrike(
   const need = getStrikeNumber(state, attacker, defender, land, melee)
   let hits = 0
   const rolls: number[] = []
-  for (let i = 0; i < dice; i++) {
-    const d = rollDie(rng)
-    rolls.push(d)
-    if (d >= need) hits++
+  if (forcedRolls != null) {
+    if (forcedRolls.length !== dice) {
+      throw new Error(`Strike expects ${dice} dice, got ${forcedRolls.length}`)
+    }
+    for (const d of forcedRolls) {
+      if (d < 1 || d > 6) throw new Error(`Invalid die face ${d}`)
+      rolls.push(d)
+      if (d >= need) hits++
+    }
+  } else {
+    for (let i = 0; i < dice; i++) {
+      const d = rollDie(rng)
+      rolls.push(d)
+      if (d >= need) hits++
+    }
   }
 
   const powerBefore = getUnitPower(state, defender)
@@ -385,7 +414,15 @@ export function resolveStrike(
     }
   }
 
-  return { message: msg, carries }
+  return {
+    message: msg,
+    carries,
+    rolls,
+    need,
+    hits,
+    attackerType: attacker.creatureType,
+    defenderType: defender.creatureType,
+  }
 }
 
 export function applyCarry(state: GameState, battle: { units: BattleUnit[] }, targetId: string, hits: number): void {

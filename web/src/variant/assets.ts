@@ -1,6 +1,6 @@
 /** Asset URLs and resolution for Default variant graphics. */
 
-const BASE = '/variants/Default/images'
+const BASE = `${import.meta.env.BASE_URL}variants/Default/images`
 
 /** Known files copied by convert-variant.mjs (filled at runtime from manifest). */
 let available: Set<string> | null = null

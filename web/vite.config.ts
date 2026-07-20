@@ -29,6 +29,8 @@ function noSpaFallbackForVariants(): Plugin {
 }
 
 export default defineConfig({
+  // Deploy script sets COLOSSUS_BASE (e.g. "/Colossus/") for subdirectory hosting.
+  base: process.env.COLOSSUS_BASE ?? '/',
   plugins: [react(), noSpaFallbackForVariants()],
   test: {
     environment: 'node',
