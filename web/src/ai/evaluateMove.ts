@@ -1,5 +1,5 @@
 import { bestRecruitAt } from '../engine/recruit'
-import { listAllMoves } from '../engine/movement'
+import { listAllMoves, listNormalMoveHexes } from '../engine/movement'
 import type { GameCommand, GameState, Legion } from '../engine/types'
 import type { AiProfile } from './profiles'
 import {
@@ -16,6 +16,8 @@ export type ScoredMove = {
   hex: string
   teleport: boolean
   score: number
+  /** Bonus applied because this legion shares a hex and must separate. */
+  forcedSplit: boolean
 }
 
 /**
@@ -113,11 +115,24 @@ export function rankMoves(state: GameState, profile: AiProfile): ScoredMove[] {
   const legs = state.legions.filter((l) => l.playerId === playerId && !l.moved)
   const scored: ScoredMove[] = []
   for (const leg of legs) {
+    const stacked =
+      state.legions.filter((l) => l.playerId === playerId && l.hexLabel === leg.hexLabel)
+        .length > 1
     const moves = listAllMoves(state, leg, state.movementRoll)
+    const conventional = listNormalMoveHexes(state, leg, state.movementRoll)
     for (const [hex, info] of moves) {
       let score = evaluateDestination(state, leg, hex, profile)
       if (info.teleport) score += 3
-      scored.push({ legionId: leg.id, hex, teleport: info.teleport, score })
+      const forcedSplit = stacked && conventional.has(hex)
+      // Prefer separating co-located split stacks (Colossus forced split moves)
+      if (forcedSplit) score += 80
+      scored.push({
+        legionId: leg.id,
+        hex,
+        teleport: info.teleport,
+        score,
+        forcedSplit,
+      })
     }
   }
   scored.sort((a, b) => b.score - a.score)
@@ -136,7 +151,18 @@ export function pickBestMove(
   const ranked = rankMoves(state, profile)
   if (ranked.length === 0) return { type: 'doneMove' }
 
-  const best = ranked[0]
+  const forced = ranked.filter((m) => m.forcedSplit)
+  if (forced.length > 0) {
+    const bestForced = forced[0]!
+    return {
+      type: 'move',
+      legionId: bestForced.legionId,
+      toHex: bestForced.hex,
+      teleport: bestForced.teleport,
+    }
+  }
+
+  const best = ranked[0]!
   if (best.score >= profile.strongMoveThreshold) {
     return {
       type: 'move',
@@ -148,10 +174,9 @@ export function pickBestMove(
 
   // Modest gains: still move at least one legion, then maybe continue
   if (!anyMoved || (best.score > 0 && rng() < profile.continueMovingChance)) {
-    // Among positive scores, prefer best; if all ≤0 and nothing moved yet, take least-bad
     const pool = ranked.filter((m) => m.score > 0)
     const pickFrom = pool.length > 0 ? pool : ranked
-    const c = pickFrom[Math.min(pickFrom.length - 1, Math.floor(rng() * Math.min(3, pickFrom.length)))]
+    const c = pickFrom[Math.min(pickFrom.length - 1, Math.floor(rng() * Math.min(3, pickFrom.length)))]!
     return {
       type: 'move',
       legionId: c.legionId,

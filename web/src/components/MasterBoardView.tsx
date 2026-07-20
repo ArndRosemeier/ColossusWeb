@@ -414,7 +414,9 @@ export function MasterBoardView({
           if (!hex) return null
           const { cx, cy } = hexPixel(board, hex, scale)
           const visible = legs.filter((leg) => leg.id !== moveAnim?.pieceId)
-          return visible.map((leg, i) => {
+          return (
+            <g key={`stack-${hexLabel}`}>
+              {visible.map((leg, i) => {
             const ox = (i - (visible.length - 1) / 2) * (markerSize + 2)
             const selectedLeg = leg.id === state.selectedLegionId
             const x = cx + scale + ox - markerSize / 2
@@ -513,7 +515,9 @@ export function MasterBoardView({
                 )}
               </g>
             )
-          })
+          })}
+            </g>
+          )
         })}
         {moveAnim && onMoveAnimDone && (
           <MasterAnimOverlay

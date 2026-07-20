@@ -46,6 +46,8 @@ export interface Legion {
   recruited: boolean
   /** Creature type mustered this turn (board badge until muster phase ends). */
   musteredThisTurn: string | null
+  /** Parent already split during this Split phase (cannot split again). */
+  splitThisTurn: boolean
   enteredFrom: EntrySide | null
 }
 
@@ -188,6 +190,10 @@ export interface GameState {
    * Muster Done was pressed while recruits remained — second press skips them.
    */
   musterSkipWarned: boolean
+  /**
+   * Split Done was pressed while a size-7 legion could still split — second press skips.
+   */
+  splitSkipWarned: boolean
   selectedLegionId: string | null
   legalHexes: string[]
   battle: BattleState | null

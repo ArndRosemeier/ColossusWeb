@@ -22,7 +22,7 @@ import {
   resolveAgreement,
   resolveEngagementConcession,
 } from './engagement'
-import { listAllMoves, rollDie } from './movement'
+import { listAllMoves, listNormalMoveHexes, rollDie } from './movement'
 import { applyRecruit, listRecruits } from './recruit'
 import {
   clearPublicKnowledge,
@@ -93,6 +93,39 @@ export function createRng(seed: number): () => number {
 
 let legionSeq = 1
 
+/** Bump the id counter past any existing `leg-N` ids (needed after load / HMR). */
+export function syncLegionSeqFromState(state: Pick<GameState, 'legions'>): void {
+  for (const leg of state.legions) {
+    const m = /^leg-(\d+)$/.exec(leg.id)
+    if (!m) continue
+    const n = Number(m[1])
+    if (Number.isFinite(n) && n >= legionSeq) legionSeq = n + 1
+  }
+}
+
+/** Repair duplicate legion ids (e.g. splits after a save load reused leg-1). */
+export function ensureUniqueLegionIds(state: GameState): void {
+  syncLegionSeqFromState(state)
+  const seen = new Set<string>()
+  for (const leg of state.legions) {
+    if (!seen.has(leg.id)) {
+      seen.add(leg.id)
+      continue
+    }
+    const oldId = leg.id
+    leg.id = allocateLegionId(state)
+    seen.add(leg.id)
+    if (state.selectedLegionId === oldId) {
+      // Ambiguous selection — keep pointing at the first occurrence (unchanged id)
+    }
+  }
+}
+
+function allocateLegionId(state: Pick<GameState, 'legions'>): string {
+  syncLegionSeqFromState(state)
+  return `leg-${legionSeq++}`
+}
+
 export const MARKERS_PER_COLOR = 12
 
 /** Colossus marker ids for a color: Rd01…Rd09, Rd10…Rd12. */
@@ -120,6 +153,7 @@ export function returnMarker(player: PlayerState, markerIdValue: string): void {
 }
 
 export function createGame(variant: LoadedVariant, options: NewGameOptions): GameState {
+  legionSeq = 1
   const rng = mulberry32(options.seed ?? Date.now())
   const towers = [...variant.board.towers]
   // Shuffle towers
@@ -181,7 +215,7 @@ export function createGame(variant: LoadedVariant, options: NewGameOptions): Gam
 
     const startingMarker = takeMarker(player)
     legions.push({
-      id: `leg-${legionSeq++}`,
+      id: allocateLegionId({ legions }),
       markerId: startingMarker,
       playerId: player.id,
       hexLabel: player.startingTower,
@@ -191,6 +225,7 @@ export function createGame(variant: LoadedVariant, options: NewGameOptions): Gam
       teleported: false,
       recruited: false,
       musteredThisTurn: null,
+      splitThisTurn: false,
       enteredFrom: null,
     })
   }
@@ -209,6 +244,7 @@ export function createGame(variant: LoadedVariant, options: NewGameOptions): Gam
     diceMode: options.diceMode ?? 'rng',
     mulliganAvailable: true,
     musterSkipWarned: false,
+    splitSkipWarned: false,
     selectedLegionId: null,
     legalHexes: [],
     battle: null,
@@ -236,6 +272,8 @@ export function dispatch(state: GameState, command: GameCommand, rng = Math.rand
   const next = structuredClone(state) as GameState
   // structuredClone drops class instances; variant is plain data — reattach
   next.variant = state.variant
+  // Keep id allocator ahead of any loaded/cloned legions (save resume, HMR)
+  syncLegionSeqFromState(next)
 
   try {
     applyCommand(next, command, rng)
@@ -278,10 +316,7 @@ function applyCommand(state: GameState, command: GameCommand, rng: () => number)
       doSplit(state, command.parentId, command.childCreatures)
       break
     case 'doneSplit':
-      if (playerLegions(state, activePlayer(state).id).some((l) => l.creatures.length > 7)) {
-        state.message = 'Legions taller than 7 must split before leaving Split phase'
-        break
-      }
+      if (!confirmDoneSplit(state)) break
       beginMovePhase(state, rng)
       break
     case 'move':
@@ -295,9 +330,17 @@ function applyCommand(state: GameState, command: GameCommand, rng: () => number)
       break
     case 'doneMove':
       if (!canEndMovePhase(state)) {
-        state.message = 'You must move at least one legion if able'
+        const anyoneMoved = playerLegions(state, activePlayer(state).id).some((l) => l.moved)
+        if (!anyoneMoved) {
+          state.message = 'You must move at least one legion if able'
+        } else if (splitLegionHasForcedMove(state)) {
+          state.message = 'Must separate split legions'
+        } else {
+          state.message = 'You must move at least one legion if able'
+        }
         break
       }
+      recombineIllegalSplits(state)
       beginFightPhase(state)
       break
     case 'startEngagement':
@@ -538,7 +581,15 @@ function selectLegion(state: GameState, legionId: string): void {
   if (state.phase === 'Move' && isMine && state.movementRoll != null) {
     const moves = listAllMoves(state, legion, state.movementRoll)
     state.legalHexes = [...moves.keys()]
-    state.message = `Selected ${legion.markerId} — ${state.legalHexes.length} legal moves`
+    const stacked =
+      playerLegions(state, player.id).filter((l) => l.hexLabel === legion.hexLabel).length > 1
+    if (moves.size === 0 && stacked && !legion.moved) {
+      state.message = `Selected ${legion.markerId} — no legal moves (other stacks block destinations; move a different legion first or separate this hex)`
+    } else if (stacked && !legion.moved) {
+      state.message = `Selected ${legion.markerId} — ${moves.size} legal moves (split stacks on this hex must separate)`
+    } else {
+      state.message = `Selected ${legion.markerId} — ${moves.size} legal moves`
+    }
     return
   }
 
@@ -585,6 +636,8 @@ function doSplit(state: GameState, parentId: string, childTypes: string[]): void
     if (childLords !== 1 || parentLords - childLords !== 1) {
       throw new Error('Turn 1 split: each stack must have exactly one Lord')
     }
+  } else if (parent.splitThisTurn) {
+    throw new Error('Legion already split this turn')
   }
 
   const remaining = [...parent.creatures]
@@ -601,7 +654,7 @@ function doSplit(state: GameState, parentId: string, childTypes: string[]): void
     throw new Error('No legion markers available (maximum 12 legions)')
   }
   const child: Legion = {
-    id: `leg-${legionSeq++}`,
+    id: allocateLegionId(state),
     markerId: takeMarker(player),
     playerId: player.id,
     hexLabel: parent.hexLabel,
@@ -611,11 +664,14 @@ function doSplit(state: GameState, parentId: string, childTypes: string[]): void
     teleported: false,
     recruited: false,
     musteredThisTurn: null,
+    splitThisTurn: false,
     enteredFrom: null,
   }
+  parent.splitThisTurn = true
   clearPublicKnowledge(parent)
   state.legions.push(child)
   state.selectedLegionId = child.id
+  state.splitSkipWarned = false
   state.log.push(`${player.name} splits ${child.markerId} from ${parent.markerId}`)
   state.message = `Split created ${child.markerId}`
 }
@@ -624,11 +680,13 @@ function beginMovePhase(state: GameState, rng: () => number): void {
   state.phase = 'Move'
   state.selectedLegionId = null
   state.legalHexes = []
+  state.splitSkipWarned = false
   for (const l of playerLegions(state, activePlayer(state).id)) {
     l.moved = false
     l.teleported = false
     l.recruited = false
     l.musteredThisTurn = null
+    l.splitThisTurn = false
   }
   activePlayer(state).hasTeleported = false
   if (state.turnNumber !== 1) state.mulliganAvailable = false
@@ -734,12 +792,62 @@ function findEngagements(state: GameState): { attackerId: string; defenderId: st
 
 function canEndMovePhase(state: GameState): boolean {
   const mine = playerLegions(state, activePlayer(state).id)
-  if (mine.some((l) => l.moved)) return true
   if (state.movementRoll == null) return true
-  for (const leg of mine) {
-    if (listAllMoves(state, leg, state.movementRoll).size > 0) return false
+  const anyoneMoved = mine.some((l) => l.moved)
+  // Colossus: must move at least one legion if any has a conventional (non-teleport) move
+  if (!anyoneMoved) {
+    for (const leg of mine) {
+      if (listNormalMoveHexes(state, leg, state.movementRoll).size > 0) return false
+    }
+    return true
   }
+  // Colossus: stacked split legions with a conventional move must separate
+  if (splitLegionHasForcedMove(state)) return false
   return true
+}
+
+/** True when ≥2 friendlies share a hex and at least one has a non-teleport move. */
+export function splitLegionHasForcedMove(state: GameState): boolean {
+  if (state.movementRoll == null) return false
+  const player = activePlayer(state)
+  const mine = playerLegions(state, player.id)
+  for (const leg of mine) {
+    const stacked =
+      mine.filter((l) => l.hexLabel === leg.hexLabel).length > 1
+    if (!stacked) continue
+    if (listNormalMoveHexes(state, leg, state.movementRoll).size > 0) return true
+  }
+  return false
+}
+
+/**
+ * Merge leftover co-located friendlies after Move (Colossus recombineIllegalSplits).
+ * Survivor = first legion on each hex in list order.
+ */
+function recombineIllegalSplits(state: GameState): void {
+  const player = activePlayer(state)
+  const byHex = new Map<string, Legion[]>()
+  for (const leg of playerLegions(state, player.id)) {
+    const list = byHex.get(leg.hexLabel) ?? []
+    list.push(leg)
+    byHex.set(leg.hexLabel, list)
+  }
+  const removeIds = new Set<string>()
+  for (const stack of byHex.values()) {
+    if (stack.length < 2) continue
+    const survivor = stack[0]!
+    for (let i = 1; i < stack.length; i++) {
+      const other = stack[i]!
+      survivor.creatures.push(...other.creatures)
+      clearPublicKnowledge(survivor)
+      returnMarker(player, other.markerId)
+      removeIds.add(other.id)
+      state.log.push(`${other.markerId} recombines into ${survivor.markerId}`)
+    }
+  }
+  if (removeIds.size > 0) {
+    state.legions = state.legions.filter((l) => !removeIds.has(l.id))
+  }
 }
 
 function beginMusterPhase(state: GameState): void {
@@ -831,21 +939,69 @@ function advanceToNextLivingPlayer(state: GameState): void {
   state.legalHexes = []
   state.pendingEngagements = []
   state.activeEngagement = null
+  state.splitSkipWarned = false
+  for (const l of playerLegions(state, activePlayer(state).id)) {
+    l.splitThisTurn = false
+  }
   state.message = `${activePlayer(state).name}: Split phase`
+}
+
+/** Size-7 legions that can still optionally split this phase. */
+export function legionsWithOptionalSplit(state: GameState): Legion[] {
+  const player = activePlayer(state)
+  if (player.markersAvailable.length === 0) return []
+  return playerLegions(state, player.id).filter(
+    (l) => l.creatures.length === 7 && !l.splitThisTurn,
+  )
+}
+
+/**
+ * Hard-blocks height >7; warns once when leaving with size-7 stacks still unsplit.
+ * @returns true when Split may end
+ */
+function confirmDoneSplit(state: GameState): boolean {
+  if (state.phase !== 'Split') throw new Error('Not split phase')
+  const mine = playerLegions(state, activePlayer(state).id)
+  if (mine.some((l) => l.creatures.length > 7)) {
+    state.splitSkipWarned = false
+    state.message = 'Legions taller than 7 must split before leaving Split phase'
+    return false
+  }
+  const optional = legionsWithOptionalSplit(state)
+  if (optional.length === 0) {
+    state.splitSkipWarned = false
+    return true
+  }
+  if (state.splitSkipWarned) {
+    state.splitSkipWarned = false
+    return true
+  }
+  state.splitSkipWarned = true
+  const names = optional.map((l) => l.markerId).join(', ')
+  state.message =
+    optional.length === 1
+      ? `Warning: ${names} is still size 7 and has not split. Confirm Done again to skip.`
+      : `Warning: ${names} are still size 7 and have not split. Confirm Done again to skip.`
+  return false
 }
 
 function passPhase(state: GameState, rng: () => number): void {
   if (state.phase === 'Split') {
-    if (playerLegions(state, activePlayer(state).id).some((l) => l.creatures.length > 7)) {
-      state.message = 'Legions taller than 7 must split before leaving Split phase'
-      return
-    }
+    if (!confirmDoneSplit(state)) return
     beginMovePhase(state, rng)
   } else if (state.phase === 'Move') {
     if (!canEndMovePhase(state)) {
-      state.message = 'You must move at least one legion if able'
+      const anyoneMoved = playerLegions(state, activePlayer(state).id).some((l) => l.moved)
+      if (!anyoneMoved) {
+        state.message = 'You must move at least one legion if able'
+      } else if (splitLegionHasForcedMove(state)) {
+        state.message = 'Must separate split legions'
+      } else {
+        state.message = 'You must move at least one legion if able'
+      }
       return
     }
+    recombineIllegalSplits(state)
     beginFightPhase(state)
   } else if (state.phase === 'Fight') beginMusterPhase(state)
   else if (state.phase === 'Muster') endTurn(state, rng)

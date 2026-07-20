@@ -1,5 +1,5 @@
 import type { LoadedVariant } from '../variant/loadVariant'
-import { allMarkersForColor } from '../engine/GameEngine'
+import { allMarkersForColor, ensureUniqueLegionIds } from '../engine/GameEngine'
 import type { GameState, PlayerState } from '../engine/types'
 
 export const SAVE_STORAGE_KEY = 'colossusweb.save.v1'
@@ -137,10 +137,17 @@ export function deserializeGame(blob: SavedGameBlob, variant: LoadedVariant): Ga
     if (leg.musteredThisTurn === undefined) {
       leg.musteredThisTurn = null
     }
+    if (leg.splitThisTurn === undefined) {
+      leg.splitThisTurn = false
+    }
   }
   if (state.musterSkipWarned === undefined) {
     state.musterSkipWarned = false
   }
+  if (state.splitSkipWarned === undefined) {
+    state.splitSkipWarned = false
+  }
+  ensureUniqueLegionIds(state)
   return state
 }
 

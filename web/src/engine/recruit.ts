@@ -132,6 +132,7 @@ export function listRecruitOptionsAt(
     moved: true,
     recruited: false,
     musteredThisTurn: null,
+    splitThisTurn: false,
   }
   return listRecruits(state, phantom)
 }

@@ -60,6 +60,69 @@ describe('rules-split', () => {
     expect(stuck.message).toMatch(/taller than 7/i)
   })
 
+  it('warns when Done is pressed while a size-7 legion has not split yet', () => {
+    let g = twoPlayerGame(5)
+    const parent = g.legions.find((l) => l.playerId === g.players[0].id)!
+    g = dispatch(g, {
+      type: 'split',
+      parentId: parent.id,
+      childCreatures: turn1SplitChild(g, parent),
+    })
+    g.turnNumber = 3
+    g.phase = 'Split'
+    for (const l of g.legions) l.splitThisTurn = false
+    const fat = g.legions.find((l) => l.playerId === g.players[0].id)!
+    fat.creatures.push(
+      { type: 'Lion', hits: 0 },
+      { type: 'Lion', hits: 0 },
+      { type: 'Lion', hits: 0 },
+    )
+    expect(fat.creatures.length).toBe(7)
+
+    const warned = dispatch(g, { type: 'doneSplit' })
+    expect(warned.phase).toBe('Split')
+    expect(warned.splitSkipWarned).toBe(true)
+    expect(warned.message).toMatch(/has not split/i)
+
+    const skipped = dispatch(warned, { type: 'doneSplit' })
+    expect(skipped.phase).toBe('Move')
+  })
+
+  it('does not warn about a size-7 legion that already split this phase', () => {
+    let g = twoPlayerGame(5)
+    const opening = g.legions.find((l) => l.playerId === g.players[0].id)!
+    g = dispatch(g, {
+      type: 'split',
+      parentId: opening.id,
+      childCreatures: turn1SplitChild(g, opening),
+    })
+    g.turnNumber = 3
+    g.phase = 'Split'
+    for (const l of g.legions) l.splitThisTurn = false
+
+    const fat = g.legions.find((l) => l.playerId === g.players[0].id)!
+    fat.creatures.push(
+      { type: 'Lion', hits: 0 },
+      { type: 'Lion', hits: 0 },
+      { type: 'Lion', hits: 0 },
+      { type: 'Lion', hits: 0 },
+      { type: 'Lion', hits: 0 },
+    )
+    expect(fat.creatures.length).toBe(9)
+    g = dispatch(g, {
+      type: 'split',
+      parentId: fat.id,
+      childCreatures: ['Lion', 'Lion'],
+    })
+    const parentAfter = g.legions.find((l) => l.id === fat.id)!
+    expect(parentAfter.creatures.length).toBe(7)
+    expect(parentAfter.splitThisTurn).toBe(true)
+
+    const done = dispatch(g, { type: 'doneSplit' })
+    expect(done.phase).toBe('Move')
+    expect(done.splitSkipWarned).toBe(false)
+  })
+
   it('P2: turn 1 requires a single 4:4 split with one Lord each', () => {
     let g = twoPlayerGame(5)
     expect(g.turnNumber).toBe(1)
@@ -135,6 +198,7 @@ describe('rules-split', () => {
         teleported: false,
         recruited: false,
         musteredThisTurn: null,
+        splitThisTurn: false,
         enteredFrom: null,
         knownPublic: [],
       })

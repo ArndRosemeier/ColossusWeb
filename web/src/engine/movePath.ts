@@ -86,7 +86,12 @@ export function findMasterMovePath(
     }
 
     if (cur.roll === 0) {
-      if (cur.cameFrom !== NOWHERE && cur.hex === toHex) return cur.path
+      if (cur.cameFrom !== NOWHERE && cur.hex === toHex) {
+        const friends = friendlyLegionsOn(state, cur.hex, legion.playerId).filter(
+          (l) => l.id !== legion.id,
+        )
+        if (friends.length === 0) return cur.path
+      }
       continue
     }
 
