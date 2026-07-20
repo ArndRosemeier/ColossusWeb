@@ -48,7 +48,7 @@ describe('rules-teleport', () => {
     expect(teles.size).toBe(0)
   })
 
-  it('T4: titan teleport requires Power ≥ 10 (score ≥ 400)', () => {
+  it('T4: titan teleport requires score ≥ titanTeleport (Default 400)', () => {
     let g = toMovePhase(2)
     const titanLeg = g.legions.find(
       (l) =>
@@ -56,13 +56,14 @@ describe('rules-teleport', () => {
         l.creatures.some((c) => c.type === 'Titan'),
     )!
     const player = g.players[0]
-    expect(player.titanPower).toBe(6)
+    expect(g.variant.data.titanTeleport).toBe(400)
+    expect(player.score).toBe(0)
     expect(listTeleportMoves(g, titanLeg, 6).has(
       g.legions.find((l) => l.playerId !== player.id)!.hexLabel,
     )).toBe(false)
 
     player.score = 400
-    player.titanPower = 6 + Math.floor(400 / 100)
+    player.titanPower = 6 + Math.floor(400 / (g.variant.data.titanImprove ?? 100))
     expect(player.titanPower).toBe(10)
     const enemyHex = g.legions.find((l) => l.playerId !== player.id)!.hexLabel
     expect(listTeleportMoves(g, titanLeg, 6).has(enemyHex)).toBe(true)

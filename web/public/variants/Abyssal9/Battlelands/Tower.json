@@ -1,0 +1,168 @@
+{
+  "terrain": "Tower",
+  "tower": true,
+  "subtitle": null,
+  "hexes": [
+    {
+      "x": 2,
+      "y": 2,
+      "terrain": "Tower",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 0,
+          "type": "w"
+        },
+        {
+          "number": 4,
+          "type": "w"
+        },
+        {
+          "number": 5,
+          "type": "w"
+        }
+      ]
+    },
+    {
+      "x": 2,
+      "y": 3,
+      "terrain": "Tower",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 3,
+          "type": "w"
+        },
+        {
+          "number": 4,
+          "type": "w"
+        },
+        {
+          "number": 5,
+          "type": "w"
+        }
+      ]
+    },
+    {
+      "x": 3,
+      "y": 1,
+      "terrain": "Tower",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 0,
+          "type": "w"
+        },
+        {
+          "number": 1,
+          "type": "w"
+        },
+        {
+          "number": 5,
+          "type": "w"
+        }
+      ]
+    },
+    {
+      "x": 3,
+      "y": 2,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": [
+        {
+          "number": 0,
+          "type": "w"
+        },
+        {
+          "number": 1,
+          "type": "w"
+        },
+        {
+          "number": 2,
+          "type": "w"
+        },
+        {
+          "number": 3,
+          "type": "w"
+        },
+        {
+          "number": 4,
+          "type": "w"
+        },
+        {
+          "number": 5,
+          "type": "w"
+        }
+      ]
+    },
+    {
+      "x": 3,
+      "y": 3,
+      "terrain": "Tower",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 2,
+          "type": "w"
+        },
+        {
+          "number": 3,
+          "type": "w"
+        },
+        {
+          "number": 4,
+          "type": "w"
+        }
+      ]
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "terrain": "Tower",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 0,
+          "type": "w"
+        },
+        {
+          "number": 1,
+          "type": "w"
+        },
+        {
+          "number": 2,
+          "type": "w"
+        }
+      ]
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "terrain": "Tower",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 1,
+          "type": "w"
+        },
+        {
+          "number": 2,
+          "type": "w"
+        },
+        {
+          "number": 3,
+          "type": "w"
+        }
+      ]
+    }
+  ],
+  "startlist": [
+    "D4",
+    "C4",
+    "E4",
+    "D3",
+    "C3",
+    "E3",
+    "D5"
+  ]
+}

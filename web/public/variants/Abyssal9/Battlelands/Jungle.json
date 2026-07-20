@@ -1,0 +1,222 @@
+{
+  "terrain": "Jungle",
+  "tower": false,
+  "subtitle": null,
+  "hexes": [
+    {
+      "x": 0,
+      "y": 2,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 0,
+      "y": 3,
+      "terrain": "Tree",
+      "elevation": 1,
+      "borders": []
+    },
+    {
+      "x": 0,
+      "y": 4,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 1,
+      "y": 1,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 1,
+      "y": 2,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 1,
+      "y": 3,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 1,
+      "y": 4,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 2,
+      "y": 2,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 2,
+      "y": 3,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 2,
+      "y": 4,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 2,
+      "y": 5,
+      "terrain": "Tree",
+      "elevation": 1,
+      "borders": []
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 3,
+      "y": 1,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 3,
+      "y": 2,
+      "terrain": "Tree",
+      "elevation": 1,
+      "borders": []
+    },
+    {
+      "x": 3,
+      "y": 3,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 3,
+      "y": 4,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 3,
+      "y": 5,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 4,
+      "y": 4,
+      "terrain": "Brambles",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 0,
+          "type": "s"
+        },
+        {
+          "number": 1,
+          "type": "s"
+        },
+        {
+          "number": 2,
+          "type": "s"
+        },
+        {
+          "number": 3,
+          "type": "s"
+        },
+        {
+          "number": 4,
+          "type": "s"
+        },
+        {
+          "number": 5,
+          "type": "s"
+        }
+      ]
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 5,
+      "y": 1,
+      "terrain": "Tree",
+      "elevation": 1,
+      "borders": []
+    },
+    {
+      "x": 5,
+      "y": 2,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 5,
+      "y": 3,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    }
+  ],
+  "startlist": []
+}

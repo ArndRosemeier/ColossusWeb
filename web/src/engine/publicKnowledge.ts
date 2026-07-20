@@ -3,9 +3,11 @@
  * AI still uses true `creatures`; humans see `knownPublic` + unknown slots.
  */
 import type { GameState, Legion } from './types'
-import { isLord, numberOfRecruiterNeeded } from './recruit'
-
-const NO_RECRUIT = 99
+import {
+  buildRecruitEdges,
+  NO_RECRUIT,
+  numberOfRecruiterNeeded,
+} from './recruit'
 
 /** One visible slot when inspecting a legion (known type or unknown). */
 export type PublicSlot = { kind: 'known'; type: string } | { kind: 'unknown' }
@@ -33,6 +35,7 @@ export function clearPublicKnowledge(legion: Legion): void {
 /**
  * Recruiter types that become public when `recruit` is mustered
  * (Colossus didRecruit → reveal N recruiters, then the recruit).
+ * Anonymous Anything/0 edges reveal nothing.
  */
 export function recruitersRevealedFor(
   state: GameState,
@@ -43,28 +46,16 @@ export function recruitersRevealedFor(
   if (!hex) return []
   const terrain = state.variant.terrains[hex.terrain]
   if (!terrain) return []
+  const creatures = state.variant.creatures
+  const edges = buildRecruitEdges(terrain)
 
-  if (hex.terrain === 'Tower') {
-    if (recruit === 'Warlock') return ['Titan']
-    if (recruit === 'Guardian') {
-      const counts = new Map<string, number>()
-      for (const c of legion.creatures) {
-        if (isLord(state.variant.creatures, c.type)) continue
-        counts.set(c.type, (counts.get(c.type) ?? 0) + 1)
-      }
-      for (const [type, n] of counts) {
-        if (n >= 3) return [type, type, type]
-      }
-      return []
-    }
-    // Tower basics (Centaur/Ogre/Gargoyle): anonymous — no recruiter reveal
+  // Anonymous tower basics: Anything → recruit with 0
+  if (edges.some((e) => e.to === recruit && e.from === 'Anything' && e.number === 0)) {
     return []
   }
 
-  if (!terrain.regularRecruit) return []
-
   for (const c of legion.creatures) {
-    const needed = numberOfRecruiterNeeded(terrain, c.type, recruit)
+    const needed = numberOfRecruiterNeeded(terrain, c.type, recruit, creatures)
     if (needed >= NO_RECRUIT) continue
     if (legion.creatures.filter((x) => x.type === c.type).length < needed) continue
     if (needed === 0) return []

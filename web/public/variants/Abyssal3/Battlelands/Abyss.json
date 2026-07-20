@@ -1,0 +1,416 @@
+{
+  "terrain": "Abyss",
+  "tower": false,
+  "subtitle": null,
+  "hexes": [
+    {
+      "x": 0,
+      "y": 2,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": []
+    },
+    {
+      "x": 0,
+      "y": 3,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": []
+    },
+    {
+      "x": 0,
+      "y": 4,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": []
+    },
+    {
+      "x": 1,
+      "y": 1,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": [
+        {
+          "number": 2,
+          "type": "w"
+        }
+      ]
+    },
+    {
+      "x": 1,
+      "y": 2,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": [
+        {
+          "number": 1,
+          "type": "w"
+        },
+        {
+          "number": 2,
+          "type": "w"
+        }
+      ]
+    },
+    {
+      "x": 1,
+      "y": 3,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": [
+        {
+          "number": 1,
+          "type": "w"
+        }
+      ]
+    },
+    {
+      "x": 1,
+      "y": 4,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": []
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": [
+        {
+          "number": 2,
+          "type": "w"
+        },
+        {
+          "number": 3,
+          "type": "w"
+        }
+      ]
+    },
+    {
+      "x": 2,
+      "y": 2,
+      "terrain": "Drift",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 0,
+          "type": "r"
+        },
+        {
+          "number": 2,
+          "type": "w"
+        },
+        {
+          "number": 4,
+          "type": "r"
+        },
+        {
+          "number": 5,
+          "type": "r"
+        }
+      ]
+    },
+    {
+      "x": 2,
+      "y": 3,
+      "terrain": "Drift",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 1,
+          "type": "w"
+        },
+        {
+          "number": 3,
+          "type": "r"
+        },
+        {
+          "number": 4,
+          "type": "r"
+        },
+        {
+          "number": 5,
+          "type": "r"
+        }
+      ]
+    },
+    {
+      "x": 2,
+      "y": 4,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": [
+        {
+          "number": 0,
+          "type": "w"
+        },
+        {
+          "number": 1,
+          "type": "w"
+        }
+      ]
+    },
+    {
+      "x": 2,
+      "y": 5,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": []
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": [
+        {
+          "number": 3,
+          "type": "w"
+        }
+      ]
+    },
+    {
+      "x": 3,
+      "y": 1,
+      "terrain": "Drift",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 0,
+          "type": "r"
+        },
+        {
+          "number": 1,
+          "type": "r"
+        },
+        {
+          "number": 3,
+          "type": "w"
+        },
+        {
+          "number": 5,
+          "type": "r"
+        }
+      ]
+    },
+    {
+      "x": 3,
+      "y": 2,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": [
+        {
+          "number": 0,
+          "type": "r"
+        },
+        {
+          "number": 1,
+          "type": "r"
+        },
+        {
+          "number": 2,
+          "type": "r"
+        },
+        {
+          "number": 3,
+          "type": "r"
+        },
+        {
+          "number": 4,
+          "type": "r"
+        },
+        {
+          "number": 5,
+          "type": "r"
+        }
+      ]
+    },
+    {
+      "x": 3,
+      "y": 3,
+      "terrain": "Drift",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 0,
+          "type": "w"
+        },
+        {
+          "number": 2,
+          "type": "r"
+        },
+        {
+          "number": 3,
+          "type": "r"
+        },
+        {
+          "number": 4,
+          "type": "r"
+        }
+      ]
+    },
+    {
+      "x": 3,
+      "y": 4,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": [
+        {
+          "number": 0,
+          "type": "w"
+        }
+      ]
+    },
+    {
+      "x": 3,
+      "y": 5,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": []
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": [
+        {
+          "number": 3,
+          "type": "w"
+        },
+        {
+          "number": 4,
+          "type": "w"
+        }
+      ]
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "terrain": "Drift",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 0,
+          "type": "r"
+        },
+        {
+          "number": 1,
+          "type": "r"
+        },
+        {
+          "number": 2,
+          "type": "r"
+        },
+        {
+          "number": 4,
+          "type": "w"
+        }
+      ]
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "terrain": "Drift",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 1,
+          "type": "r"
+        },
+        {
+          "number": 2,
+          "type": "r"
+        },
+        {
+          "number": 3,
+          "type": "r"
+        },
+        {
+          "number": 5,
+          "type": "w"
+        }
+      ]
+    },
+    {
+      "x": 4,
+      "y": 4,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": [
+        {
+          "number": 0,
+          "type": "w"
+        },
+        {
+          "number": 5,
+          "type": "w"
+        }
+      ]
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": []
+    },
+    {
+      "x": 5,
+      "y": 1,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": [
+        {
+          "number": 4,
+          "type": "w"
+        }
+      ]
+    },
+    {
+      "x": 5,
+      "y": 2,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": [
+        {
+          "number": 4,
+          "type": "w"
+        },
+        {
+          "number": 5,
+          "type": "w"
+        }
+      ]
+    },
+    {
+      "x": 5,
+      "y": 3,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": [
+        {
+          "number": 5,
+          "type": "w"
+        }
+      ]
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "terrain": "Tower",
+      "elevation": 2,
+      "borders": []
+    }
+  ],
+  "startlist": [
+    "D4",
+    "C4",
+    "E4",
+    "D3",
+    "C3",
+    "E3",
+    "D5"
+  ]
+}

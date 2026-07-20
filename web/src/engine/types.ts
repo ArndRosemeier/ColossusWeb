@@ -14,13 +14,16 @@ export interface PlayerColor {
 }
 
 export const PLAYER_COLORS: PlayerColor[] = [
-  // Colossus HTMLColor.*Colossus
+  // Colossus HTMLColor.*Colossus (+ extras for Abyssal9)
   { id: 'Red', name: 'Red', shortName: 'Rd', css: '#bd0018' },
   { id: 'Blue', name: 'Blue', shortName: 'Bu', css: '#10187b' },
   { id: 'Green', name: 'Green', shortName: 'Gr', css: '#18ad42' },
   { id: 'Gold', name: 'Gold', shortName: 'Gd', css: '#a59431' },
   { id: 'Black', name: 'Black', shortName: 'Bk', css: '#000000' },
   { id: 'Brown', name: 'Brown', shortName: 'Br', css: '#782828' },
+  { id: 'Orange', name: 'Orange', shortName: 'Or', css: '#ff8415' },
+  { id: 'Purple', name: 'Purple', shortName: 'Pu', css: '#cf06cf' },
+  { id: 'Silver', name: 'Silver', shortName: 'Si', css: '#999999' },
 ]
 
 export interface CreatureInstance {
@@ -271,4 +274,6 @@ export interface NewGameOptions {
   seed?: number
   /** Default `rng`. App UI should pass `physical`. */
   diceMode?: DiceRollMode
+  /** Variant folder name under public/variants (Default, Abyssal6, …). */
+  variantName?: string
 }

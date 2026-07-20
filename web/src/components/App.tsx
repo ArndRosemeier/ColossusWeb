@@ -18,7 +18,7 @@ import {
   type MoveAnim,
 } from '../ui/moveAnimation'
 import { loadAssetManifest } from '../variant/assets'
-import { loadDefaultVariant } from '../variant/loadVariant'
+import { loadVariant } from '../variant/loadVariant'
 import { BattleBoardView } from './BattleBoardView'
 import {
   BoardDecisionOverlay,
@@ -64,7 +64,7 @@ export default function App() {
   const animatingRef = useRef(false)
 
   useEffect(() => {
-    Promise.all([loadDefaultVariant(), loadAssetManifest()])
+    Promise.all([loadVariant('Default'), loadAssetManifest('Default')])
       .then(() => {
         setSaveMeta(peekSavedGameMeta())
         setLoading(false)
@@ -76,7 +76,9 @@ export default function App() {
   }, [])
 
   const start = useCallback(async (options: NewGameOptions) => {
-    const variant = await loadDefaultVariant()
+    const name = options.variantName ?? 'Default'
+    const variant = await loadVariant(name)
+    await loadAssetManifest(name)
     const g = createGame(variant, { ...options, diceMode: 'physical' })
     setState(g)
     setSaveFlash(null)
@@ -89,7 +91,10 @@ export default function App() {
   }, [])
 
   const continueSaved = useCallback(async () => {
-    const variant = await loadDefaultVariant()
+    const meta = peekSavedGameMeta()
+    const name = meta?.variantName ?? 'Default'
+    const variant = await loadVariant(name)
+    await loadAssetManifest(name)
     const loaded = loadGameFromLocalStorage(variant)
     if (!loaded) {
       setSaveMeta(null)

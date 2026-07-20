@@ -1,15 +1,30 @@
-/** Asset URLs and resolution for Default variant graphics. */
+/** Asset URLs and resolution for the active variant's graphics. */
 
-const BASE = `${import.meta.env.BASE_URL}variants/Default/images`
+let activeVariant = 'Default'
+let base = `${import.meta.env.BASE_URL}variants/Default/images`
 
 /** Known files copied by convert-variant.mjs (filled at runtime from manifest). */
 let available: Set<string> | null = null
 let manifestPromise: Promise<void> | null = null
 
-export async function loadAssetManifest(): Promise<void> {
+export function setActiveVariant(name: string): void {
+  if (activeVariant === name && available) return
+  activeVariant = name
+  base = `${import.meta.env.BASE_URL}variants/${encodeURIComponent(name)}/images`
+  available = null
+  manifestPromise = null
+}
+
+export function getActiveVariantName(): string {
+  return activeVariant
+}
+
+export async function loadAssetManifest(variantName = activeVariant): Promise<void> {
+  setActiveVariant(variantName)
   if (available) return
   if (!manifestPromise) {
-    manifestPromise = fetch(`${BASE}/manifest.json`)
+    const url = `${base}/manifest.json`
+    manifestPromise = fetch(url)
       .then((r) => (r.ok ? r.json() : []))
       .then((list: string[]) => {
         available = new Set(list)
@@ -29,11 +44,11 @@ function hasFile(name: string): boolean {
 
 function pickExisting(...candidates: string[]): string {
   for (const name of candidates) {
-    if (hasFile(name)) return `${BASE}/${encodeURIComponent(name)}`
+    if (hasFile(name)) return `${base}/${encodeURIComponent(name)}`
   }
   // Last resort: Unknown.gif or a data-URI-free path that exists in Default
-  if (hasFile('Unknown.gif')) return `${BASE}/Unknown.gif`
-  return `${BASE}/${encodeURIComponent(candidates[0])}`
+  if (hasFile('Unknown.gif')) return `${base}/Unknown.gif`
+  return `${base}/${encodeURIComponent(candidates[0])}`
 }
 
 export function creatureImageUrl(creatureName: string): string {
@@ -42,21 +57,26 @@ export function creatureImageUrl(creatureName: string): string {
 
 /**
  * Terrain overlays: Colossus uses *_i for upright (non-inverted) hexes.
- * Fall back to the other orientation, then Unknown.
+ * Fall back to the other orientation. Prefer no image over Unknown/? so the
+ * terrain color fill remains visible when art is missing.
  */
 export function terrainImageUrl(terrain: string, inverted: boolean): string {
   const primary = inverted ? `${terrain}.gif` : `${terrain}_i.gif`
   const secondary = inverted ? `${terrain}_i.gif` : `${terrain}.gif`
-  return pickExisting(primary, secondary, 'Unknown.gif')
+  for (const name of [primary, secondary]) {
+    if (hasFile(name)) return `${base}/${encodeURIComponent(name)}`
+  }
+  // Empty href — MasterBoardView still paints TERRAIN_COLORS underneath
+  return ''
 }
 
 export function markerImageUrl(markerId: string): string {
   // Prefer zero-padded Colossus ids (Rd01); also try unpadded just in case
   const padded = markerId.replace(/^([A-Za-z]+)(\d)$/, (_, p, n) => `${p}0${n}`)
-  const base = markerId.length >= 4 ? markerId.slice(0, 4) : markerId
+  const baseId = markerId.length >= 4 ? markerId.slice(0, 4) : markerId
   return pickExisting(
-    `${base}.png`,
-    `${base}.gif`,
+    `${baseId}.png`,
+    `${baseId}.gif`,
     `${markerId}.png`,
     `${markerId}.gif`,
     `${padded}.png`,

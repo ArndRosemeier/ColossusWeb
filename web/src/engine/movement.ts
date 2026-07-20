@@ -166,8 +166,9 @@ export function listTeleportMoves(state: GameState, legion: Legion, roll: number
     }
   }
 
-  // Titan teleport: official Titan — Power ≥ 10 (score ≥ 400 with default growth)
-  if (legion.creatures.some((c) => c.type === 'Titan') && player.titanPower >= 10) {
+  // Titan teleport: Colossus score >= titan_teleport (Default 400 ≈ power 10)
+  const teleportScore = state.variant.data.titanTeleport ?? 400
+  if (legion.creatures.some((c) => c.type === 'Titan') && player.score >= teleportScore) {
     for (const other of state.legions) {
       if (other.playerId === legion.playerId) continue
       const friends = friendlyLegionsOn(state, other.hexLabel, legion.playerId)

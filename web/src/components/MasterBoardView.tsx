@@ -339,16 +339,18 @@ export function MasterBoardView({
                 stroke="#0a1014"
                 strokeWidth={1}
               />
-              <SafeSvgImage
-                href={terrainSrc}
-                x={bounds.x}
-                y={bounds.y}
-                width={bounds.width}
-                height={bounds.height}
-                clipPath={`url(#hex-clip-${hex.label})`}
-                opacity={0.9}
-                preserveAspectRatio="xMidYMid slice"
-              />
+              {terrainSrc ? (
+                <SafeSvgImage
+                  href={terrainSrc}
+                  x={bounds.x}
+                  y={bounds.y}
+                  width={bounds.width}
+                  height={bounds.height}
+                  clipPath={`url(#hex-clip-${hex.label})`}
+                  opacity={0.9}
+                  preserveAspectRatio="xMidYMid slice"
+                />
+              ) : null}
               {isLegal && (
                 <polygon
                   className="legal-hex-ring"

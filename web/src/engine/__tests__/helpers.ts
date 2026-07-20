@@ -17,6 +17,14 @@ export function loadDefaultVariant(): LoadedVariant {
   return hydrateVariant(JSON.parse(raw) as VariantData)
 }
 
+export function loadNamedVariant(name: string): LoadedVariant {
+  const raw = readFileSync(
+    resolve(here, `../../../public/variants/${name}/variant.json`),
+    'utf8',
+  )
+  return hydrateVariant(JSON.parse(raw) as VariantData)
+}
+
 export function twoPlayerGame(
   seed = 1,
   extra?: Partial<NewGameOptions>,

@@ -1,0 +1,140 @@
+{
+  "terrain": "Tundra",
+  "tower": false,
+  "subtitle": null,
+  "hexes": [
+    {
+      "x": 0,
+      "y": 3,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 1,
+      "y": 1,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 1,
+      "y": 4,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 2,
+      "y": 3,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 2,
+      "y": 4,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 2,
+      "y": 5,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 3,
+      "y": 1,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 3,
+      "y": 2,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 3,
+      "y": 5,
+      "terrain": "Plains",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 0,
+          "type": "s"
+        },
+        {
+          "number": 5,
+          "type": "s"
+        }
+      ]
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 4,
+      "y": 4,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "terrain": "Plains",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 0,
+          "type": "s"
+        },
+        {
+          "number": 5,
+          "type": "s"
+        }
+      ]
+    },
+    {
+      "x": 5,
+      "y": 1,
+      "terrain": "Drift",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "terrain": "Plains",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 0,
+          "type": "s"
+        },
+        {
+          "number": 5,
+          "type": "s"
+        }
+      ]
+    }
+  ],
+  "startlist": []
+}

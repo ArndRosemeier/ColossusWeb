@@ -1,6 +1,7 @@
 /**
- * Convert Colossus Default variant XML into JSON for the web app.
- * Run: node scripts/convert-variant.mjs
+ * Convert Colossus variant XML into JSON for the web app.
+ * Usage: node scripts/convert-variant.mjs [Default|Abyssal6|Abyssal3|Abyssal9 ...]
+ * Default: converts Default + Abyssal6 + Abyssal3 + Abyssal9
  */
 import { XMLParser } from 'fast-xml-parser'
 import fs from 'node:fs'
@@ -9,15 +10,17 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '../..')
-const variantDir = path.join(root, 'Colossus/variants/Default')
-const outDir = path.join(__dirname, '../public/variants/Default')
+const variantsRoot = path.join(root, 'Colossus/variants')
+const outRoot = path.join(__dirname, '../public/variants')
+
+const DEFAULT_VARIANTS = ['Default', 'Abyssal6', 'Abyssal3', 'Abyssal9']
 
 const parser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: '',
   isArray: (name, jpath) => {
-    // Only force arrays for repeating elements, never for attributes like hex@terrain
     if (name === 'terrain' && jpath.includes('terrains')) return true
+    if (name === 'depend') return true
     return [
       'hex',
       'exit',
@@ -39,6 +42,19 @@ function readXml(file) {
 function asArray(value) {
   if (value == null) return []
   return Array.isArray(value) ? value : [value]
+}
+
+function variantDir(name) {
+  return path.join(variantsRoot, name)
+}
+
+function findVariantXml(dir, suffix) {
+  const base = path.basename(dir)
+  const preferred = path.join(dir, `${base}${suffix}.xml`)
+  if (fs.existsSync(preferred)) return preferred
+  const hits = fs.readdirSync(dir).filter((f) => f.endsWith(`${suffix}.xml`))
+  if (hits.length === 0) throw new Error(`No *${suffix}.xml in ${dir}`)
+  return path.join(dir, hits[0])
 }
 
 function convertCreatures(doc) {
@@ -88,7 +104,15 @@ function convertTerrains(doc) {
     name: a.name,
     points: Number(a.points),
   }))
-  return { terrains, acquirables }
+  const titanImprove =
+    doc.terrains?.titan_improve?.points != null
+      ? Number(doc.terrains.titan_improve.points)
+      : 100
+  const titanTeleport =
+    doc.terrains?.titan_teleport?.points != null
+      ? Number(doc.terrains.titan_teleport.points)
+      : 400
+  return { terrains, acquirables, titanImprove, titanTeleport }
 }
 
 function convertMap(doc) {
@@ -111,12 +135,12 @@ function convertMap(doc) {
 
 function convertBattleland(file) {
   const doc = readXml(file)
-  const root = doc.battlemap
+  const rootEl = doc.battlemap
   return {
-    terrain: root.terrain,
-    tower: root.tower === 'True' || root.tower === 'true',
-    subtitle: root.subtitle ?? null,
-    hexes: asArray(root.battlehex).map((h) => ({
+    terrain: rootEl.terrain,
+    tower: rootEl.tower === 'True' || rootEl.tower === 'true',
+    subtitle: rootEl.subtitle ?? null,
+    hexes: asArray(rootEl.battlehex).map((h) => ({
       x: Number(h.x),
       y: Number(h.y),
       label: h.label != null ? String(h.label) : undefined,
@@ -127,52 +151,180 @@ function convertBattleland(file) {
         type: String(b.type),
       })),
     })),
-    startlist: asArray(root.startlist?.battlehexref ?? root.startlist?.battlehex).map((h) =>
+    startlist: asArray(rootEl.startlist?.battlehexref ?? rootEl.startlist?.battlehex).map((h) =>
       String(h.label ?? h),
     ),
   }
 }
 
-fs.mkdirSync(outDir, { recursive: true })
-fs.mkdirSync(path.join(outDir, 'Battlelands'), { recursive: true })
-
-const varDoc = readXml(path.join(variantDir, 'DefaultVar.xml'))
-const creatures = convertCreatures(readXml(path.join(variantDir, 'DefaultCre.xml')))
-const { terrains, acquirables } = convertTerrains(readXml(path.join(variantDir, 'DefaultTer.xml')))
-const map = convertMap(readXml(path.join(variantDir, 'DefaultMap.xml')))
-
-const battlelands = {}
-const battleDir = path.join(variantDir, 'Battlelands')
-for (const file of fs.readdirSync(battleDir)) {
-  if (!file.endsWith('.xml') || file === 'battlemap.dtd') continue
-  const name = path.basename(file, '.xml')
-  battlelands[name] = convertBattleland(path.join(battleDir, file))
-  fs.writeFileSync(path.join(outDir, 'Battlelands', `${name}.json`), JSON.stringify(battlelands[name], null, 2))
+function loadBattlelandsFromDir(dir, into) {
+  const battleDir = path.join(dir, 'Battlelands')
+  if (!fs.existsSync(battleDir)) return
+  for (const file of fs.readdirSync(battleDir)) {
+    if (!file.endsWith('.xml') || file === 'battlemap.dtd') continue
+    const name = path.basename(file, '.xml')
+    into[name] = convertBattleland(path.join(battleDir, file))
+  }
 }
 
-const variant = {
-  name: varDoc.variant?.name ?? 'Default',
-  creatures,
-  terrains,
-  acquirables,
-  map,
-  battlelands,
+function copyImages(srcDir, dstDir, intoSet) {
+  if (!fs.existsSync(srcDir)) return
+  fs.mkdirSync(dstDir, { recursive: true })
+  for (const file of fs.readdirSync(srcDir)) {
+    if (file.startsWith('.') || file === 'manifest.json') continue
+    const src = path.join(srcDir, file)
+    if (!fs.statSync(src).isFile()) continue
+    fs.copyFileSync(src, path.join(dstDir, file))
+    intoSet.add(file)
+  }
 }
 
-fs.writeFileSync(path.join(outDir, 'variant.json'), JSON.stringify(variant, null, 2))
+/**
+ * If `Terrain.gif` / `Terrain_i.gif` are missing, copy from an alias (e.g. Mantio → Abyss).
+ */
+function ensureTerrainAlias(imagesDst, imageFiles, terrainName, searchDirs, aliasBase) {
+  const targets = [`${terrainName}.gif`, `${terrainName}_i.gif`]
+  const sources = [`${aliasBase}.gif`, `${aliasBase}_i.gif`]
+  for (let i = 0; i < targets.length; i++) {
+    const destName = targets[i]
+    if (imageFiles.has(destName) || fs.existsSync(path.join(imagesDst, destName))) {
+      imageFiles.add(destName)
+      continue
+    }
+    for (const dir of searchDirs) {
+      const src = path.join(dir, sources[i])
+      if (!fs.existsSync(src)) continue
+      fs.mkdirSync(imagesDst, { recursive: true })
+      fs.copyFileSync(src, path.join(imagesDst, destName))
+      imageFiles.add(destName)
+      console.log(`  aliased ${sources[i]} → ${destName}`)
+      break
+    }
+  }
+}
 
-const imagesSrc = path.join(variantDir, 'images')
-const imagesDst = path.join(outDir, 'images')
-if (fs.existsSync(imagesSrc)) {
+function dependNames(varDoc) {
+  return asArray(varDoc.variant?.depends?.depend).map((d) => d.variant).filter(Boolean)
+}
+
+function convertOne(variantName, converting = new Set()) {
+  if (converting.has(variantName)) {
+    throw new Error(`Circular variant depend: ${[...converting, variantName].join(' → ')}`)
+  }
+  converting.add(variantName)
+
+  const dir = variantDir(variantName)
+  if (!fs.existsSync(dir)) throw new Error(`Missing variant folder: ${dir}`)
+
+  const varDoc = readXml(findVariantXml(dir, 'Var'))
+  const deps = dependNames(varDoc)
+
+  // Dependents first — used for battleland / image fallbacks
+  for (const dep of deps) {
+    if (!fs.existsSync(path.join(outRoot, dep, 'variant.json'))) {
+      convertOne(dep, converting)
+    }
+  }
+
+  const creFile = findVariantXml(dir, 'Cre')
+  const terFile = findVariantXml(dir, 'Ter')
+  const mapFile = findVariantXml(dir, 'Map')
+
+  const creatures = convertCreatures(readXml(creFile))
+  const { terrains, acquirables, titanImprove, titanTeleport } = convertTerrains(readXml(terFile))
+  const map = convertMap(readXml(mapFile))
+
+  const battlelands = {}
+  // Merge depend battlelands first (earlier deps overwritten by later / self)
+  for (const dep of deps) {
+    const depJsonPath = path.join(outRoot, dep, 'variant.json')
+    if (fs.existsSync(depJsonPath)) {
+      const depData = JSON.parse(fs.readFileSync(depJsonPath, 'utf8'))
+      Object.assign(battlelands, depData.battlelands ?? {})
+    }
+  }
+  // Default Tower battleland fallback when missing (Abyssal6 has Abyss but no Tower.xml)
+  if (!battlelands.Tower && variantName !== 'Default') {
+    const defaultTower = path.join(outRoot, 'Default', 'Battlelands', 'Tower.json')
+    if (fs.existsSync(defaultTower)) {
+      battlelands.Tower = JSON.parse(fs.readFileSync(defaultTower, 'utf8'))
+    } else if (fs.existsSync(path.join(variantsRoot, 'Default', 'Battlelands', 'Tower.xml'))) {
+      battlelands.Tower = convertBattleland(
+        path.join(variantsRoot, 'Default', 'Battlelands', 'Tower.xml'),
+      )
+    }
+  }
+  loadBattlelandsFromDir(dir, battlelands)
+
+  const maxPlayersRaw = varDoc.variant?.max_players?.num
+  const towerCount = map.hexes.filter((h) => h.terrain === 'Tower').length
+  const maxPlayers = maxPlayersRaw != null ? Number(maxPlayersRaw) : towerCount || 6
+
+  const outDir = path.join(outRoot, variantName)
+  fs.mkdirSync(outDir, { recursive: true })
+  fs.mkdirSync(path.join(outDir, 'Battlelands'), { recursive: true })
+
+  for (const [name, bl] of Object.entries(battlelands)) {
+    fs.writeFileSync(path.join(outDir, 'Battlelands', `${name}.json`), JSON.stringify(bl, null, 2))
+  }
+
+  const variant = {
+    name: varDoc.variant?.name ?? variantName,
+    titanImprove,
+    titanTeleport,
+    maxPlayers,
+    creatures,
+    terrains,
+    acquirables,
+    map,
+    battlelands,
+  }
+  fs.writeFileSync(path.join(outDir, 'variant.json'), JSON.stringify(variant, null, 2))
+
+  const imagesDst = path.join(outDir, 'images')
+  const imageFiles = new Set()
+  // Depend images first, then own (own wins)
+  for (const dep of deps) {
+    copyImages(path.join(variantsRoot, dep, 'images'), imagesDst, imageFiles)
+    copyImages(path.join(outRoot, dep, 'images'), imagesDst, imageFiles)
+  }
+  if (variantName !== 'Default') {
+    copyImages(path.join(variantsRoot, 'Default', 'images'), imagesDst, imageFiles)
+  }
+  copyImages(path.join(dir, 'images'), imagesDst, imageFiles)
+
+  // Prefer hand-built Abyss art (scripts/terrain-assets); never ship Mantio-labeled tiles.
+  if (terrains.some((t) => t.name === 'Abyss')) {
+    const localAssets = path.join(__dirname, 'terrain-assets')
+    for (const name of ['Abyss.gif', 'Abyss_i.gif']) {
+      const src = path.join(localAssets, name)
+      if (!fs.existsSync(src)) continue
+      fs.mkdirSync(imagesDst, { recursive: true })
+      fs.copyFileSync(src, path.join(imagesDst, name))
+      imageFiles.add(name)
+    }
+  }
+
   fs.mkdirSync(imagesDst, { recursive: true })
-  fs.cpSync(imagesSrc, imagesDst, { recursive: true })
-  const files = fs.readdirSync(imagesDst).filter((f) => !f.startsWith('.'))
-  fs.writeFileSync(path.join(imagesDst, 'manifest.json'), JSON.stringify(files, null, 2))
-  console.log(`Copied ${files.length} image files to ${imagesDst}`)
-} else {
-  console.warn(`WARNING: missing images at ${imagesSrc}`)
+  fs.writeFileSync(
+    path.join(imagesDst, 'manifest.json'),
+    JSON.stringify([...imageFiles].sort(), null, 2),
+  )
+
+  console.log(
+    `Wrote ${outDir}/variant.json — creatures ${creatures.length}, terrains ${terrains.length}, hexes ${map.hexes.length}, battlelands ${Object.keys(battlelands).length}, images ${imageFiles.size}, titanTeleport ${titanTeleport}`,
+  )
+  converting.delete(variantName)
 }
 
-console.log(`Wrote ${outDir}/variant.json`)
-console.log(`Creatures: ${creatures.length}, terrains: ${terrains.length}, hexes: ${map.hexes.length}, battlelands: ${Object.keys(battlelands).length}`)
+const requested = process.argv.slice(2).filter((a) => !a.startsWith('-'))
+const list = requested.length > 0 ? requested : DEFAULT_VARIANTS
 
+// Always ensure Default exists first when converting Abyssal (Tower battleland / base images)
+if (list.some((n) => n !== 'Default') && !list.includes('Default')) {
+  convertOne('Default')
+}
+
+for (const name of list) {
+  convertOne(name)
+}

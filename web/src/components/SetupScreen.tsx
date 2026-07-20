@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { AiProfileId } from '../ai/profiles'
 import { AI_PROFILE_CHOICES } from '../ai/profiles'
 import type { NewGameOptions, PlayerKind } from '../engine/types'
 import { PLAYER_COLORS } from '../engine/types'
 import type { SavedGameMeta } from '../persistence/saveGame'
+import { KNOWN_VARIANTS } from '../variant/loadVariant'
 import { MarkerChit } from './MarkerChit'
 
 interface Props {
@@ -19,6 +20,29 @@ interface Row {
   aiProfileId: AiProfileId
 }
 
+const VARIANT_META: Record<string, { label: string; maxPlayers: number; blurb: string }> = {
+  Default: {
+    label: 'Default',
+    maxPlayers: 6,
+    blurb: 'Classic Avalon Hill Titan masterboard.',
+  },
+  Abyssal6: {
+    label: 'Abyssal6',
+    maxPlayers: 6,
+    blurb: 'Abyss anti-tower, elementals, Balrog — Titan skill 5, teleport at 1000.',
+  },
+  Abyssal3: {
+    label: 'Abyssal3',
+    maxPlayers: 3,
+    blurb: 'Three-player Abyssal on a smaller board (Lion/Troll/Cyclops starts).',
+  },
+  Abyssal9: {
+    label: 'Abyssal9',
+    maxPlayers: 9,
+    blurb: 'Nine-player Abyssal on a huge board — teleport at 1500.',
+  },
+}
+
 function formatSavedAt(iso: string): string {
   try {
     return new Date(iso).toLocaleString()
@@ -28,24 +52,36 @@ function formatSavedAt(iso: string): string {
 }
 
 export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
+  const [variantName, setVariantName] = useState('Default')
+  const meta = VARIANT_META[variantName] ?? VARIANT_META.Default!
+  const maxPlayers = meta.maxPlayers
+
   const [rows, setRows] = useState<Row[]>([
     { name: 'Player 1', kind: 'human', colorId: 'Red', aiProfileId: 'random' },
     { name: 'CPU 1', kind: 'ai', colorId: 'Blue', aiProfileId: 'random' },
     { name: 'CPU 2', kind: 'ai', colorId: 'Green', aiProfileId: 'random' },
   ])
 
+  const cappedRows = useMemo(() => rows.slice(0, maxPlayers), [rows, maxPlayers])
+
   const add = () => {
-    if (rows.length >= 6) return
-    const color = PLAYER_COLORS.find((c) => !rows.some((r) => r.colorId === c.id))!
+    if (cappedRows.length >= maxPlayers) return
+    const color = PLAYER_COLORS.find((c) => !cappedRows.some((r) => r.colorId === c.id))!
     setRows([
-      ...rows,
+      ...cappedRows,
       {
-        name: `Player ${rows.length + 1}`,
+        name: `Player ${cappedRows.length + 1}`,
         kind: 'ai',
         colorId: color.id,
         aiProfileId: 'random',
       },
     ])
+  }
+
+  const onVariantChange = (name: string) => {
+    setVariantName(name)
+    const nextMax = VARIANT_META[name]?.maxPlayers ?? 6
+    setRows((prev) => prev.slice(0, nextMax))
   }
 
   return (
@@ -81,8 +117,7 @@ export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
         </svg>
         <h1>Masterboard awaits</h1>
         <p className="lede">
-          Raise your Titan. Split, march, and clash on the classic Default map — local hotseat
-          and AI, all in the browser.
+          Raise your Titan. Split, march, and clash — local hotseat and AI, all in the browser.
         </p>
       </header>
 
@@ -90,7 +125,8 @@ export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
         <section className="setup-panel continue-panel" aria-label="Continue saved game">
           <h2>Continue</h2>
           <p className="continue-meta">
-            {savedGame.players} · Turn {savedGame.turnNumber} · {savedGame.phase}
+            {savedGame.variantName} · {savedGame.players} · Turn {savedGame.turnNumber} ·{' '}
+            {savedGame.phase}
             <br />
             <span className="muted">Saved {formatSavedAt(savedGame.savedAt)}</span>
           </p>
@@ -103,14 +139,32 @@ export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
       )}
 
       <section className="setup-panel" aria-label="Game setup">
+        <h2>Variant</h2>
+        <div className="player-row">
+          <select
+            value={variantName}
+            aria-label="Game variant"
+            onChange={(e) => onVariantChange(e.target.value)}
+          >
+            {KNOWN_VARIANTS.map((id) => (
+              <option key={id} value={id}>
+                {VARIANT_META[id]?.label ?? id}
+              </option>
+            ))}
+          </select>
+          <p className="hint" style={{ margin: 0, flex: 1 }}>
+            {meta.blurb}
+          </p>
+        </div>
+
         <h2>Muster players</h2>
-        {rows.map((row, i) => (
+        {cappedRows.map((row, i) => (
           <div className="player-row" key={i}>
             <input
               value={row.name}
               aria-label={`Player ${i + 1} name`}
               onChange={(e) => {
-                const next = [...rows]
+                const next = [...cappedRows]
                 next[i] = { ...row, name: e.target.value }
                 setRows(next)
               }}
@@ -119,7 +173,7 @@ export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
               value={row.kind}
               aria-label={`${row.name} type`}
               onChange={(e) => {
-                const next = [...rows]
+                const next = [...cappedRows]
                 next[i] = { ...row, kind: e.target.value as PlayerKind }
                 setRows(next)
               }}
@@ -133,7 +187,7 @@ export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
                 title="AI personality"
                 aria-label={`${row.name} AI personality`}
                 onChange={(e) => {
-                  const next = [...rows]
+                  const next = [...cappedRows]
                   next[i] = { ...row, aiProfileId: e.target.value as AiProfileId }
                   setRows(next)
                 }}
@@ -151,12 +205,12 @@ export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
               value={row.colorId}
               aria-label={`${row.name} color`}
               onChange={(e) => {
-                const next = [...rows]
+                const next = [...cappedRows]
                 next[i] = { ...row, colorId: e.target.value }
                 setRows(next)
               }}
             >
-              {PLAYER_COLORS.map((c) => (
+              {PLAYER_COLORS.slice(0, Math.max(6, maxPlayers)).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
@@ -166,11 +220,11 @@ export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
               markerId={`${PLAYER_COLORS.find((c) => c.id === row.colorId)?.shortName ?? 'Rd'}01`}
               size={28}
             />
-            {rows.length > 2 && (
+            {cappedRows.length > 2 && (
               <button
                 type="button"
                 className="ghost"
-                onClick={() => setRows(rows.filter((_, j) => j !== i))}
+                onClick={() => setRows(cappedRows.filter((_, j) => j !== i))}
               >
                 Remove
               </button>
@@ -178,7 +232,12 @@ export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
           </div>
         ))}
         <div className="setup-actions">
-          <button type="button" className="ghost" onClick={add} disabled={rows.length >= 6}>
+          <button
+            type="button"
+            className="ghost"
+            onClick={add}
+            disabled={cappedRows.length >= maxPlayers}
+          >
             Add player
           </button>
           <button
@@ -186,7 +245,8 @@ export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
             className="primary"
             onClick={() =>
               onStart({
-                players: rows.map((r) => ({
+                variantName,
+                players: cappedRows.map((r) => ({
                   name: r.name,
                   kind: r.kind,
                   colorId: r.colorId,

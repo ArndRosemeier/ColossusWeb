@@ -1,0 +1,150 @@
+{
+  "terrain": "Plains",
+  "tower": false,
+  "subtitle": null,
+  "hexes": [
+    {
+      "x": 0,
+      "y": 2,
+      "terrain": "Plains",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 1,
+          "type": "s"
+        },
+        {
+          "number": 2,
+          "type": "s"
+        }
+      ]
+    },
+    {
+      "x": 0,
+      "y": 3,
+      "terrain": "Plains",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 1,
+          "type": "s"
+        },
+        {
+          "number": 2,
+          "type": "s"
+        }
+      ]
+    },
+    {
+      "x": 0,
+      "y": 4,
+      "terrain": "Plains",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 1,
+          "type": "s"
+        },
+        {
+          "number": 2,
+          "type": "s"
+        }
+      ]
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "terrain": "Plains",
+      "elevation": 0,
+      "borders": [
+        {
+          "number": 3,
+          "type": "r"
+        },
+        {
+          "number": 4,
+          "type": "r"
+        }
+      ]
+    },
+    {
+      "x": 3,
+      "y": 1,
+      "terrain": "Bog",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 3,
+      "y": 4,
+      "terrain": "Brambles",
+      "elevation": 0,
+      "borders": []
+    },
+    {
+      "x": 5,
+      "y": 1,
+      "terrain": "Plains",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 4,
+          "type": "s"
+        },
+        {
+          "number": 5,
+          "type": "s"
+        }
+      ]
+    },
+    {
+      "x": 5,
+      "y": 2,
+      "terrain": "Plains",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 4,
+          "type": "s"
+        },
+        {
+          "number": 5,
+          "type": "s"
+        }
+      ]
+    },
+    {
+      "x": 5,
+      "y": 3,
+      "terrain": "Plains",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 4,
+          "type": "s"
+        },
+        {
+          "number": 5,
+          "type": "s"
+        }
+      ]
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "terrain": "Plains",
+      "elevation": 1,
+      "borders": [
+        {
+          "number": 4,
+          "type": "s"
+        },
+        {
+          "number": 5,
+          "type": "s"
+        }
+      ]
+    }
+  ],
+  "startlist": []
+}

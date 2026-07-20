@@ -162,6 +162,13 @@ export function createGame(variant: LoadedVariant, options: NewGameOptions): Gam
   legionSeq = 1
   const rng = mulberry32(options.seed ?? Date.now())
   const towers = [...variant.board.towers]
+  const maxPlayers = Math.min(variant.data.maxPlayers, towers.length)
+  if (options.players.length < 2) {
+    throw new Error('Need at least 2 players')
+  }
+  if (options.players.length > maxPlayers) {
+    throw new Error(`This variant supports at most ${maxPlayers} players`)
+  }
   // Shuffle towers
   for (let i = towers.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1))
@@ -1068,7 +1075,8 @@ function advanceToNextLivingPlayer(state: GameState): void {
   if (state.winnerId || state.draw) return
 
   for (const p of state.players) {
-    p.titanPower = 6 + Math.floor(p.score / 100)
+    const improve = state.variant.data.titanImprove ?? 100
+    p.titanPower = 6 + Math.floor(p.score / improve)
   }
 
   let next = state.activePlayerIndex

@@ -1,5 +1,8 @@
 {
   "name": "Default",
+  "titanImprove": 100,
+  "titanTeleport": 400,
+  "maxPlayers": 6,
   "creatures": [
     {
       "name": "Angel",

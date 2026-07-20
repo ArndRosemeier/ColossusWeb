@@ -62,11 +62,12 @@ describe('recruit move previews', () => {
 
   it('numberOfRecruiterNeeded matches Default Desert tree', () => {
     const g = twoPlayerGame(1)
-    const desert = g.variant.terrains.Desert
-    expect(numberOfRecruiterNeeded(desert, 'Lion', 'Lion')).toBe(1)
-    expect(numberOfRecruiterNeeded(desert, 'Lion', 'Griffon')).toBe(3)
-    expect(numberOfRecruiterNeeded(desert, 'Griffon', 'Hydra')).toBe(2)
-    expect(numberOfRecruiterNeeded(desert, 'Griffon', 'Lion')).toBe(1)
-    expect(numberOfRecruiterNeeded(desert, 'Ogre', 'Lion')).toBe(99)
+    const desert = g.variant.terrains.Desert!
+    const cre = g.variant.creatures
+    expect(numberOfRecruiterNeeded(desert, 'Lion', 'Lion', cre)).toBe(1)
+    expect(numberOfRecruiterNeeded(desert, 'Lion', 'Griffon', cre)).toBe(3)
+    expect(numberOfRecruiterNeeded(desert, 'Griffon', 'Hydra', cre)).toBe(2)
+    expect(numberOfRecruiterNeeded(desert, 'Griffon', 'Lion', cre)).toBe(1)
+    expect(numberOfRecruiterNeeded(desert, 'Ogre', 'Lion', cre)).toBe(99)
   })
 })

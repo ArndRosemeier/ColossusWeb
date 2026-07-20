@@ -215,4 +215,5 @@ export const TERRAIN_COLORS: Record<string, string> = {
   Mountains: '#9a2a3a',
   Tundra: '#6a9eb8',
   Tower: '#5a6570',
+  Abyss: '#5b2c8a',
 }

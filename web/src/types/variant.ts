@@ -73,6 +73,12 @@ export interface BattlelandDef {
 
 export interface VariantData {
   name: string
+  /** Colossus titan_improve — score points per +1 Titan power (default 100). */
+  titanImprove: number
+  /** Colossus titan_teleport — score required for Titan teleport (default 400). */
+  titanTeleport: number
+  /** Max seats from Var.xml max_players (default = number of towers). */
+  maxPlayers: number
   creatures: CreatureType[]
   terrains: TerrainDef[]
   acquirables: AcquirableDef[]
