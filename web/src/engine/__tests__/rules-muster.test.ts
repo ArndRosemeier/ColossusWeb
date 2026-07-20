@@ -66,6 +66,24 @@ describe('rules-muster', () => {
     expect(g.legions.find((l) => l.id === movedId)!.musteredThisTurn).toBe(options[0])
   })
 
+  it('undoRecruit restores caretaker and clears recruit flags', () => {
+    let { g, movedId } = musterReady(1)
+    const options = getLegalRecruits(g, movedId)
+    expect(options.length).toBeGreaterThan(0)
+    const creature = options[0]!
+    const beforeCount = g.caretaker[creature] ?? 0
+    const beforeHeight = g.legions.find((l) => l.id === movedId)!.creatures.length
+    g = dispatch(g, { type: 'recruit', legionId: movedId, creatureType: creature })
+    expect(g.caretaker[creature]).toBe(beforeCount - 1)
+    g = dispatch(g, { type: 'undoRecruit', legionId: movedId })
+    const leg = g.legions.find((l) => l.id === movedId)!
+    expect(leg.recruited).toBe(false)
+    expect(leg.musteredThisTurn).toBeNull()
+    expect(leg.creatures.length).toBe(beforeHeight)
+    expect(g.caretaker[creature]).toBe(beforeCount)
+    expect(getLegalRecruits(g, movedId)).toContain(creature)
+  })
+
   it('warns when Done is pressed while a legion can still muster', () => {
     let { g, movedId } = musterReady(1)
     expect(getLegalRecruits(g, movedId).length).toBeGreaterThan(0)

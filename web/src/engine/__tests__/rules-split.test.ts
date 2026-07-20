@@ -199,6 +199,8 @@ describe('rules-split', () => {
         recruited: false,
         musteredThisTurn: null,
         splitThisTurn: false,
+        splitParentId: null,
+        moveOriginHex: null,
         enteredFrom: null,
         knownPublic: [],
       })
@@ -231,5 +233,43 @@ describe('rules-split', () => {
     expect(after.message).not.toMatch(/No legion markers/i)
     expect(after.legions.filter((l) => l.playerId === alice.id)).toHaveLength(12)
     expect(after.players[0]!.markersAvailable).toHaveLength(0)
+  })
+
+  it('undoSplit recombines child into parent and returns the marker', () => {
+    let g = twoPlayerGame(5)
+    const parent = g.legions.find((l) => l.playerId === g.players[0].id)!
+    const parentId = parent.id
+    const beforeMarkers = g.players[0]!.markersAvailable.length
+    g = dispatch(g, {
+      type: 'split',
+      parentId,
+      childCreatures: turn1SplitChild(g, parent),
+    })
+    expect(g.legions.filter((l) => l.playerId === g.players[0].id)).toHaveLength(2)
+    const child = g.legions.find((l) => l.splitParentId === parentId)!
+    expect(child).toBeTruthy()
+    expect(g.players[0]!.markersAvailable.length).toBe(beforeMarkers - 1)
+
+    g = dispatch(g, { type: 'undoSplit', childId: child.id })
+    expect(g.phase).toBe('Split')
+    const restored = g.legions.filter((l) => l.playerId === g.players[0].id)
+    expect(restored).toHaveLength(1)
+    expect(restored[0]!.id).toBe(parentId)
+    expect(restored[0]!.creatures.length).toBe(8)
+    expect(restored[0]!.splitThisTurn).toBe(false)
+    expect(g.players[0]!.markersAvailable.length).toBe(beforeMarkers)
+    expect(g.selectedLegionId).toBe(parentId)
+  })
+
+  it('undoSplit works when the parent is selected', () => {
+    let g = twoPlayerGame(5)
+    const parent = g.legions.find((l) => l.playerId === g.players[0].id)!
+    g = dispatch(g, {
+      type: 'split',
+      parentId: parent.id,
+      childCreatures: turn1SplitChild(g, parent),
+    })
+    g = dispatch(g, { type: 'undoSplit', childId: parent.id })
+    expect(g.legions.filter((l) => l.playerId === g.players[0].id)).toHaveLength(1)
   })
 })

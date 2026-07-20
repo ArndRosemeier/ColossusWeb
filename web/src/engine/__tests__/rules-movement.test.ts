@@ -73,4 +73,20 @@ describe('rules-movement', () => {
       }
     }
   })
+
+  it('undoMove restores origin hex and clears moved', () => {
+    let g = splitAndRoll(11)
+    const mover = g.legions.find((l) => l.playerId === g.players[0].id && !l.moved)!
+    const origin = mover.hexLabel
+    expect(mover.moveOriginHex).toBe(origin)
+    const dest = [...listAllMoves(g, mover, g.movementRoll!).keys()][0]!
+    g = dispatch(g, { type: 'move', legionId: mover.id, toHex: dest })
+    expect(g.legions.find((l) => l.id === mover.id)!.hexLabel).toBe(dest)
+    g = dispatch(g, { type: 'undoMove', legionId: mover.id })
+    const after = g.legions.find((l) => l.id === mover.id)!
+    expect(after.hexLabel).toBe(origin)
+    expect(after.moved).toBe(false)
+    expect(after.teleported).toBe(false)
+    expect(after.enteredFrom).toBeNull()
+  })
 })

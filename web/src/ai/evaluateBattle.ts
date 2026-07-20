@@ -45,6 +45,15 @@ export function battleClockHeat(battle: BattleState): number {
   return Math.pow((battle.turn - 1) / denom, 1.4)
 }
 
+/**
+ * Attacker urgency to finish before defender reinforce (turn 4).
+ * 1 on turn 1 → ~0.33 on turn 3 → 0 once reinforce is available or done.
+ */
+export function attackerPreReinforceUrgency(battle: BattleState): number {
+  if (battle.defenderReinforced || battle.turn >= 4) return 0
+  return (4 - battle.turn) / 3
+}
+
 export function turnsLeftOnClock(battle: BattleState): number {
   return Math.max(1, MAX_BATTLE_TURNS - battle.turn + 1)
 }
@@ -257,18 +266,18 @@ export function evaluateBattleStrike(
 
   const heat = battleClockHeat(battle)
   const asAtk = actingAsAttacker(state, battle)
+  const urgency = asAtk ? attackerPreReinforceUrgency(battle) : 0
   const win = battleWinConfidence(state, battle, attacker.playerId)
-  // Attacker must finish before time-loss; amplify offense/kills as the clock runs down.
-  // Defender still likes kills but less so when stalling wins the clock.
+  // Attacker must finish before time-loss and before defender reinforce.
   const offenseMul =
-    (asAtk ? 1 + 1.4 * heat : 1 - 0.2 * heat) * desperationOffenseMul(win)
+    (asAtk ? 1 + 1.4 * heat + 0.9 * urgency : 1 - 0.2 * heat) * desperationOffenseMul(win)
 
   const tv = targetValue(state, defender, profile)
   const dealt = Math.min(eh, rem)
   let score = dealt * tv * profile.attackAppetite * offenseMul
 
   if (eh >= rem) {
-    const killMul = asAtk ? 1 + 2.5 * heat : 1 + 0.3 * heat
+    const killMul = asAtk ? 1 + 2.5 * heat + 1.2 * urgency : 1 + 0.3 * heat
     score += 12 * tv * profile.attackAppetite * killMul
   }
 
@@ -474,6 +483,7 @@ export function evaluateBattleHex(
     let offenseW = offense * desperationOffenseMul(win)
     let threatW = threat + exposureExtra
     let approachW = approach
+    const urgency = asAtk ? attackerPreReinforceUrgency(battle) : 0
     if (asAtk) {
       offenseW *= 1 + 1.2 * heat
       approachW *= 1 + 1.6 * heat
@@ -481,6 +491,15 @@ export function evaluateBattleHex(
       // Late: any contact is better than dancing out of range
       if (heat >= 0.55 && offense > 0) offenseW += 25 * heat
       if (heat >= 0.75 && minDist <= 1) approachW += 18 * heat
+      // Pre-reinforce: time favors the defender — push contact on turns 1–3
+      if (urgency > 0) {
+        approachW *= 1 + 1.8 * urgency
+        if (unit.creatureType !== 'Titan') {
+          threatW *= Math.max(0.4, 1 - 0.5 * urgency)
+          if (offense > 0) offenseW += 22 * urgency
+          if (minDist <= 1) approachW += 14 * urgency
+        }
+      }
     } else {
       threatW *= 1 + 0.9 * heat
       approachW *= Math.max(0.15, 1 - 0.75 * heat)
@@ -491,18 +510,26 @@ export function evaluateBattleHex(
 
     // Ahead: high-keep units stay back; behind: fodder (not Titans) may dive for damage.
     // Use adjusted `win` for dive so clock-stalling defenders don't suicide.
+    // Attacking before reinforce: even favored stacks must press, not hang back.
     if (unit.creatureType !== 'Titan') {
       if (winRaw >= 0.65 && keep >= 50) {
-        threatW *= 1.15 + 0.35 * winRaw
-        approachW *= 0.55
+        if (asAtk && urgency > 0) {
+          threatW *= 1.05
+          approachW *= 0.85
+        } else {
+          threatW *= 1.15 + 0.35 * winRaw
+          approachW *= 0.55
+        }
       } else if (win <= 0.3) {
         threatW *= 0.55
         approachW *= 1.25
       }
     } else {
-      // Titans almost never seek contact for its own sake
-      approachW *= 0.2
-      if (!(asAtk && heat >= 0.8)) offenseW *= 0.4
+      // Titans almost never seek contact for its own sake — slightly less shy when racing reinforce
+      approachW *= asAtk && urgency > 0 ? 0.45 : 0.2
+      if (!(asAtk && (heat >= 0.8 || urgency >= 0.66))) {
+        offenseW *= asAtk && urgency > 0 ? 0.55 : 0.4
+      }
     }
 
     // Entering: pick hex by safety / useful contact — Titans must not dive for a strike
@@ -600,12 +627,16 @@ export function pickBestBattleMove(
   const best = pool[0]!
   const heat = battleClockHeat(battle)
   const asAtk = actingAsAttacker(state, battle)
+  const urgency = asAtk ? attackerPreReinforceUrgency(battle) : 0
 
   // Never end Move while creatures can still enter (unentered die after first maneuver)
   if (deployMoves.length === 0) {
     let threshold = profile.battleMoveThreshold
-    if (asAtk) threshold -= 12 * heat
-    else threshold += 6 * heat
+    if (asAtk) {
+      threshold -= 12 * heat
+      // Keep maneuvering while racing the reinforce window
+      threshold -= 16 * urgency
+    } else threshold += 6 * heat
     if (anyMoved && best.score <= threshold) {
       return { type: 'battleDonePhase' }
     }

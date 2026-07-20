@@ -3,6 +3,7 @@ import { resolveAiProfileId } from '../ai/profiles'
 import {
   applyBattleResult,
   advanceBattlePhase,
+  activePlayerHasLegalStrike,
   battleLand,
   checkBattleEnd,
   checkTitanDeath,
@@ -226,6 +227,8 @@ export function createGame(variant: LoadedVariant, options: NewGameOptions): Gam
       recruited: false,
       musteredThisTurn: null,
       splitThisTurn: false,
+      splitParentId: null,
+      moveOriginHex: null,
       enteredFrom: null,
     })
   }
@@ -315,6 +318,9 @@ function applyCommand(state: GameState, command: GameCommand, rng: () => number)
     case 'split':
       doSplit(state, command.parentId, command.childCreatures)
       break
+    case 'undoSplit':
+      doUndoSplit(state, command.childId)
+      break
     case 'doneSplit':
       if (!confirmDoneSplit(state)) break
       beginMovePhase(state, rng)
@@ -323,7 +329,7 @@ function applyCommand(state: GameState, command: GameCommand, rng: () => number)
       doMove(state, command.legionId, command.toHex)
       break
     case 'undoMove':
-      state.message = 'Undo not implemented'
+      doUndoMove(state, command.legionId)
       break
     case 'mulligan':
       doMulligan(state, rng)
@@ -348,6 +354,9 @@ function applyCommand(state: GameState, command: GameCommand, rng: () => number)
       break
     case 'recruit':
       doRecruit(state, command.legionId, command.creatureType)
+      break
+    case 'undoRecruit':
+      doUndoRecruit(state, command.legionId)
       break
     case 'doneMuster':
       if (!confirmDoneMuster(state)) break
@@ -457,6 +466,13 @@ function commitPendingDice(state: GameState, rng: () => number, forced?: number[
     state.pendingDice = null
     checkBattleEnd(state, battle)
     if (battle.done) finishBattle(state)
+    else if (!battle.pendingCarry && !activePlayerHasLegalStrike(state, battle)) {
+      advanceBattlePhase(state, battle)
+      if (battle.done) finishBattle(state)
+      else {
+        state.message = `Battle: ${battle.activeHalf} ${battle.phase} (turn ${battle.turn}/${MAX_BATTLE_TURNS})`
+      }
+    }
     return
   }
 
@@ -665,6 +681,8 @@ function doSplit(state: GameState, parentId: string, childTypes: string[]): void
     recruited: false,
     musteredThisTurn: null,
     splitThisTurn: false,
+    splitParentId: parent.id,
+    moveOriginHex: null,
     enteredFrom: null,
   }
   parent.splitThisTurn = true
@@ -674,6 +692,55 @@ function doSplit(state: GameState, parentId: string, childTypes: string[]): void
   state.splitSkipWarned = false
   state.log.push(`${player.name} splits ${child.markerId} from ${parent.markerId}`)
   state.message = `Split created ${child.markerId}`
+}
+
+/** Undo a split-off created this Split phase (Colossus undoSplit). */
+export function canUndoSplit(state: GameState, legionId: string): boolean {
+  if (state.phase !== 'Split') return false
+  const legion = state.legions.find((l) => l.id === legionId)
+  if (!legion || legion.playerId !== activePlayer(state).id) return false
+  if (legion.splitParentId) {
+    return state.legions.some((l) => l.id === legion.splitParentId)
+  }
+  // Parent selected: undoable if a child points at it
+  return state.legions.some(
+    (l) => l.splitParentId === legion.id && l.playerId === legion.playerId,
+  )
+}
+
+function resolveUndoSplitChildId(state: GameState, legionId: string): string {
+  const legion = state.legions.find((l) => l.id === legionId)
+  if (!legion) throw new Error('Legion not found')
+  if (legion.splitParentId) return legion.id
+  const child = state.legions.find(
+    (l) => l.splitParentId === legion.id && l.playerId === legion.playerId,
+  )
+  if (!child) throw new Error('No split to undo for this legion')
+  return child.id
+}
+
+function doUndoSplit(state: GameState, legionId: string): void {
+  if (state.phase !== 'Split') throw new Error('Not split phase')
+  const childId = resolveUndoSplitChildId(state, legionId)
+  const child = state.legions.find((l) => l.id === childId)
+  if (!child) throw new Error('Split-off not found')
+  if (child.playerId !== activePlayer(state).id) throw new Error('Not your legion')
+  if (!child.splitParentId) throw new Error('Legion was not split off this phase')
+  const parent = state.legions.find((l) => l.id === child.splitParentId)
+  if (!parent) throw new Error('Parent legion not found')
+  if (parent.playerId !== child.playerId) throw new Error('Parent mismatch')
+
+  parent.creatures.push(...child.creatures)
+  clearPublicKnowledge(parent)
+  parent.splitThisTurn = false
+  const player = activePlayer(state)
+  returnMarker(player, child.markerId)
+  state.legions = state.legions.filter((l) => l.id !== child.id)
+  state.splitSkipWarned = false
+  state.selectedLegionId = parent.id
+  state.legalHexes = []
+  state.log.push(`${child.markerId} recombines into ${parent.markerId} (undo split)`)
+  state.message = `Undid split — ${parent.markerId} restored`
 }
 
 function beginMovePhase(state: GameState, rng: () => number): void {
@@ -687,6 +754,8 @@ function beginMovePhase(state: GameState, rng: () => number): void {
     l.recruited = false
     l.musteredThisTurn = null
     l.splitThisTurn = false
+    l.splitParentId = null
+    l.moveOriginHex = l.hexLabel
   }
   activePlayer(state).hasTeleported = false
   if (state.turnNumber !== 1) state.mulliganAvailable = false
@@ -751,6 +820,37 @@ function doMove(state: GameState, legionId: string, toHex: string): void {
   state.legalHexes = []
   state.log.push(`${legion.markerId} moves to ${toHex}${info.teleport ? ' (teleport)' : ''}`)
   state.message = `${legion.markerId} → ${toHex}`
+}
+
+export function canUndoMove(state: GameState, legionId: string): boolean {
+  if (state.phase !== 'Move') return false
+  const legion = state.legions.find((l) => l.id === legionId)
+  if (!legion || legion.playerId !== activePlayer(state).id) return false
+  return legion.moved && legion.moveOriginHex != null
+}
+
+function doUndoMove(state: GameState, legionId: string): void {
+  if (state.phase !== 'Move') throw new Error('Not move phase')
+  const legion = state.legions.find((l) => l.id === legionId)
+  if (!legion) throw new Error('Legion not found')
+  if (legion.playerId !== activePlayer(state).id) throw new Error('Not your legion')
+  if (!legion.moved) throw new Error('Legion has not moved')
+  if (legion.moveOriginHex == null) throw new Error('No move origin to restore')
+
+  const wasTeleport = legion.teleported
+  legion.hexLabel = legion.moveOriginHex
+  legion.moved = false
+  legion.teleported = false
+  legion.enteredFrom = null
+  if (wasTeleport) activePlayer(state).hasTeleported = false
+  state.selectedLegionId = legionId
+  if (state.movementRoll != null) {
+    state.legalHexes = [...listAllMoves(state, legion, state.movementRoll).keys()]
+  } else {
+    state.legalHexes = []
+  }
+  state.log.push(`${legion.markerId} undoes move back to ${legion.hexLabel}`)
+  state.message = `${legion.markerId} undid move → ${legion.hexLabel}`
 }
 
 function beginFightPhase(state: GameState): void {
@@ -903,6 +1003,36 @@ function doRecruit(state: GameState, legionId: string, creatureType: string): vo
   state.log.push(`${legion.markerId} recruits ${creatureType}`)
   state.message = `${legion.markerId} recruited ${creatureType}`
   state.selectedLegionId = legionId
+}
+
+export function canUndoRecruit(state: GameState, legionId: string): boolean {
+  if (state.phase !== 'Muster') return false
+  const legion = state.legions.find((l) => l.id === legionId)
+  if (!legion || legion.playerId !== activePlayer(state).id) return false
+  return legion.recruited && legion.musteredThisTurn != null
+}
+
+function doUndoRecruit(state: GameState, legionId: string): void {
+  if (state.phase !== 'Muster') throw new Error('Not muster phase')
+  const legion = state.legions.find((l) => l.id === legionId)
+  if (!legion) throw new Error('Legion not found')
+  if (legion.playerId !== activePlayer(state).id) throw new Error('Not your legion')
+  if (!legion.recruited || !legion.musteredThisTurn) {
+    throw new Error('Legion has not recruited this phase')
+  }
+  const creatureType = legion.musteredThisTurn
+  const idx = legion.creatures.findLastIndex((c) => c.type === creatureType)
+  if (idx < 0) throw new Error(`Recruited ${creatureType} not found in legion`)
+  legion.creatures.splice(idx, 1)
+  state.caretaker[creatureType] = (state.caretaker[creatureType] ?? 0) + 1
+  const knownIdx = legion.knownPublic.lastIndexOf(creatureType)
+  if (knownIdx >= 0) legion.knownPublic.splice(knownIdx, 1)
+  legion.recruited = false
+  legion.musteredThisTurn = null
+  state.musterSkipWarned = false
+  state.selectedLegionId = legionId
+  state.log.push(`${legion.markerId} undoes recruit of ${creatureType}`)
+  state.message = `${legion.markerId} undid recruit of ${creatureType}`
 }
 
 function endTurn(state: GameState, rng: () => number): void {
@@ -1086,12 +1216,26 @@ function handleBattleCommand(state: GameState, command: GameCommand, rng: () => 
       battle.highlighted = []
       checkBattleEnd(state, battle)
       if (battle.done) finishBattle(state)
+      else if (!battle.pendingCarry && !activePlayerHasLegalStrike(state, battle)) {
+        advanceBattlePhase(state, battle)
+        if (battle.done) finishBattle(state)
+        else {
+          state.message = `Battle: ${battle.activeHalf} ${battle.phase} (turn ${battle.turn}/${MAX_BATTLE_TURNS})`
+        }
+      }
       break
     }
     case 'battleCarry': {
       doCarry(state, battle, command.targetId)
       state.message = 'Carry applied'
       if (battle.done) finishBattle(state)
+      else if (!battle.pendingCarry && !activePlayerHasLegalStrike(state, battle)) {
+        advanceBattlePhase(state, battle)
+        if (battle.done) finishBattle(state)
+        else {
+          state.message = `Battle: ${battle.activeHalf} ${battle.phase} (turn ${battle.turn}/${MAX_BATTLE_TURNS})`
+        }
+      }
       break
     }
     case 'battleDonePhase': {

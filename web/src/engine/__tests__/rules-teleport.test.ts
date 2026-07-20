@@ -93,6 +93,9 @@ describe('rules-teleport', () => {
       if (other) {
         expect(listTeleportMoves(g, other, 6).size).toBe(0)
       }
+      g = dispatch(g, { type: 'undoMove', legionId: titanLeg.id })
+      expect(g.players[0].hasTeleported).toBe(false)
+      expect(g.legions.find((l) => l.id === titanLeg.id)!.teleported).toBe(false)
       found = true
       break
     }

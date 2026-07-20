@@ -3,7 +3,12 @@ import { activePlayer, getLegalRecruits, playerLegions } from '../engine/GameEng
 import { publicViewSlots } from '../engine/publicKnowledge'
 import type { GameCommand, GameState } from '../engine/types'
 import { CreatureChit, UnknownChit } from './CreatureChit'
-import { phaseEndCommand, phaseEndLabel } from './LegionActions'
+import {
+  phaseEndCommand,
+  phaseEndLabel,
+  undoCommandForLegion,
+  undoLabelForCommand,
+} from './LegionActions'
 import { MarkerChit } from './MarkerChit'
 
 interface Props {
@@ -21,6 +26,11 @@ export function GameControls({ state, dispatch, interactive = true }: Props) {
   const myLegs = playerLegions(state, player.id)
   const endLabel = phaseEndLabel(state)
   const endCmd = phaseEndCommand(state)
+  const undoCmd =
+    selected && selected.playerId === player.id
+      ? undoCommandForLegion(state, selected.id)
+      : null
+  const undoLabel = undoCmd ? undoLabelForCommand(undoCmd) : null
 
   return (
     <aside className="controls">
@@ -76,6 +86,11 @@ export function GameControls({ state, dispatch, interactive = true }: Props) {
               )
             })}
           </div>
+          {interactive && undoCmd && undoLabel && (
+            <button type="button" onClick={() => dispatch(undoCmd)}>
+              {undoLabel}
+            </button>
+          )}
         </div>
       )}
 
@@ -88,7 +103,7 @@ export function GameControls({ state, dispatch, interactive = true }: Props) {
                   ? 'Turn 1: click your legion, pick 4 with one Lord on the board overlay.'
                   : player.markersAvailable.length === 0
                     ? 'No free legion markers (12-legion limit). You cannot split until a legion is eliminated.'
-                    : 'Click a legion on the board to split beside it.'}
+                    : 'Click a legion on the board to split beside it. Undo split from the selected legion.'}
               </p>
               {endCmd && (
                 <button type="button" className="primary" onClick={() => dispatch(endCmd)}>
@@ -102,7 +117,7 @@ export function GameControls({ state, dispatch, interactive = true }: Props) {
             <>
               <p className="hint">
                 Select a legion to highlight moves. Copper = walk, violet = teleport; creature
-                icons show the best muster if you end there.
+                icons show the best muster if you end there. Undo a move from the selected legion.
               </p>
               {state.mulliganAvailable && state.turnNumber === 1 && (
                 <button type="button" onClick={() => dispatch({ type: 'mulligan' })}>
@@ -214,9 +229,9 @@ export function GameControls({ state, dispatch, interactive = true }: Props) {
           {state.phase === 'Muster' && (
             <>
               <p className="hint">
-              Click a legion that moved — recruit choices appear beside it. Best possible
-              musters show faintly above each legion.
-            </p>
+                Click a legion that moved — recruit choices appear beside it. Best possible
+                musters show on each legion. Undo a recruit from the selected legion.
+              </p>
               {endCmd && (
                 <button type="button" className="primary" onClick={() => dispatch(endCmd)}>
                   {endLabel}

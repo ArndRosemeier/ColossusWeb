@@ -140,6 +140,12 @@ export function deserializeGame(blob: SavedGameBlob, variant: LoadedVariant): Ga
     if (leg.splitThisTurn === undefined) {
       leg.splitThisTurn = false
     }
+    if (leg.splitParentId === undefined) {
+      leg.splitParentId = null
+    }
+    if (leg.moveOriginHex === undefined) {
+      leg.moveOriginHex = null
+    }
   }
   if (state.musterSkipWarned === undefined) {
     state.musterSkipWarned = false

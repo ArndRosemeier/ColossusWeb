@@ -3,6 +3,7 @@ import { startBattle } from '../../engine/battle'
 import { twoPlayerGame } from '../../engine/__tests__/helpers'
 import type { BattleState, Legion } from '../../engine/types'
 import {
+  attackerPreReinforceUrgency,
   battleClockHeat,
   battleWinConfidence,
   evaluateBattleHex,
@@ -32,6 +33,8 @@ function stubLegion(partial: Partial<Legion> & Pick<Legion, 'playerId' | 'creatu
     recruited: false,
     musteredThisTurn: null,
     splitThisTurn: false,
+    splitParentId: null,
+    moveOriginHex: null,
     enteredFrom: 'Bottom',
     knownPublic: partial.creatures.map((c) => c.type),
     ...partial,
@@ -232,6 +235,7 @@ describe('battle clock (time-loss)', () => {
     const far = 'A2'
 
     battle.turn = 1
+    battle.defenderReinforced = true // isolate turn-7 heat from pre-reinforce urgency
     const earlyDelta =
       evaluateBattleHex(g, battle, cyclops, near, profile) -
       evaluateBattleHex(g, battle, cyclops, far, profile)
@@ -242,6 +246,40 @@ describe('battle clock (time-loss)', () => {
       evaluateBattleHex(g, battle, cyclops, far, profile)
 
     expect(lateDelta).toBeGreaterThan(earlyDelta)
+  })
+
+  it('pre-reinforce attacker values closing more than after the reinforce window', () => {
+    const { g, battle, atk } = makeBrushBattle()
+    const cyclops = battle.units.find((u) => u.legionId === atk.id && u.creatureType === 'Cyclops')!
+    const enemy = battle.units.find((u) => u.legionId !== atk.id)!
+    placeUnits(battle, [
+      { id: cyclops.id, hex: 'A1' },
+      { id: enemy.id, hex: 'D4' },
+    ])
+    for (const u of battle.units) {
+      if (u.id !== cyclops.id && u.id !== enemy.id) u.hex = null
+    }
+    cyclops.moved = false
+    battle.activePlayerId = atk.playerId
+    battle.activeHalf = 'attacker'
+    const profile = AI_PROFILES.balanced
+    const near = 'C3'
+    const far = 'A2'
+
+    battle.turn = 1
+    battle.defenderReinforced = false
+    expect(attackerPreReinforceUrgency(battle)).toBeCloseTo(1)
+    const racingDelta =
+      evaluateBattleHex(g, battle, cyclops, near, profile) -
+      evaluateBattleHex(g, battle, cyclops, far, profile)
+
+    battle.defenderReinforced = true
+    expect(attackerPreReinforceUrgency(battle)).toBe(0)
+    const afterWindowDelta =
+      evaluateBattleHex(g, battle, cyclops, near, profile) -
+      evaluateBattleHex(g, battle, cyclops, far, profile)
+
+    expect(racingDelta).toBeGreaterThan(afterWindowDelta)
   })
 
   it('late-turn defender prefers a safe hex over rushing into contact', () => {

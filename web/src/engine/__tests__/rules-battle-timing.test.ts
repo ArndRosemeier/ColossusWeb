@@ -90,4 +90,26 @@ describe('rules-battle-timing', () => {
       }
     }
   })
+
+  it('skips Strike and Strikeback when no unit has a legal target', () => {
+    const { state, battle } = battleOnTerrain('Plains')
+    // Park each side on its own entry hexes — typically not adjacent
+    for (const u of battle.units) {
+      const entrances =
+        u.legionId === battle.attackerLegionId
+          ? battle.attackerEntrances
+          : battle.defenderEntrances
+      u.hex = entrances[0]!
+      u.moved = true
+    }
+    battle.phase = 'Move'
+    battle.activeHalf = 'defender'
+    battle.activePlayerId = state.legions.find((l) => l.id === battle.defenderLegionId)!.playerId
+
+    advanceBattlePhase(state, battle)
+
+    // Empty Strike → empty Strikeback → attacker's Move (or Summon)
+    expect(battle.phase === 'Move' || battle.phase === 'Summon').toBe(true)
+    expect(battle.activeHalf).toBe('attacker')
+  })
 })

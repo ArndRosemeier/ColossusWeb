@@ -152,6 +152,17 @@ export function legalStrikes(
   return legalStrikesFor(state, battle, unit)
 }
 
+/** True if the active battle player still has any unstruck unit with a legal target. */
+export function activePlayerHasLegalStrike(state: GameState, battle: BattleState): boolean {
+  return battle.units.some(
+    (u) =>
+      u.playerId === battle.activePlayerId &&
+      isUnitAlive(state, u) &&
+      !u.struck &&
+      legalStrikesFor(state, battle, u).length > 0,
+  )
+}
+
 export function resolveStrikeFor(
   state: GameState,
   battle: BattleState,
@@ -413,6 +424,16 @@ export function advanceBattlePhase(state: GameState, battle: BattleState): void 
 
   battle.selectedUnitId = null
   battle.highlighted = []
+
+  // Empty Strike / Strikeback: skip without requiring Done
+  if (
+    !battle.done &&
+    !battle.pendingCarry &&
+    (battle.phase === 'Strike' || battle.phase === 'Strikeback') &&
+    !activePlayerHasLegalStrike(state, battle)
+  ) {
+    advanceBattlePhase(state, battle)
+  }
 }
 
 export function applyBattleResult(state: GameState, battle: BattleState): void {

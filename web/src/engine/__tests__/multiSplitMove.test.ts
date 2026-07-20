@@ -44,6 +44,8 @@ function multiSplitState(roll: number): {
       recruited: false,
       musteredThisTurn: null,
       splitThisTurn: split,
+      splitParentId: null,
+      moveOriginHex: hex,
       enteredFrom: null,
       knownPublic: [],
     })

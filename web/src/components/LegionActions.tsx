@@ -1,5 +1,10 @@
 import { useState } from 'react'
-import { activePlayer } from '../engine/GameEngine'
+import {
+  activePlayer,
+  canUndoMove,
+  canUndoRecruit,
+  canUndoSplit,
+} from '../engine/GameEngine'
 import type { GameCommand, GameState } from '../engine/types'
 import { CreatureChit } from './CreatureChit'
 
@@ -141,6 +146,31 @@ export function phaseEndLabel(state: GameState): string | null {
       return 'Continue to muster'
     case 'battleDonePhase':
       return 'Done with phase'
+    default:
+      return null
+  }
+}
+
+/** Per-legion undo for the current selection (Colossus-style). */
+export function undoCommandForLegion(
+  state: GameState,
+  legionId: string,
+): GameCommand | null {
+  if (state.pendingDice) return null
+  if (canUndoSplit(state, legionId)) return { type: 'undoSplit', childId: legionId }
+  if (canUndoMove(state, legionId)) return { type: 'undoMove', legionId }
+  if (canUndoRecruit(state, legionId)) return { type: 'undoRecruit', legionId }
+  return null
+}
+
+export function undoLabelForCommand(cmd: GameCommand): string | null {
+  switch (cmd.type) {
+    case 'undoSplit':
+      return 'Undo split'
+    case 'undoMove':
+      return 'Undo move'
+    case 'undoRecruit':
+      return 'Undo recruit'
     default:
       return null
   }

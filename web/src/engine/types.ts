@@ -48,6 +48,10 @@ export interface Legion {
   musteredThisTurn: string | null
   /** Parent already split during this Split phase (cannot split again). */
   splitThisTurn: boolean
+  /** Child created this Split phase — points at parent for undoSplit. */
+  splitParentId: string | null
+  /** Hex at the start of this Move phase (Colossus startingHex); used by undoMove. */
+  moveOriginHex: string | null
   enteredFrom: EntrySide | null
 }
 
@@ -211,6 +215,7 @@ export type GameCommand =
   | { type: 'selectLegion'; legionId: string }
   | { type: 'deselectLegion' }
   | { type: 'split'; parentId: string; childCreatures: string[]; childHex?: string }
+  | { type: 'undoSplit'; childId: string }
   | { type: 'doneSplit' }
   | { type: 'move'; legionId: string; toHex: string; teleport?: boolean }
   | { type: 'undoMove'; legionId: string }
@@ -234,6 +239,7 @@ export type GameCommand =
   | { type: 'battleSummon'; fromLegionId: string }
   | { type: 'battleSkipSummon' }
   | { type: 'recruit'; legionId: string; creatureType: string }
+  | { type: 'undoRecruit'; legionId: string }
   | { type: 'doneMuster' }
   | { type: 'pass' }
   /**
