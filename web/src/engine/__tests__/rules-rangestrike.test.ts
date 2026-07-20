@@ -6,8 +6,10 @@ import { describe, expect, it } from 'vitest'
 import { startBattle, battleLand } from '../battle'
 import {
   getAttackerSkill,
+  getUnitPower,
   getUnitSkill,
   hexDistance,
+  isUnitAlive,
   legalStrikes,
   titanRange,
 } from '../battleStrike'
@@ -151,6 +153,24 @@ describe('Titan rangestrike range counting', () => {
     const targets = legalStrikes(g, battle, land, ranger, true)
     expect(targets).toContain(contact.id)
     expect(targets).not.toContain(far.id)
+  })
+
+  it('K6: dead adjacent enemy still blocks rangestrike until removed after Strikeback', () => {
+    // Colossus findTargetHexes: adjacentEnemy=true even if target.isDead().
+    // Killing the engager earlier in the same Strike phase does not unlock rangestrike.
+    const { g, land } = battleOn('Plains', ['Ranger'], ['Ogre', 'Lion'])
+    const origin = land.labels.find((l) => !l.startsWith('X')) ?? land.labels[0]!
+    const adj = land.hexByLabel[origin]!.neighbors.find((n) => n != null)!
+    const at3 = findAtRange(land, origin, 3)
+    const ranger = unit({ creatureType: 'Ranger', playerId: 'a', hex: origin })
+    const corpse = unit({ id: 'corpse', creatureType: 'Ogre', playerId: 'b', hex: adj })
+    const far = unit({ id: 'far', creatureType: 'Lion', playerId: 'b', hex: at3 })
+    corpse.hits = getUnitPower(g, corpse)
+    expect(isUnitAlive(g, corpse)).toBe(false)
+
+    const targets = legalStrikes(g, { units: [ranger, corpse, far] }, land, ranger, true)
+    expect(targets).not.toContain(far.id)
+    expect(targets).not.toContain(corpse.id)
   })
 
   it('only Warlock may rangestrike Lords; demilords are fair game', () => {

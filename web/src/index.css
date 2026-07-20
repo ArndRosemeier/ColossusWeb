@@ -851,6 +851,26 @@ button:disabled {
   border-left: 3px solid var(--copper);
 }
 
+.engagement-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.engagement-legion {
+  background: var(--stone);
+  border: 1px solid var(--panel-edge);
+  padding: 0.55rem;
+  border-radius: 2px;
+  border-left: 3px solid var(--ember);
+}
+
+.engagement-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 .selected-head {
   display: flex;
   align-items: center;

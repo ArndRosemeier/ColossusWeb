@@ -67,7 +67,7 @@ Port modules: `engagement.ts`, `battleland.ts`, `battleMovement.ts`, `battleStri
 | K3 | Strike chart | pass | `getStrikeNumber` | `rules-port` |
 | K4 | Heal after battle | pass | `applyBattleResult` | `rules-scoring` |
 | K5 | Carries + optional raised SN | pass | `legalCarryTargetIds` / `raisedStrikeNumber` | `rules-carries` |
-| K6–K9 | Rangestrike / LOS / lords / Warlock | pass | `battleStrike.ts` (`titanRange`) | `rules-rangestrike` |
+| K6–K9 | Rangestrike / LOS / lords / Warlock / dead-adjacent blocks range | pass | `battleStrike.ts` (`titanRange`) | `rules-rangestrike` |
 | R1–R3 | Defender reinforce turn 4 | pass | `battleReinforce` | `rules-reinforce-summon` |
 | U1–U4 | Angel summon | pass | `battleSummon` | `rules-reinforce-summon` |
 | Q4–Q6 | Angels / scoring / titan power | pass | `rules-scoring` | |

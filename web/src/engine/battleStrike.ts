@@ -341,13 +341,17 @@ export function legalStrikes(
   // Dead strikers still act until removeDeadCreatures (simultaneous combat / Strikeback).
   if (!unit.hex || unit.struck) return []
   const type = state.variant.creatures[unit.creatureType]
-  const enemies = battle.units.filter(
-    (u) => u.playerId !== unit.playerId && isUnitAlive(state, u) && u.hex,
+  // Contact includes dead enemies still on the board (Colossus findTargetHexes:
+  // adjacentEnemy=true even if target.isDead()). They are removed only after Strikeback,
+  // so killing an adjacent foe this Strike phase does not free you to rangestrike.
+  const opposingOnBoard = battle.units.filter(
+    (u) => u.playerId !== unit.playerId && u.hex != null,
   )
+  const inContact = opposingOnBoard.some((e) => isMeleeAdjacent(land, unit.hex!, e.hex!))
+  const livingEnemies = opposingOnBoard.filter((u) => isUnitAlive(state, u))
   const result: string[] = []
-  const inContact = enemies.some((e) => isMeleeAdjacent(land, unit.hex!, e.hex!))
 
-  for (const e of enemies) {
+  for (const e of livingEnemies) {
     if (isMeleeAdjacent(land, unit.hex, e.hex!)) {
       result.push(e.id)
       continue

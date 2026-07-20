@@ -1,9 +1,10 @@
 import { AI_PROFILES } from '../ai/profiles'
+import { engagementNeedsHumanInput } from '../ai/engagementDecision'
 import { listBattleReinforceOptions, listBattleSummonSources } from '../engine/battle'
 import { canFlee } from '../engine/engagement'
 import { activePlayer, playerLegions } from '../engine/GameEngine'
 import { publicViewSlots } from '../engine/publicKnowledge'
-import type { GameCommand, GameState } from '../engine/types'
+import type { GameCommand, GameState, Legion } from '../engine/types'
 import { CreatureChit, UnknownChit } from './CreatureChit'
 import {
   phaseEndCommand,
@@ -25,7 +26,10 @@ export function GameControls({ state, dispatch, interactive = true }: Props) {
   const selected = state.selectedLegionId
     ? state.legions.find((l) => l.id === state.selectedLegionId)
     : null
-  const myLegs = playerLegions(state, player.id)
+  // During engagement reply on an AI mover's turn, do not list every AI stack —
+  // the engagement panel shows the attacking legion only.
+  const engagementFocus = Boolean(state.activeEngagement && !state.battle)
+  const myLegs = engagementFocus ? [] : playerLegions(state, player.id)
   const endLabel = phaseEndLabel(state)
   const endCmd = phaseEndCommand(state)
   const undoCmd =
@@ -33,6 +37,8 @@ export function GameControls({ state, dispatch, interactive = true }: Props) {
       ? undoCommandForLegion(state, selected.id)
       : null
   const undoLabel = undoCmd ? undoLabelForCommand(undoCmd) : null
+  // Hide generic selection panel while resolving an engagement (focus on attacker).
+  const showSelected = Boolean(selected && !engagementFocus)
 
   return (
     <aside className="controls">
@@ -50,7 +56,7 @@ export function GameControls({ state, dispatch, interactive = true }: Props) {
         {!interactive && player.kind === 'ai' && (
           <p className="hint ai-watching">Watching AI — adjust speed in the top bar.</p>
         )}
-        {interactive && endLabel && (
+        {interactive && endLabel && !engagementFocus && (
           <p className="hint phase-end-hint">
             {state.phase === 'Muster' && !(state.battle && !state.battle.done)
               ? `Space: ${endLabel} · Enter: muster best for all, then done`
@@ -59,7 +65,7 @@ export function GameControls({ state, dispatch, interactive = true }: Props) {
         )}
       </div>
 
-      {selected && (
+      {showSelected && selected && (
         <div className="selected-legion">
           <div className="selected-head">
             <MarkerChit
@@ -261,7 +267,7 @@ export function GameControls({ state, dispatch, interactive = true }: Props) {
         </div>
       )}
 
-      {interactive && (
+      {interactive && myLegs.length > 0 && (
         <div className="legion-list">
           <h3>Your legions</h3>
           {myLegs.map((leg) => {
@@ -331,6 +337,40 @@ export function GameControls({ state, dispatch, interactive = true }: Props) {
         </ul>
       </div>
     </aside>
+  )
+}
+
+function LegionContents({ state, legion }: { state: GameState; legion: Legion }) {
+  const owner = state.players.find((p) => p.id === legion.playerId)!
+  return (
+    <div className="engagement-legion">
+      <div className="selected-head">
+        <MarkerChit markerId={legion.markerId} size={36} height={legion.creatures.length} />
+        <div>
+          <strong>{legion.markerId}</strong>
+          <div className="muted">@{legion.hexLabel}</div>
+        </div>
+      </div>
+      <div className="chit-row">
+        {publicViewSlots(state, legion).map((slot, i) => {
+          if (slot.kind === 'unknown') {
+            return <UnknownChit key={`eng-unk-${i}`} size={40} />
+          }
+          const t = state.variant.creatures[slot.type]
+          const power = slot.type === 'Titan' ? owner.titanPower : (t?.power ?? 1)
+          return (
+            <CreatureChit
+              key={`${slot.type}-${i}`}
+              creature={slot.type}
+              power={power}
+              skill={t?.skill ?? 2}
+              baseColor={t?.baseColor}
+              size={40}
+            />
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -418,6 +458,7 @@ function EngagementActions({
   const humanControlsDefender = humans.some((h) => h.id === defender.playerId)
   const bothHuman = atkP?.kind === 'human' && defP?.kind === 'human'
   const canHumanFlee = humanControlsDefender && canFlee(state, defender)
+  const waitingOnHuman = engagementNeedsHumanInput(state)
 
   const hints: string[] = []
   if (canHumanFlee) hints.push('flee')
@@ -425,43 +466,48 @@ function EngagementActions({
   if (bothHuman) hints.push('agree')
 
   return (
-    <>
+    <div className="engagement-panel">
       <p className="hint">
-        Resolve engagement — {hints.join(' or ')}.
+        {waitingOnHuman && atkP?.kind === 'ai'
+          ? `${atkP.name} attacks with ${attacker.markerId}`
+          : `Engagement — ${hints.join(' or ')}`}
         {defP?.kind === 'ai' && humanControlsAttacker ? ' AI declined to flee.' : ''}
       </p>
-      {canHumanFlee && (
-        <button type="button" onClick={() => dispatch({ type: 'flee' })}>
-          Flee
-        </button>
-      )}
-      {bothHuman && (
-        <button
-          type="button"
-          onClick={() => dispatch({ type: 'proposeAgreement', kind: 'mutual' })}
-        >
-          Propose mutual elimination
-        </button>
-      )}
-      {bothHuman && eng.proposal && eng.proposal !== 'fight' && (
-        <>
-          <button type="button" onClick={() => dispatch({ type: 'acceptAgreement' })}>
-            Accept agreement
+      <LegionContents state={state} legion={attacker} />
+      <div className="engagement-actions">
+        {canHumanFlee && (
+          <button type="button" onClick={() => dispatch({ type: 'flee' })}>
+            Flee
           </button>
-          <button type="button" onClick={() => dispatch({ type: 'refuseAgreement' })}>
-            Refuse
+        )}
+        {bothHuman && (
+          <button
+            type="button"
+            onClick={() => dispatch({ type: 'proposeAgreement', kind: 'mutual' })}
+          >
+            Propose mutual elimination
           </button>
-        </>
-      )}
-      {(humanControlsAttacker || humanControlsDefender) && (
-        <button
-          type="button"
-          className="primary"
-          onClick={() => dispatch({ type: 'proposeAgreement', kind: 'fight' })}
-        >
-          Fight!
-        </button>
-      )}
-    </>
+        )}
+        {bothHuman && eng.proposal && eng.proposal !== 'fight' && (
+          <>
+            <button type="button" onClick={() => dispatch({ type: 'acceptAgreement' })}>
+              Accept agreement
+            </button>
+            <button type="button" onClick={() => dispatch({ type: 'refuseAgreement' })}>
+              Refuse
+            </button>
+          </>
+        )}
+        {(humanControlsAttacker || humanControlsDefender) && (
+          <button
+            type="button"
+            className="primary"
+            onClick={() => dispatch({ type: 'proposeAgreement', kind: 'fight' })}
+          >
+            Fight!
+          </button>
+        )}
+      </div>
+    </div>
   )
 }
