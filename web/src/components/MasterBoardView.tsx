@@ -7,7 +7,7 @@ import {
   markerPlainColor,
   terrainImageUrl,
 } from '../variant/assets'
-import { activePlayer, getLegalRecruits, getMovesForSelected } from '../engine/GameEngine'
+import { activePlayer, canUndoRecruit, getLegalRecruits, getMovesForSelected } from '../engine/GameEngine'
 import { bestRecruit, bestRecruitAt } from '../engine/recruit'
 import type { GameCommand, GameState, Legion } from '../engine/types'
 import type { MasterMoveAnim } from '../ui/moveAnimation'
@@ -224,7 +224,14 @@ export function MasterBoardView({
     selected && state.phase === 'Muster' && selected.playerId === player.id
       ? getLegalRecruits(state, selected.id)
       : []
-  const showMuster = Boolean(interactive && dispatch) && state.phase === 'Muster' && recruits.length > 0
+  const canUndoMuster =
+    selected != null &&
+    selected.playerId === player.id &&
+    canUndoRecruit(state, selected.id)
+  const showMuster =
+    Boolean(interactive && dispatch) &&
+    state.phase === 'Muster' &&
+    (recruits.length > 0 || canUndoMuster)
 
   useLayoutEffect(() => {
     if (!showSplit && !showMuster) {
@@ -565,13 +572,23 @@ export function MasterBoardView({
           {showMuster && (
             <>
               <div className="legion-action-title">Muster {selected.markerId}</div>
-              <MusterForm
-                state={state}
-                recruits={recruits}
-                onRecruit={(creatureType) =>
-                  dispatch({ type: 'recruit', legionId: selected.id, creatureType })
-                }
-              />
+              {recruits.length > 0 ? (
+                <MusterForm
+                  state={state}
+                  recruits={recruits}
+                  onRecruit={(creatureType) =>
+                    dispatch({ type: 'recruit', legionId: selected.id, creatureType })
+                  }
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => dispatch({ type: 'undoRecruit', legionId: selected.id })}
+                >
+                  Undo recruit of {selected.musteredThisTurn}
+                </button>
+              )}
             </>
           )}
         </div>

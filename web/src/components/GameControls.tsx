@@ -3,7 +3,7 @@ import { engagementNeedsHumanInput } from '../ai/engagementDecision'
 import { battleLand, listBattleReinforceOptions, listBattleSummonSources } from '../engine/battle'
 import { listStrikeRaiseOptions } from '../engine/battleStrike'
 import { canFlee } from '../engine/engagement'
-import { activePlayer, playerLegions } from '../engine/GameEngine'
+import { activePlayer, canUndoRecruit, playerLegions } from '../engine/GameEngine'
 import { publicViewSlots } from '../engine/publicKnowledge'
 import type { GameCommand, GameState, Legion } from '../engine/types'
 import { CreatureChit, UnknownChit } from './CreatureChit'
@@ -114,8 +114,15 @@ export function GameControls({
             })}
           </div>
           {interactive && undoCmd && undoLabel && (
-            <button type="button" onClick={() => dispatch(undoCmd)}>
+            <button
+              type="button"
+              className={undoCmd.type === 'undoRecruit' ? 'primary' : undefined}
+              onClick={() => dispatch(undoCmd)}
+            >
               {undoLabel}
+              {undoCmd.type === 'undoRecruit' && selected?.musteredThisTurn
+                ? ` (${selected.musteredThisTurn})`
+                : ''}
             </button>
           )}
         </div>
@@ -204,8 +211,20 @@ export function GameControls({
             <>
               <p className="hint">
                 Click a legion that moved — recruit choices appear beside it. Best possible
-                musters show on each legion. Undo a recruit from the selected legion.
+                musters show on each legion. After recruiting, Undo appears on the legion and
+                below.
               </p>
+              {myLegs
+                .filter((l) => canUndoRecruit(state, l.id))
+                .map((l) => (
+                  <button
+                    key={`undo-muster-${l.id}`}
+                    type="button"
+                    onClick={() => dispatch({ type: 'undoRecruit', legionId: l.id })}
+                  >
+                    Undo {l.markerId} recruit ({l.musteredThisTurn})
+                  </button>
+                ))}
               {endCmd && (
                 <button type="button" className="primary" onClick={() => dispatch(endCmd)}>
                   {endLabel}
