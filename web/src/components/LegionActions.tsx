@@ -147,6 +147,7 @@ export function MusterForm({
 
 export function phaseEndCommand(state: GameState): GameCommand | null {
   if (state.pendingDice) return null
+  if (state.pendingPostBattleReinforce) return { type: 'postBattleSkipReinforce' }
   if (state.battle && !state.battle.done) {
     if (state.battle.pendingCarry) return null
     if (state.battle.phase === 'Recruit') return { type: 'battleSkipReinforce' }
@@ -218,6 +219,8 @@ export function phaseEndLabel(state: GameState): string | null {
     case 'battleDonePhase':
       return 'Done with phase'
     case 'battleSkipReinforce':
+      return 'Skip reinforce'
+    case 'postBattleSkipReinforce':
       return 'Skip reinforce'
     case 'battleSkipSummon':
       return 'Skip summon'

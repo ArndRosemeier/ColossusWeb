@@ -50,4 +50,11 @@ describe('aiDefenderShouldFlee', () => {
     def.creatures.push({ type: 'Angel', hits: 0 })
     expect(aiDefenderShouldFlee(state)).toBe(false)
   })
+
+  it('may flee when the defender has only a demilord', () => {
+    const state = hopelessEngagement('balanced')
+    const def = state.legions.find((l) => l.id === state.activeEngagement!.defenderId)!
+    def.creatures.push({ type: 'Guardian', hits: 0 })
+    expect(aiDefenderShouldFlee(state)).toBe(true)
+  })
 })

@@ -159,11 +159,12 @@ export function listTeleportMoves(state: GameState, legion: Legion, roll: number
   const hex = board.hexByLabel[legion.hexLabel]
   if (!hex) return result
 
-  // Tower teleport
-  if (hex.terrain === 'Tower' && legion.creatures.some((c) => {
-    const t = state.variant.creatures[c.type]
-    return t?.lord || t?.demilord
-  })) {
+  // Tower teleport — Colossus Movement.listTeleportMoves: legion.numLords() > 0
+  // (Titan/Angel/Archangel only; Guardians and Warlocks are demilords and do not qualify)
+  if (
+    hex.terrain === 'Tower' &&
+    legion.creatures.some((c) => state.variant.creatures[c.type]?.lord)
+  ) {
     for (const h of findNearbyUnoccupied(state, board, legion.hexLabel, 6, NOWHERE, new Set())) {
       if (h !== legion.hexLabel) result.add(h)
     }

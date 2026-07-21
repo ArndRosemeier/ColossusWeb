@@ -3,7 +3,7 @@
  * BattleHex). Keeps terrain modifiers from regressing after the bare skill-chart port.
  */
 import { describe, expect, it } from 'vitest'
-import { startBattle, battleLand, legalBattleMovesFor } from '../battle'
+import { advanceBattlePhase, applyPreStrikeHazardEffects, startBattle, battleLand, legalBattleMovesFor } from '../battle'
 import {
   getAttackerSkill,
   getStrikeDice,
@@ -16,6 +16,7 @@ import {
   canFlyOver,
   directionBetween,
   getEntryCost,
+  hazardDamageToCreature,
   IMPASSABLE_COST,
   oppositeHazard,
 } from '../battleland'
@@ -643,6 +644,61 @@ describe('H14 Movement entry costs tied to hazards', () => {
     expect(garg.native.Drift).toBe(false)
     expect(getEntryCost(tundra, drift, garg, -1)).toBe(2)
     expect(getEntryCost(desert, sand, garg, -1)).toBe(1)
+  })
+})
+
+describe('H16 Pre-strike hazard damage (Colossus applyPreStrikeEffects)', () => {
+  it('H16a: Drift deals 1 damage to non-natives when Fight starts; natives safe', () => {
+    const { g, battle, land } = battleOn('Tundra', ['Lion', 'Troll'], ['Centaur'])
+    const drifts = land.labels.filter((l) => land.hexByLabel[l]?.terrain === 'Drift')
+    expect(drifts.length).toBeGreaterThanOrEqual(2)
+    const lion = battle.units.find((u) => u.creatureType === 'Lion')!
+    const troll = battle.units.find((u) => u.creatureType === 'Troll')!
+    const centaur = battle.units.find((u) => u.creatureType === 'Centaur')!
+    expect(g.variant.creatures.Lion!.native.Drift).toBe(false)
+    expect(g.variant.creatures.Troll!.native.Drift).toBe(true)
+
+    lion.hex = drifts[0]!
+    troll.hex = drifts[1]!
+    centaur.hex = plainsAwayFrom(land, drifts[0]!)
+
+    applyPreStrikeHazardEffects(g, battle)
+    expect(lion.hits).toBe(1)
+    expect(troll.hits).toBe(0)
+    expect(centaur.hits).toBe(0)
+  })
+
+  it('H16b: Drift damage fires each Fight half (Move→Strike), not on Strikeback', () => {
+    const { g, battle, land } = battleOn('Tundra', ['Lion'], ['Ogre'])
+    const drift = findTerrain(land, 'Drift')
+    const lion = battle.units.find((u) => u.creatureType === 'Lion')!
+    const ogre = battle.units.find((u) => u.creatureType === 'Ogre')!
+    const lionHex = land.hexByLabel[drift]!
+    lion.hex = drift
+    // Keep units apart so empty Strike/Strikeback auto-skip does not throw
+    const safe = land.labels.find(
+      (l) => !lionHex.neighbors.includes(l) && l !== drift && land.hexByLabel[l],
+    )!
+    ogre.hex = safe
+
+    expect(battle.phase).toBe('Move')
+    advanceBattlePhase(g, battle) // defender Fight applies Drift, then may auto-skip to attacker Move
+    expect(lion.hits).toBe(1)
+    expect(battle.phase).toBe('Move')
+    expect(battle.activeHalf).toBe('attacker')
+
+    advanceBattlePhase(g, battle) // attacker Fight applies Drift again
+    expect(lion.hits).toBe(2)
+  })
+
+  it('H16c: Brambles / Bog / Volcano / Sand do not deal per-turn damage in Default', () => {
+    const v = loadDefaultVariant()
+    expect(hazardDamageToCreature('Brambles', v.creatures.Lion!)).toBe(0)
+    expect(hazardDamageToCreature('Bog', v.creatures.Lion!)).toBe(0)
+    expect(hazardDamageToCreature('Volcano', v.creatures.Lion!)).toBe(0)
+    expect(hazardDamageToCreature('Sand', v.creatures.Lion!)).toBe(0)
+    expect(hazardDamageToCreature('Drift', v.creatures.Lion!)).toBe(1)
+    expect(hazardDamageToCreature('Drift', v.creatures.Giant!)).toBe(0)
   })
 })
 

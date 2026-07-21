@@ -3,7 +3,7 @@
  */
 import type { ReactNode } from 'react'
 import { engagementNeedsHumanInput } from '../ai/engagementDecision'
-import { battleLand, listBattleReinforceOptions, listBattleSummonSources } from '../engine/battle'
+import { battleLand, listBattleReinforceOptions, listBattleSummonSources, listPostBattleReinforceOptions } from '../engine/battle'
 import { listStrikeRaiseOptions } from '../engine/battleStrike'
 import { canFlee } from '../engine/engagement'
 import { publicViewSlots } from '../engine/publicKnowledge'
@@ -29,6 +29,7 @@ export function hasBoardDecision(
   pendingStrike?: PendingStrikeAnnounce | null,
 ): boolean {
   if (engagementNeedsHumanInput(state)) return true
+  if (state.pendingPostBattleReinforce) return true
   const battle = state.battle
   if (!battle || battle.done) return false
   if (battle.pendingCarry) return true
@@ -50,9 +51,14 @@ export function BoardDecisionOverlay({
     <EngagementCard state={state} dispatch={dispatch} />
   ) : null
 
+  const postBattle =
+    !engagement && state.pendingPostBattleReinforce ? (
+      <PostBattleReinforceCard state={state} dispatch={dispatch} />
+    ) : null
+
   let battleCard: ReactNode = null
   const battle = state.battle
-  if (battle && !battle.done) {
+  if (!engagement && !postBattle && battle && !battle.done) {
     if (battle.pendingCarry) {
       battleCard = <CarryCard state={state} dispatch={dispatch} />
     } else if (pendingStrike) {
@@ -71,7 +77,7 @@ export function BoardDecisionOverlay({
     }
   }
 
-  const card = engagement ?? battleCard
+  const card = engagement ?? postBattle ?? battleCard
   if (!card) return null
 
   return (
@@ -242,6 +248,52 @@ function ReinforceCard({
           )
         })}
         <button type="button" onClick={() => dispatch({ type: 'battleSkipReinforce' })}>
+          Skip reinforce
+        </button>
+      </div>
+    </>
+  )
+}
+
+function PostBattleReinforceCard({
+  state,
+  dispatch,
+}: {
+  state: GameState
+  dispatch: (cmd: GameCommand) => void
+}) {
+  const pending = state.pendingPostBattleReinforce!
+  const legion = state.legions.find((l) => l.id === pending.legionId)
+  const opts = listPostBattleReinforceOptions(state, pending.legionId)
+  return (
+    <>
+      <h3 className="board-decision-title">Post-battle reinforce</h3>
+      <p className="hint">
+        {legion?.markerId ?? 'Defender'} won before taking a mid-battle reinforce — muster now, or
+        skip.
+      </p>
+      <div className="recruit-list">
+        {opts.map((r) => {
+          const t = state.variant.creatures[r]
+          return (
+            <button
+              key={r}
+              type="button"
+              className="recruit-btn"
+              onClick={() => dispatch({ type: 'postBattleReinforce', creatureType: r })}
+            >
+              <CreatureChit
+                creature={r}
+                power={t?.power ?? 1}
+                skill={t?.skill ?? 2}
+                baseColor={t?.baseColor}
+                size={40}
+              />
+              <span>{r}</span>
+            </button>
+          )
+        })}
+        <button type="button" onClick={() => dispatch({ type: 'postBattleSkipReinforce' })}>
           Skip reinforce
         </button>
       </div>

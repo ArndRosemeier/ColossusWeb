@@ -37,6 +37,27 @@ describe('phase1 engagement', () => {
     expect(state.legions.some((l) => l.id === defender.id)).toBe(false)
   })
 
+  it('E3: demilord (Guardian/Warlock) does not block flee', () => {
+    const state = twoPlayerGame(1)
+    const defender = state.legions[1]!
+    defender.creatures = [
+      { type: 'Guardian', hits: 0 },
+      { type: 'Warlock', hits: 0 },
+      { type: 'Centaur', hits: 0 },
+    ]
+    expect(canFlee(state, defender)).toBe(true)
+  })
+
+  it('E3: Angel (Lord) blocks flee', () => {
+    const state = twoPlayerGame(1)
+    const defender = state.legions[1]!
+    defender.creatures = [
+      { type: 'Angel', hits: 0 },
+      { type: 'Centaur', hits: 0 },
+    ]
+    expect(canFlee(state, defender)).toBe(false)
+  })
+
   it('E6: concede awards full points', () => {
     const state = twoPlayerGame(2)
     const attacker = state.legions[0]

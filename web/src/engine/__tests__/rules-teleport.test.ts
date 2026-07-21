@@ -35,17 +35,59 @@ describe('rules-teleport', () => {
     expect(found).toBe(true)
   })
 
-  it('T2: no tower teleport without a lord/demilord', () => {
+  it('T2: no tower teleport without a lord', () => {
     let g = toMovePhase(1)
     // Force roll 6 by cloning path: find legion without lord after split
     const child = g.legions.find(
       (l) =>
         l.playerId === g.players[0].id &&
-        !l.creatures.some((c) => c.type === 'Titan' || c.type === 'Angel'),
+        !l.creatures.some((c) => g.variant.creatures[c.type]?.lord),
     )
     if (!child) return
     const teles = listTeleportMoves(g, child, 6)
     expect(teles.size).toBe(0)
+  })
+
+  it('T2: Guardian (demilord) alone does not grant tower teleport', () => {
+    let g = toMovePhase(1)
+    expect(g.variant.creatures.Guardian?.demilord).toBe(true)
+    expect(g.variant.creatures.Guardian?.lord).toBeFalsy()
+    const leg = g.legions.find((l) => l.playerId === g.players[0].id)!
+    const elsewhere =
+      Object.keys(g.variant.board.hexByLabel).find(
+        (h) => !g.variant.board.towers.includes(h) && !g.legions.some((x) => x.hexLabel === h),
+      ) ?? '1'
+    for (const l of g.legions) {
+      if (l.id !== leg.id) l.hexLabel = elsewhere
+    }
+    leg.creatures = [
+      { type: 'Guardian', hits: 0 },
+      { type: 'Ogre', hits: 0 },
+      { type: 'Centaur', hits: 0 },
+    ]
+    leg.hexLabel = g.variant.board.towers[0]!
+    expect(listTeleportMoves(g, leg, 6).size).toBe(0)
+  })
+
+  it('T2: Warlock (demilord) alone does not grant tower teleport', () => {
+    let g = toMovePhase(1)
+    expect(g.variant.creatures.Warlock?.demilord).toBe(true)
+    expect(g.variant.creatures.Warlock?.lord).toBeFalsy()
+    const leg = g.legions.find((l) => l.playerId === g.players[0].id)!
+    const elsewhere =
+      Object.keys(g.variant.board.hexByLabel).find(
+        (h) => !g.variant.board.towers.includes(h) && !g.legions.some((x) => x.hexLabel === h),
+      ) ?? '1'
+    for (const l of g.legions) {
+      if (l.id !== leg.id) l.hexLabel = elsewhere
+    }
+    leg.creatures = [
+      { type: 'Warlock', hits: 0 },
+      { type: 'Ogre', hits: 0 },
+      { type: 'Centaur', hits: 0 },
+    ]
+    leg.hexLabel = g.variant.board.towers[0]!
+    expect(listTeleportMoves(g, leg, 6).size).toBe(0)
   })
 
   it('T4: titan teleport requires score ≥ titanTeleport (Default 400)', () => {

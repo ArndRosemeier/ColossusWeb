@@ -10,8 +10,15 @@ export function countCreatures(legion: Legion, type: string): number {
 }
 
 export function isLord(creatures: Record<string, CreatureType>, type: string): boolean {
-  const c = creatures[type]
-  return Boolean(c?.lord || c?.demilord)
+  return Boolean(creatures[type]?.lord)
+}
+
+export function isDemiLord(creatures: Record<string, CreatureType>, type: string): boolean {
+  return Boolean(creatures[type]?.demilord)
+}
+
+export function isLordOrDemiLord(creatures: Record<string, CreatureType>, type: string): boolean {
+  return isLord(creatures, type) || isDemiLord(creatures, type)
 }
 
 /**
@@ -20,7 +27,7 @@ export function isLord(creatures: Record<string, CreatureType>, type: string): b
  */
 export function isImmortal(creatures: Record<string, CreatureType>, type: string): boolean {
   if (type === 'Titan') return false
-  return isLord(creatures, type)
+  return isLordOrDemiLord(creatures, type)
 }
 
 /** Return a slain character to caretaker stacks only if immortal (Angel, Archangel, Guardian, Warlock). */
@@ -77,7 +84,8 @@ function edgeMatchesRecruiter(
 ): boolean {
   if (edgeFrom === recruiter) return true
   if (edgeFrom === 'Anything') return true
-  if (edgeFrom === 'AnyNonLord') return !isLord(creatures, recruiter)
+  // Colossus: AnyNonLord excludes both lords and demilords
+  if (edgeFrom === 'AnyNonLord') return !isLordOrDemiLord(creatures, recruiter)
   if (edgeFrom === 'Lord') return Boolean(creatures[recruiter]?.lord)
   if (edgeFrom === 'DemiLord') return Boolean(creatures[recruiter]?.demilord)
   return false

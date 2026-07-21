@@ -21,6 +21,7 @@ export function legionPointValue(state: GameState, legion: Legion, full: boolean
 }
 
 export function canFlee(state: GameState, defender: Legion): boolean {
+  // Colossus Legion.canFlee / Titan 9.2: only a Lord blocks flee; demilords may flee.
   return !defender.creatures.some((c) => isLord(state.variant.creatures, c.type))
 }
 

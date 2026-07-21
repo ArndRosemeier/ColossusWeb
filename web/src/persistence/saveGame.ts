@@ -116,6 +116,13 @@ export function deserializeGame(blob: SavedGameBlob, variant: LoadedVariant): Ga
   if (state.battle && !Array.isArray(state.battle.fallen)) {
     state.battle.fallen = []
   }
+  if (state.battle && state.battle.attackerCommitted === undefined) {
+    // Legacy: treat completed attacker first-maneuver as committed
+    state.battle.attackerCommitted = Boolean(state.battle.firstManeuverDone?.attacker)
+  }
+  if (state.pendingPostBattleReinforce === undefined) {
+    state.pendingPostBattleReinforce = null
+  }
   if (state.diceRoll === undefined) {
     state.diceRoll = null
   }

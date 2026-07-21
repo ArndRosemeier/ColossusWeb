@@ -6,6 +6,7 @@ import {
   advanceBattlePhase,
   listBattleReinforceOptions,
   listBattleSummonSources,
+  listPostBattleReinforceOptions,
   resolveStrike,
   startBattle,
 } from '../battle'
@@ -63,6 +64,170 @@ describe('R reinforce / U summon', () => {
       (u) => u.legionId === defender.id && u.creatureType === pick && u.hex == null,
     )
     expect(reinforceUnit).toBeTruthy()
+  })
+
+  it('R4: defending win before turn 4 offers post-battle reinforce', () => {
+    let state = twoPlayerGame(43)
+    const alice = state.players[0]!
+    const bob = state.players[1]!
+    // Keep Alice's Titan on a separate stack so conceding the fight does not end the game
+    const parent = state.legions.find((l) => l.playerId === alice.id)!
+    state = dispatch(state, {
+      type: 'split',
+      parentId: parent.id,
+      childCreatures: turn1SplitChild(state, parent),
+    })
+    const aliceLegs = state.legions.filter((l) => l.playerId === alice.id)
+    const attacker = aliceLegs.find((l) => !l.creatures.some((c) => c.type === 'Titan'))!
+    const titanStack = aliceLegs.find((l) => l.id !== attacker.id)!
+    const defender = state.legions.find((l) => l.playerId === bob.id)!
+    const marsh =
+      Object.values(state.variant.board.hexByLabel).find((h) => h.terrain === 'Marsh')?.label ??
+      defender.hexLabel
+    const elsewhere =
+      Object.values(state.variant.board.hexByLabel).find(
+        (h) => h.terrain === 'Marsh' && h.label !== marsh,
+      )?.label ?? titanStack.hexLabel
+    attacker.hexLabel = marsh
+    defender.hexLabel = marsh
+    titanStack.hexLabel = elsewhere
+    attacker.enteredFrom = 'Bottom'
+    defender.creatures = [
+      { type: 'Titan', hits: 0 },
+      { type: 'Ogre', hits: 0 },
+      { type: 'Ogre', hits: 0 },
+    ]
+    attacker.creatures = [
+      { type: 'Lion', hits: 0 },
+      { type: 'Centaur', hits: 0 },
+      { type: 'Ogre', hits: 0 },
+    ]
+    state.caretaker.Troll = Math.max(state.caretaker.Troll ?? 0, 2)
+    state.caretaker.Ogre = Math.max(state.caretaker.Ogre ?? 0, 2)
+
+    const battle = startBattle(state, attacker, defender, () => 0.5)
+    state.battle = battle
+    battle.attackerCommitted = true
+    battle.turn = 2
+    battle.defenderReinforced = false
+    battle.activePlayerId = alice.id
+
+    state = dispatch(state, { type: 'concedeBattle' })
+    expect(state.winnerId).toBeNull()
+    expect(state.battle).toBeNull()
+    expect(state.pendingPostBattleReinforce?.legionId).toBe(defender.id)
+
+    const opts = listPostBattleReinforceOptions(state, defender.id)
+    expect(opts.length).toBeGreaterThan(0)
+    const pick = opts.includes('Troll') ? 'Troll' : opts[0]!
+    const heightBefore = state.legions.find((l) => l.id === defender.id)!.creatures.length
+
+    state = dispatch(state, { type: 'postBattleReinforce', creatureType: pick })
+    expect(state.pendingPostBattleReinforce).toBeNull()
+    const defAfter = state.legions.find((l) => l.id === defender.id)!
+    expect(defAfter.creatures.length).toBe(heightBefore + 1)
+    expect(defAfter.creatures.some((c) => c.type === pick)).toBe(true)
+  })
+
+  it('R5: no post-battle reinforce if attacker never committed (conceded on first Move)', () => {
+    let state = twoPlayerGame(44)
+    const alice = state.players[0]!
+    const bob = state.players[1]!
+    const parent = state.legions.find((l) => l.playerId === alice.id)!
+    state = dispatch(state, {
+      type: 'split',
+      parentId: parent.id,
+      childCreatures: turn1SplitChild(state, parent),
+    })
+    const aliceLegs = state.legions.filter((l) => l.playerId === alice.id)
+    const attacker = aliceLegs.find((l) => !l.creatures.some((c) => c.type === 'Titan'))!
+    const titanStack = aliceLegs.find((l) => l.id !== attacker.id)!
+    const defender = state.legions.find((l) => l.playerId === bob.id)!
+    const marsh =
+      Object.values(state.variant.board.hexByLabel).find((h) => h.terrain === 'Marsh')?.label ??
+      defender.hexLabel
+    const elsewhere =
+      Object.values(state.variant.board.hexByLabel).find(
+        (h) => h.terrain === 'Marsh' && h.label !== marsh,
+      )?.label ?? titanStack.hexLabel
+    attacker.hexLabel = marsh
+    defender.hexLabel = marsh
+    titanStack.hexLabel = elsewhere
+    attacker.enteredFrom = 'Bottom'
+    defender.creatures = [
+      { type: 'Titan', hits: 0 },
+      { type: 'Ogre', hits: 0 },
+      { type: 'Ogre', hits: 0 },
+    ]
+    attacker.creatures = [
+      { type: 'Lion', hits: 0 },
+      { type: 'Centaur', hits: 0 },
+    ]
+    state.caretaker.Troll = Math.max(state.caretaker.Troll ?? 0, 2)
+
+    const battle = startBattle(state, attacker, defender, () => 0.5)
+    state.battle = battle
+    expect(battle.attackerCommitted).toBe(false)
+    battle.activePlayerId = alice.id
+
+    state = dispatch(state, { type: 'concedeBattle' })
+    expect(state.pendingPostBattleReinforce).toBeNull()
+  })
+
+  it('R6: skipping turn-4 reinforce still allows post-battle muster after a win', () => {
+    let state = twoPlayerGame(45)
+    const alice = state.players[0]!
+    const bob = state.players[1]!
+    const parent = state.legions.find((l) => l.playerId === alice.id)!
+    state = dispatch(state, {
+      type: 'split',
+      parentId: parent.id,
+      childCreatures: turn1SplitChild(state, parent),
+    })
+    const aliceLegs = state.legions.filter((l) => l.playerId === alice.id)
+    const attacker = aliceLegs.find((l) => !l.creatures.some((c) => c.type === 'Titan'))!
+    const titanStack = aliceLegs.find((l) => l.id !== attacker.id)!
+    const defender = state.legions.find((l) => l.playerId === bob.id)!
+    const marsh =
+      Object.values(state.variant.board.hexByLabel).find((h) => h.terrain === 'Marsh')?.label ??
+      defender.hexLabel
+    const elsewhere =
+      Object.values(state.variant.board.hexByLabel).find(
+        (h) => h.terrain === 'Marsh' && h.label !== marsh,
+      )?.label ?? titanStack.hexLabel
+    attacker.hexLabel = marsh
+    defender.hexLabel = marsh
+    titanStack.hexLabel = elsewhere
+    attacker.enteredFrom = 'Bottom'
+    defender.creatures = [
+      { type: 'Titan', hits: 0 },
+      { type: 'Ogre', hits: 0 },
+      { type: 'Ogre', hits: 0 },
+    ]
+    attacker.creatures = [
+      { type: 'Lion', hits: 0 },
+      { type: 'Centaur', hits: 0 },
+      { type: 'Ogre', hits: 0 },
+    ]
+    state.caretaker.Troll = Math.max(state.caretaker.Troll ?? 0, 2)
+
+    const battle = startBattle(state, attacker, defender, () => 0.5)
+    state.battle = battle
+    battle.attackerCommitted = true
+    battle.turn = 4
+    battle.phase = 'Recruit'
+    battle.activeHalf = 'defender'
+    battle.activePlayerId = bob.id
+    battle.defenderReinforced = false
+
+    state = dispatch(state, { type: 'battleSkipReinforce' })
+    expect(state.battle!.defenderReinforced).toBe(false)
+    expect(state.battle!.phase).toBe('Move')
+
+    state.battle!.activePlayerId = alice.id
+    state = dispatch(state, { type: 'concedeBattle' })
+    expect(state.winnerId).toBeNull()
+    expect(state.pendingPostBattleReinforce?.legionId).toBe(defender.id)
   })
 
   it('U1–U3: attacker summons Angel from unengaged donor after defender kill', () => {

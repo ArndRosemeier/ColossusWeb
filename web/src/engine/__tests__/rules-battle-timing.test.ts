@@ -128,6 +128,7 @@ describe('rules-battle-timing', () => {
           : battle.defenderEntrances[0]!
     }
     battle.firstManeuverDone = { attacker: true, defender: true }
+    battle.attackerCommitted = true
     battle.turn = 3
     battle.activeHalf = 'attacker'
     battle.phase = 'Strikeback'
@@ -138,7 +139,8 @@ describe('rules-battle-timing', () => {
 
     expect(battle.turn).toBe(4)
     expect(battle.phase).toBe('Move')
-    expect(battle.defenderReinforced).toBe(true)
+    // Empty mid-battle Recruit does not consume the post-battle reinforce right
+    expect(battle.defenderReinforced).toBe(false)
     expect(battle.activeHalf).toBe('defender')
   })
 

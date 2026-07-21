@@ -127,6 +127,24 @@ function isNativeIn(creature: CreatureType, terrain: string): boolean {
 
 export { isNativeIn }
 
+/**
+ * Colossus BattleHex.damageToCreature — hits applied at the start of each Fight
+ * (Strike) phase, before any strikes. Positive = damage, negative = heal.
+ *
+ * Default Titan hazards:
+ * - Drift: +1 to non-natives
+ * - Sand: +1 to water-dwellers (Lake native; Colossus water_dwelling flag)
+ * Brambles / Bog / Volcano / Tree / Stone / Lake: no per-turn damage.
+ */
+export function hazardDamageToCreature(terrain: string, creature: CreatureType): number {
+  if (terrain === 'Drift' && !isNativeIn(creature, 'Drift')) return 1
+  // Colossus HEALTHDRAIN_WATERDWELLER — Default has no water=true creatures;
+  // Lake-native is the same proxy we use for river free-crossing.
+  if (terrain === 'Sand' && Boolean(creature.native.Lake)) return 1
+  if (terrain === 'Spring') return -1
+  return 0
+}
+
 /** Hexside index from `from` toward adjacent `to`, or -1. */
 export function directionBetween(land: BuiltBattleland, from: string, to: string): number {
   const hex = land.hexByLabel[from]

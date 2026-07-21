@@ -122,7 +122,17 @@ export interface BattleState {
   attackerEntrances: string[]
   defenderEntrances: string[]
   firstManeuverDone: { attacker: boolean; defender: boolean }
+  /**
+   * True once a reinforcement creature was actually added (mid-battle or counts
+   * for blocking a second reinforce). Skipping turn-4 Recruit does NOT set this
+   * (Titan errata: decline mid-battle, still muster after a win).
+   */
   defenderReinforced: boolean
+  /**
+   * Colossus attackerEntered: attacker finished first Move without conceding
+   * (even if all units stayed off-board). Required for post-battle reinforce.
+   */
+  attackerCommitted: boolean
   attackerSummoned: boolean
   pendingSummon: boolean
   /**
@@ -219,6 +229,11 @@ export interface GameState {
   selectedLegionId: string | null
   legalHexes: string[]
   battle: BattleState | null
+  /**
+   * After a defending win: defender may still muster a reinforcement
+   * (Titan §14 / Colossus finishBattle) if they did not take one mid-battle.
+   */
+  pendingPostBattleReinforce: { legionId: string } | null
   pendingEngagements: { attackerId: string; defenderId: string }[]
   /** Current engagement being resolved before battle */
   activeEngagement: EngagementOffer | null
@@ -256,6 +271,8 @@ export type GameCommand =
   | { type: 'battleDonePhase' }
   | { type: 'battleReinforce'; creatureType: string }
   | { type: 'battleSkipReinforce' }
+  | { type: 'postBattleReinforce'; creatureType: string }
+  | { type: 'postBattleSkipReinforce' }
   | { type: 'battleSummon'; fromLegionId: string }
   | { type: 'battleSkipSummon' }
   | { type: 'recruit'; legionId: string; creatureType: string }

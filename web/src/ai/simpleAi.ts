@@ -3,6 +3,7 @@ import {
   isUnitAlive,
   listBattleReinforceOptions,
   listBattleSummonSources,
+  listPostBattleReinforceOptions,
 } from '../engine/battle'
 import { scoreRecruitOption } from '../engine/recruit'
 import type { GameCommand, GameState, Legion } from '../engine/types'
@@ -18,6 +19,10 @@ import { creatureCombatValue, findBestSummonable } from './legionStrength'
 import { chooseCreaturesToSplitOut } from './splitChoice'
 
 function actingPlayer(state: GameState) {
+  if (state.pendingPostBattleReinforce) {
+    const leg = state.legions.find((l) => l.id === state.pendingPostBattleReinforce!.legionId)
+    return leg ? (state.players.find((p) => p.id === leg.playerId) ?? null) : null
+  }
   if (state.battle && !state.battle.done) {
     return state.players.find((p) => p.id === state.battle!.activePlayerId) ?? null
   }
@@ -37,6 +42,10 @@ export function pickRandomCommand(state: GameState, rng = Math.random): GameComm
   const player = actingPlayer(state)
   if (!player || player.kind !== 'ai' || player.dead) return null
   const profile = profileOf(state)
+
+  if (state.pendingPostBattleReinforce) {
+    return pickPostBattleReinforce(state, profile, rng)
+  }
 
   if (state.battle && !state.battle.done) {
     return pickBattleCommand(state, profile, rng)
@@ -224,6 +233,24 @@ function pickBattleReinforce(state: GameState, profile: AiProfile, rng: () => nu
   return { type: 'battleReinforce', creatureType: best }
 }
 
+function pickPostBattleReinforce(state: GameState, profile: AiProfile, rng: () => number): GameCommand {
+  const pending = state.pendingPostBattleReinforce!
+  const opts = listPostBattleReinforceOptions(state, pending.legionId)
+  if (opts.length === 0) return { type: 'postBattleSkipReinforce' }
+  if (rng() < profile.skipReinforceChance) return { type: 'postBattleSkipReinforce' }
+  const def = state.legions.find((l) => l.id === pending.legionId)!
+  let best = opts[0]!
+  let bestVal = -Infinity
+  for (const c of opts) {
+    const v = creatureCombatValue(state, c, def.hexLabel)
+    if (v > bestVal) {
+      bestVal = v
+      best = c
+    }
+  }
+  return { type: 'postBattleReinforce', creatureType: best }
+}
+
 function pickBattleSummon(state: GameState, profile: AiProfile, rng: () => number): GameCommand {
   const battle = state.battle!
   const sources = listBattleSummonSources(state, battle)
@@ -286,6 +313,10 @@ export function pickAiCommand(state: GameState, rng = Math.random): GameCommand 
   if (!player || player.kind !== 'ai' || player.dead) return null
   const profile = profileOf(state)
 
+  if (state.pendingPostBattleReinforce) {
+    return pickPostBattleReinforce(state, profile, rng)
+  }
+
   if (state.battle && !state.battle.done) {
     return pickBattleCommand(state, profile, rng)
   }
@@ -322,6 +353,11 @@ export function isAiActing(state: GameState): boolean {
   if (state.winnerId || state.draw) return false
   // Engagement reply (flee / fight) may belong to a human even on an AI mover's turn
   if (engagementNeedsHumanInput(state)) return false
+  if (state.pendingPostBattleReinforce) {
+    const leg = state.legions.find((l) => l.id === state.pendingPostBattleReinforce!.legionId)
+    const actor = leg ? state.players.find((p) => p.id === leg.playerId) : undefined
+    return Boolean(actor && actor.kind === 'ai' && !actor.dead)
+  }
   const player = state.players[state.activePlayerIndex]
   const inBattle = Boolean(state.battle && !state.battle.done)
   const actorId = inBattle ? state.battle!.activePlayerId : player?.id

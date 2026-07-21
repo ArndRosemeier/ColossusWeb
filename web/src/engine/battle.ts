@@ -1,7 +1,7 @@
 /**
  * Battle phase machine, start/end, time-loss — orchestrates battleland / movement / strike.
  */
-import { buildBattleland, defenderEntryKey, type BuiltBattleland } from './battleland'
+import { buildBattleland, defenderEntryKey, hazardDamageToCreature, type BuiltBattleland } from './battleland'
 import { legalBattleMoves } from './battleMovement'
 import {
   applyCarry,
@@ -44,6 +44,23 @@ export function listBattleReinforceOptions(state: GameState, battle: BattleState
   const def = state.legions.find((l) => l.id === battle.defenderLegionId)
   if (!def || def.creatures.length >= 7) return []
   return listRecruits(state, { ...def, moved: true, recruited: false })
+}
+
+/** Legal post-battle defender reinforcements (Titan §14). */
+export function listPostBattleReinforceOptions(state: GameState, legionId: string): string[] {
+  const leg = state.legions.find((l) => l.id === legionId)
+  if (!leg || leg.creatures.length >= 7) return []
+  return listRecruits(state, { ...leg, moved: true, recruited: false })
+}
+
+/** True when a defending win earns a post-battle reinforce offer. */
+export function shouldOfferPostBattleReinforce(state: GameState, battle: BattleState): boolean {
+  if (battle.defenderReinforced) return false
+  if (!battle.attackerCommitted) return false
+  const defender = state.legions.find((l) => l.id === battle.defenderLegionId)
+  if (!defender) return false
+  if (battle.winnerPlayerId !== defender.playerId) return false
+  return listPostBattleReinforceOptions(state, defender.id).length > 0
 }
 
 /** Friendly unengaged legions that can donate a summonable creature to the attacker. */
@@ -157,6 +174,7 @@ export function startBattle(
     defenderEntrances: defEntrances,
     firstManeuverDone: { attacker: false, defender: land.tower },
     defenderReinforced: false,
+    attackerCommitted: false,
     attackerSummoned: false,
     pendingSummon: false,
     summonState: 'noKills',
@@ -455,6 +473,35 @@ export function checkBattleTitanElimination(state: GameState, battle: BattleStat
   }
 }
 
+/**
+ * Colossus BattleServerSide.applyPreStrikeEffects — once at the start of each
+ * Fight (Strike) phase. Damages all on-board units in Drift (etc.); slain units
+ * may still strike until removeDeadCreatures after Strikeback.
+ */
+export function applyPreStrikeHazardEffects(state: GameState, battle: BattleState): void {
+  const land = battleLand(state, battle)
+  for (const u of battle.units) {
+    if (!u.hex) continue
+    const hex = land.hexByLabel[u.hex]
+    const creature = state.variant.creatures[u.creatureType]
+    if (!hex || !creature) continue
+    const dam = hazardDamageToCreature(hex.terrain, creature)
+    if (dam === 0) continue
+    // Heal: Spring (not in Default) — never below 0 hits
+    if (dam < 0) {
+      u.hits = Math.max(0, u.hits + dam)
+      state.log.push(`${u.creatureType} heals ${-dam} in ${hex.terrain}`)
+      continue
+    }
+    u.hits += dam
+    state.log.push(
+      `${u.creatureType} takes ${dam} damage from ${hex.terrain}${
+        !isUnitAlive(state, u) ? ' — slain (may still strike)' : ''
+      }`,
+    )
+  }
+}
+
 export function advanceBattlePhase(state: GameState, battle: BattleState): void {
   if (battle.done) return
   const land = battleLand(state, battle)
@@ -473,6 +520,7 @@ export function advanceBattlePhase(state: GameState, battle: BattleState): void 
   if (battle.phase === 'Move') {
     battle.phase = 'Strike'
     for (const u of battle.units) u.struck = false
+    applyPreStrikeHazardEffects(state, battle)
   } else if (battle.phase === 'Strike') {
     battle.phase = 'Strikeback'
     const otherHalf: BattleHalf = battle.activeHalf === 'attacker' ? 'defender' : 'attacker'
@@ -489,6 +537,9 @@ export function advanceBattlePhase(state: GameState, battle: BattleState): void 
     } else if (battle.activeHalf === 'attacker' && !battle.firstManeuverDone.attacker) {
       killUnentered(state, battle, 'attacker')
       battle.firstManeuverDone.attacker = true
+      // Colossus: attacker completing first Move (without concede) unlocks
+      // post-battle defender reinforce — even if all units stayed off-board.
+      battle.attackerCommitted = true
     }
 
     removeDeadCreatures(state, battle)
@@ -532,8 +583,8 @@ export function advanceBattlePhase(state: GameState, battle: BattleState): void 
         if (listBattleReinforceOptions(state, battle).length > 0) {
           battle.phase = 'Recruit'
         } else {
-          // Nothing to muster — skip reinforce UI entirely
-          battle.defenderReinforced = true
+          // Nothing to muster mid-battle — still eligible post-battle if composition
+          // later allows (Titan errata / Colossus canRecruit at finish time).
           battle.phase = 'Move'
         }
       } else {
@@ -542,7 +593,9 @@ export function advanceBattlePhase(state: GameState, battle: BattleState): void 
       prepareBattleManeuver(battle)
     }
   } else if (battle.phase === 'Summon' || battle.phase === 'Recruit') {
-    if (battle.phase === 'Recruit') battle.defenderReinforced = true
+    if (battle.phase === 'Recruit') {
+      // Skip mid-battle reinforce — does not consume the post-battle right
+    }
     if (battle.phase === 'Summon') closeSummonWindow(battle)
     battle.phase = 'Move'
     // Newly summoned/reinforced units keep hex null as origin; others already snapshotted
@@ -570,7 +623,6 @@ export function advanceBattlePhase(state: GameState, battle: BattleState): void 
     battle.phase === 'Recruit' &&
     listBattleReinforceOptions(state, battle).length === 0
   ) {
-    battle.defenderReinforced = true
     battle.phase = 'Move'
   }
   // Empty summon: never pause on Summon with no donor angel

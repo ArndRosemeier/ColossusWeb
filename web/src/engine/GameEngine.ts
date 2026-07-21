@@ -16,7 +16,10 @@ import {
   legalBattleMovesFor,
   legalStrikes,
   listBattleReinforceOptions,
+  listBattleSummonSources,
+  listPostBattleReinforceOptions,
   resolveStrike,
+  shouldOfferPostBattleReinforce,
   startBattle,
   undoAllBattleMoves,
   undoLastBattleMove,
@@ -263,6 +266,7 @@ export function createGame(variant: LoadedVariant, options: NewGameOptions): Gam
     selectedLegionId: null,
     legalHexes: [],
     battle: null,
+    pendingPostBattleReinforce: null,
     pendingEngagements: [],
     activeEngagement: null,
     message: `${players[0].name}: Split phase — initial legion is 8-high (Titan+Angel+6); split before moving`,
@@ -283,7 +287,10 @@ export function playerLegions(state: GameState, playerId: string): Legion[] {
 }
 
 export function dispatch(state: GameState, command: GameCommand, rng = Math.random): GameState {
-  if (state.winnerId || state.draw) return state
+  if (state.winnerId || state.draw) {
+    // Allow finishing a post-battle reinforce that was already offered
+    if (!state.pendingPostBattleReinforce) return state
+  }
   const next = structuredClone(state) as GameState
   // structuredClone drops class instances; variant is plain data — reattach
   next.variant = state.variant
@@ -305,6 +312,11 @@ function applyCommand(state: GameState, command: GameCommand, rng: () => number)
   }
   if (state.pendingDice) {
     state.message = 'Waiting for dice to settle'
+    return
+  }
+
+  if (state.pendingPostBattleReinforce) {
+    handlePostBattleReinforceCommand(state, command)
     return
   }
 
@@ -827,18 +839,12 @@ function doMove(state: GameState, legionId: string, toHex: string): void {
     throw new Error('Cannot end on friendly legion')
   }
 
-  // T3: tower teleport reveals a lord
-  if (info.teleport && !legion.creatures.some((c) => {
-    const t = state.variant.creatures[c.type]
-    return t?.lord || t?.demilord
-  })) {
+  // T3: tower teleport reveals a Lord (not a demilord)
+  if (info.teleport && !legion.creatures.some((c) => state.variant.creatures[c.type]?.lord)) {
     throw new Error('Tower teleport requires a revealed Lord')
   }
   if (info.teleport) {
-    const lord = legion.creatures.find((c) => {
-      const t = state.variant.creatures[c.type]
-      return t?.lord || t?.demilord
-    })
+    const lord = legion.creatures.find((c) => state.variant.creatures[c.type]?.lord)
     if (lord) {
       revealCreatures(legion, [lord.type])
       state.log.push(`${legion.markerId} reveals ${lord.type} for teleport`)
@@ -1362,7 +1368,7 @@ function handleBattleCommand(state: GameState, command: GameCommand, rng: () => 
     }
     case 'battleSkipReinforce': {
       if (battle.phase !== 'Recruit') throw new Error('Not reinforce phase')
-      battle.defenderReinforced = true
+      // Decline mid-battle — post-battle reinforce remains available (Titan errata)
       battle.phase = 'Move'
       break
     }
@@ -1447,7 +1453,50 @@ function finishBattle(state: GameState): void {
         : 'Battle over — mutual destruction',
     )
   }
+
+  // Titan §14 / Colossus finishBattle: defending winner may reinforce after battle
+  // if they did not take one mid-battle and the attacker committed.
+  // Colossus skips summon/reinforce when the game is already over (e.g. Titan kill).
+  if (!state.winnerId && !state.draw && shouldOfferPostBattleReinforce(state, battle)) {
+    const defender = state.legions.find((l) => l.id === battle.defenderLegionId)!
+    state.pendingPostBattleReinforce = { legionId: defender.id }
+    state.battle = null
+    state.message = `${defender.markerId}: muster a reinforcement from the battle, or skip`
+    return
+  }
+
   state.battle = null
+  continueAfterEngagement(state)
+}
+
+function handlePostBattleReinforceCommand(state: GameState, command: GameCommand): void {
+  const pending = state.pendingPostBattleReinforce
+  if (!pending) throw new Error('No post-battle reinforce pending')
+  const legion = state.legions.find((l) => l.id === pending.legionId)
+  if (!legion) throw new Error('Defender legion gone')
+
+  if (command.type === 'postBattleReinforce') {
+    const opts = listPostBattleReinforceOptions(state, legion.id)
+    if (!opts.includes(command.creatureType)) throw new Error('Illegal reinforcement')
+    if ((state.caretaker[command.creatureType] ?? 0) <= 0) throw new Error('Caretaker empty')
+    if (legion.creatures.length >= 7) throw new Error('Legion full')
+    state.caretaker[command.creatureType] -= 1
+    legion.creatures.push({ type: command.creatureType, hits: 0 })
+    revealCreatures(legion, [command.creatureType])
+    state.log.push(`${legion.markerId} recruits ${command.creatureType} after battle`)
+  } else if (command.type === 'postBattleSkipReinforce') {
+    state.log.push(`${legion.markerId} declines post-battle reinforcement`)
+  } else {
+    state.message = 'Choose a post-battle reinforcement or skip'
+    return
+  }
+
+  state.pendingPostBattleReinforce = null
+  continueAfterEngagement(state)
+}
+
+/** Resume Fight/Muster after an engagement (and optional post-battle reinforce) finishes. */
+function continueAfterEngagement(state: GameState): void {
   if (state.winnerId || state.draw) return
   if (activePlayer(state).dead) {
     advanceToNextLivingPlayer(state)
