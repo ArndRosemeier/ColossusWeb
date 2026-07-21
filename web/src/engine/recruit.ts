@@ -153,16 +153,159 @@ export function listRecruitOptionsAt(
   return listRecruits(state, phantom)
 }
 
-/** Strongest eligible recruit for a legion on its current hex (Muster phase). */
-export function bestRecruit(state: GameState, legion: Legion): string | null {
-  const options = listRecruits(state, legion)
+/** Tie-breaker only — fly / rangestrike matter, but development dominates. */
+const MUSTER_FLY_BONUS = 1
+const MUSTER_RANGESTRIKE_BONUS = 1
+const MUSTER_MAGIC_MISSILE_BONUS = 1
+/** How strongly future unlocks (e.g. 3 Cyclops → Behemoth) outweigh immediate PV. */
+const MUSTER_DEVELOPMENT_WEIGHT = 1.35
+
+/**
+ * Primary upgrade edges only (consecutive Ter.xml steps), not regularRecruit
+ * “recruit any earlier / self” edges — those point down the tree and must not
+ * look like progress toward apex units.
+ */
+export function buildPrimaryRecruitEdges(terrain: TerrainDef): RecruitEdge[] {
+  const rl = terrain.recruits
+  const edges: RecruitEdge[] = []
+  let prev: string | null = null
+  for (const tr of rl) {
+    const name = tr.name
+    if (name && name !== 'Titan' && isConcreteCreature(name) && tr.number > 0) {
+      if (prev != null && isConcreteCreature(prev) && prev !== 'Titan') {
+        edges.push({ from: prev, to: name, number: tr.number })
+      }
+      prev = name
+    } else {
+      // Wildcards / Titan / zero-number tower steps break the upgrade chain
+      prev = isConcreteCreature(name) && name !== 'Titan' ? name : null
+    }
+  }
+  return edges
+}
+
+type DevelopmentEdge = {
+  recruiter: string
+  recruit: string
+  needed: number
+}
+
+const developmentEdgeCache = new WeakMap<object, DevelopmentEdge[]>()
+
+/**
+ * Concrete recruiter→recruit upgrade edges across every terrain (variant-agnostic).
+ */
+export function listDevelopmentEdges(state: GameState): DevelopmentEdge[] {
+  const terrains = state.variant.terrains as object
+  const cached = developmentEdgeCache.get(terrains)
+  if (cached) return cached
+
+  const creatures = state.variant.creatures
+  const edges: DevelopmentEdge[] = []
+  const seen = new Set<string>()
+  for (const terrain of Object.values(state.variant.terrains)) {
+    for (const e of buildPrimaryRecruitEdges(terrain)) {
+      if (!creatures[e.from] || !creatures[e.to]) continue
+      const key = `${e.from}>${e.to}:${e.number}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      edges.push({ recruiter: e.from, recruit: e.to, needed: e.number })
+    }
+  }
+  developmentEdgeCache.set(terrains, edges)
+  return edges
+}
+
+/** Immediate combat / tactics value of adding this creature type. */
+export function intrinsicMusterValue(state: GameState, creatureType: string): number {
+  const def = state.variant.creatures[creatureType]
+  if (!def) return 0
+  let score = def.power * def.skill
+  if (def.flies) score += MUSTER_FLY_BONUS
+  if (def.rangestrikes) score += MUSTER_RANGESTRIKE_BONUS
+  if (def.magicMissile) score += MUSTER_MAGIC_MISSILE_BONUS
+  return score
+}
+
+function countByType(legion: Legion): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const c of legion.creatures) {
+    counts[c.type] = (counts[c.type] ?? 0) + 1
+  }
+  return counts
+}
+
+/**
+ * How far this composition is toward unlocking higher-tier musters on any terrain.
+ * Only upward primary edges count (recruit stronger than recruiter). Progress is
+ * squared so finishing the last recruiter (2/3 → 3/3) jumps more than starting
+ * a new low-tier stack (0 → 1/3).
+ *
+ * `minTargetExclusive`: ignore unlocks that are not strictly stronger than this
+ * (used so a Marsh stack of Trolls does not prefer recruiting an Ogre just to
+ * dabble toward Minotaurs).
+ */
+export function compositionDevelopmentValue(
+  state: GameState,
+  counts: Record<string, number>,
+  minTargetExclusive = 0,
+): number {
+  let total = 0
+  for (const e of listDevelopmentEdges(state)) {
+    const have = counts[e.recruiter] ?? 0
+    if (have <= 0) continue
+    const fromVal = intrinsicMusterValue(state, e.recruiter)
+    const toVal = intrinsicMusterValue(state, e.recruit)
+    if (toVal <= fromVal) continue
+    if (toVal <= minTargetExclusive) continue
+    const progress = Math.min(have / e.needed, 1)
+    total += toVal * progress * progress
+  }
+  return total
+}
+
+/**
+ * Rank a legal muster option for AI / Enter auto-pick / move previews.
+ * Immediate ability-aware value + how much the new composition advances toward
+ * the biggest units elsewhere in the variant's recruit graphs.
+ */
+export function scoreRecruitOption(
+  state: GameState,
+  creatureType: string,
+  _hexLabel: string,
+  legion: Legion,
+): number {
+  if (!state.variant.creatures[creatureType]) return -1
+  const beforeCounts = countByType(legion)
+  const afterCounts = { ...beforeCounts }
+  afterCounts[creatureType] = (afterCounts[creatureType] ?? 0) + 1
+
+  let maxOwned = 0
+  for (const type of Object.keys(beforeCounts)) {
+    maxOwned = Math.max(maxOwned, intrinsicMusterValue(state, type))
+  }
+
+  const developmentDelta =
+    compositionDevelopmentValue(state, afterCounts, maxOwned) -
+    compositionDevelopmentValue(state, beforeCounts, maxOwned)
+  return (
+    intrinsicMusterValue(state, creatureType) +
+    MUSTER_DEVELOPMENT_WEIGHT * developmentDelta
+  )
+}
+
+function pickBestRecruitName(
+  state: GameState,
+  legion: Legion,
+  hexLabel: string,
+  options: string[],
+): string | null {
   if (options.length === 0) return null
   let best = options[0]!
-  let bestRank = -1
+  let bestRank = -Infinity
   for (const name of options) {
-    const t = state.variant.creatures[name]
-    const rank = (t?.power ?? 0) * (t?.skill ?? 0)
-    if (rank >= bestRank) {
+    const rank = scoreRecruitOption(state, name, hexLabel, legion)
+    if (rank > bestRank) {
       bestRank = rank
       best = name
     }
@@ -170,25 +313,23 @@ export function bestRecruit(state: GameState, legion: Legion): string | null {
   return best
 }
 
-/** Strongest eligible recruit at a destination (by power × skill). */
+/** Best eligible recruit for a legion on its current hex (Muster phase). */
+export function bestRecruit(state: GameState, legion: Legion): string | null {
+  return pickBestRecruitName(state, legion, legion.hexLabel, listRecruits(state, legion))
+}
+
+/** Best eligible recruit at a destination (ability-aware + development). */
 export function bestRecruitAt(
   state: GameState,
   legion: Legion,
   hexLabel: string,
 ): string | null {
-  const options = listRecruitOptionsAt(state, legion, hexLabel)
-  if (options.length === 0) return null
-  let best = options[0]!
-  let bestRank = -1
-  for (const name of options) {
-    const t = state.variant.creatures[name]
-    const rank = (t?.power ?? 0) * (t?.skill ?? 0)
-    if (rank >= bestRank) {
-      bestRank = rank
-      best = name
-    }
-  }
-  return best
+  return pickBestRecruitName(
+    state,
+    legion,
+    hexLabel,
+    listRecruitOptionsAt(state, legion, hexLabel),
+  )
 }
 
 export function applyRecruit(state: GameState, legionId: string, creatureType: string): void {

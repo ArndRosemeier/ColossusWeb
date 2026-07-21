@@ -106,7 +106,10 @@ export function markerPlainColor(markerId: string): string {
 }
 
 export function hazardImageUrl(hazardName: string): string {
-  return pickExisting(`${hazardName}_Hazard.gif`, 'Unknown.gif')
+  const name = `${hazardName}_Hazard.gif`
+  if (hasFile(name)) return `${base}/${encodeURIComponent(name)}`
+  // No Tower_Hazard (etc.) — leave fill color visible; never Unknown/?
+  return ''
 }
 
 export const CREATURE_COLORS: Record<string, string> = {

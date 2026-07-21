@@ -11,7 +11,7 @@ import { bestRecruit } from '../engine/recruit'
 import type { GameCommand, GameState } from '../engine/types'
 import { CreatureChit } from './CreatureChit'
 
-/** Split picker — toggle creatures to send into the new legion. */
+/** Split picker — click a chit to move it between parent and new legion. */
 export function SplitForm({
   state,
   creatures,
@@ -25,50 +25,82 @@ export function SplitForm({
   turn1?: boolean
   compact?: boolean
 }) {
-  const [picked, setPicked] = useState<number[]>([])
+  /** Indices currently in the new (child) legion; the rest stay on the parent. */
+  const [childIdx, setChildIdx] = useState<number[]>([])
   const toggle = (i: number) => {
-    setPicked((prev) => (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]))
+    setChildIdx((prev) => (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]))
   }
   const player = activePlayer(state)
-  const selectedTypes = picked.map((i) => creatures[i]!)
-  const childLords = selectedTypes.filter((t) => state.variant.creatures[t]?.lord).length
+  const childTypes = childIdx.map((i) => creatures[i]!)
+  const childLords = childTypes.filter((t) => state.variant.creatures[t]?.lord).length
+  const parentCount = creatures.length - childIdx.length
   const legal = turn1
-    ? picked.length === 4 && childLords === 1
-    : picked.length >= 2 && creatures.length - picked.length >= 2
+    ? childIdx.length === 4 && childLords === 1
+    : childIdx.length >= 2 && parentCount >= 2
   const chitSize = compact ? 40 : 48
+
+  const renderChit = (i: number) => {
+    const c = creatures[i]!
+    const t = state.variant.creatures[c]
+    const power = c === 'Titan' ? player.titanPower : (t?.power ?? 1)
+    const inChild = childIdx.includes(i)
+    return (
+      <button
+        key={i}
+        type="button"
+        className={inChild ? 'chip-chit on' : 'chip-chit'}
+        onClick={() => toggle(i)}
+        title={inChild ? `Move ${c} back to parent` : `Move ${c} to new legion`}
+      >
+        <CreatureChit
+          creature={c}
+          power={power}
+          skill={t?.skill ?? 2}
+          baseColor={t?.baseColor}
+          size={chitSize}
+        />
+      </button>
+    )
+  }
+
+  const parentIndices = creatures.map((_, i) => i).filter((i) => !childIdx.includes(i))
 
   return (
     <div className={`split-form${compact ? ' compact' : ''}`}>
-      <div className="split-form-chits">
-        {creatures.map((c, i) => {
-          const t = state.variant.creatures[c]
-          const power = c === 'Titan' ? player.titanPower : (t?.power ?? 1)
-          return (
-            <button
-              key={i}
-              type="button"
-              className={picked.includes(i) ? 'chip-chit on' : 'chip-chit'}
-              onClick={() => toggle(i)}
-              title={picked.includes(i) ? `Keep ${c} in parent` : `Split off ${c}`}
-            >
-              <CreatureChit
-                creature={c}
-                power={power}
-                skill={t?.skill ?? 2}
-                baseColor={t?.baseColor}
-                size={chitSize}
-              />
-            </button>
-          )
-        })}
+      <div className="split-form-columns">
+        <div className="split-form-pile">
+          <div className="split-form-pile-label">Stay ({parentCount})</div>
+          <div className="split-form-chits">
+            {parentIndices.length > 0 ? (
+              parentIndices.map(renderChit)
+            ) : (
+              <span className="split-form-empty">Click a chit below to move it back</span>
+            )}
+          </div>
+        </div>
+        <div className="split-form-pile split-form-pile-child">
+          <div className="split-form-pile-label">New legion ({childIdx.length})</div>
+          <div className="split-form-chits">
+            {childIdx.length > 0 ? (
+              childIdx.map(renderChit)
+            ) : (
+              <span className="split-form-empty">Click a chit above to split it off</span>
+            )}
+          </div>
+        </div>
       </div>
       <p className="split-form-hint">
         {turn1
-          ? 'Pick 4 with exactly one Lord'
-          : `Split off ${picked.length || '…'} · keep ${creatures.length - picked.length}`}
+          ? 'Click chits to build a 4:4 split (exactly one Lord each side)'
+          : 'Click a chit to move it between stacks · each side needs at least 2'}
       </p>
-      <button type="button" className="primary" disabled={!legal} onClick={() => onSplit(selectedTypes)}>
-        {turn1 ? 'Split 4:4' : 'Split off selected'}
+      <button
+        type="button"
+        className="primary"
+        disabled={!legal}
+        onClick={() => onSplit(childTypes)}
+      >
+        {turn1 ? 'Confirm 4:4 split' : 'Confirm split'}
       </button>
     </div>
   )

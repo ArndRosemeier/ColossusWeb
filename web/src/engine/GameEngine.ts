@@ -473,6 +473,10 @@ function commitPendingDice(state: GameState, rng: () => number, forced?: number[
       hits: result.hits,
       label: pending.label,
       playerId: pending.playerId,
+      strike: {
+        attackerId: pending.strike.attackerId,
+        defenderId: pending.strike.defenderId,
+      },
     })
     battle.selectedUnitId = null
     battle.highlighted = []
@@ -1282,6 +1286,10 @@ function handleBattleCommand(state: GameState, command: GameCommand, rng: () => 
           hits: result.hits,
           label: `${result.attackerType} vs ${result.defenderType}`,
           playerId: battle.activePlayerId,
+          strike: {
+            attackerId: command.attackerId,
+            defenderId: command.defenderId,
+          },
         })
       }
       battle.selectedUnitId = null
@@ -1462,8 +1470,10 @@ export function getLegalRecruits(state: GameState, legionId: string): string[] {
 }
 
 export function getMovesForSelected(state: GameState): Map<string, { side: string; teleport: boolean }> {
-  if (!state.selectedLegionId || state.movementRoll == null) return new Map()
+  if (state.phase !== 'Move' || !state.selectedLegionId || state.movementRoll == null) {
+    return new Map()
+  }
   const legion = state.legions.find((l) => l.id === state.selectedLegionId)
-  if (!legion) return new Map()
+  if (!legion || legion.playerId !== activePlayer(state).id) return new Map()
   return listAllMoves(state, legion, state.movementRoll)
 }

@@ -159,6 +159,18 @@ export function legalBattleMoves(
     battle.units.filter((u) => u.id !== unit.id && isUnitAlive(state, u) && u.hex).map((u) => u.hex!),
   )
 
+  // Colossus: turn-1 defender on hasStartList terrain places onto free startlist hexes only
+  // (Tower pre-deploys; Abyss uses this path).
+  if (
+    land.hasStartList &&
+    !land.tower &&
+    battle.turn === 1 &&
+    unit.legionId === battle.defenderLegionId &&
+    battle.activeHalf === 'defender'
+  ) {
+    return land.startlist.filter((label) => !occupied.has(label))
+  }
+
   const skill = getUnitSkill(state, unit)
 
   if (!unit.hex) {

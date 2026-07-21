@@ -73,6 +73,12 @@ export function GameControls({
             {state.movementRoll != null ? ` · roll ${state.movementRoll}` : ''}
             {player.kind === 'ai' ? ' · AI' : ''}
           </span>
+          <span className="player-score-chip" title="Score / Titan power">
+            {player.score}
+            <span className="muted"> pts</span>
+            <span className="score-chip-sep">·</span>
+            T{player.titanPower}
+          </span>
         </div>
         <p className="message">{state.message}</p>
         {!interactive && player.kind === 'ai' && (
@@ -93,6 +99,31 @@ export function GameControls({
             )}
           </p>
         )}
+      </div>
+
+      <div className="scores">
+        <h3>Scores</h3>
+        {state.players.map((p) => (
+          <div
+            key={p.id}
+            className={['score-row', p.id === player.id ? 'active' : '', p.dead ? 'dead' : '']
+              .filter(Boolean)
+              .join(' ')}
+          >
+            <span className="swatch" style={{ background: p.color.css }} />
+            <span className="score-name">
+              {p.name}
+              {p.kind === 'ai'
+                ? ` (${p.aiProfileId ? AI_PROFILES[p.aiProfileId].label : 'AI'})`
+                : ''}
+              {p.dead ? ' ✝' : ''}
+            </span>
+            <span className="score-pts">{p.score}</span>
+            <span className="score-titan muted" title="Titan power">
+              T{p.titanPower}
+            </span>
+          </div>
+        ))}
       </div>
 
       {showSelected && selected && (
@@ -159,7 +190,7 @@ export function GameControls({
                   ? 'Turn 1: click your legion, pick 4 with one Lord on the board overlay.'
                   : player.markersAvailable.length === 0
                     ? 'No free legion markers (12-legion limit). You cannot split until a legion is eliminated.'
-                    : 'Click a legion on the board to split beside it. Undo split from the selected legion.'}
+                    : 'Click a legion to open the split board — click chits to move them between stacks.'}
               </p>
               {endCmd && (
                 <button type="button" className="primary" onClick={() => dispatch(endCmd)}>
@@ -355,21 +386,6 @@ export function GameControls({
           })}
         </div>
       )}
-
-      <div className="scores">
-        <h3>Scores</h3>
-        {state.players.map((p) => (
-          <div key={p.id} className="score-row">
-            <span className="swatch" style={{ background: p.color.css }} />
-            {p.name}{' '}
-            {p.kind === 'ai'
-              ? `(${p.aiProfileId ? AI_PROFILES[p.aiProfileId].label : 'AI'})`
-              : ''}{' '}
-            — {p.score}
-            {p.dead ? ' ✝' : ''}
-          </div>
-        ))}
-      </div>
 
       <div className="log">
         <h3>Log</h3>

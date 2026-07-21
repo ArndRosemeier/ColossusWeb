@@ -4,6 +4,7 @@ import {
   listBattleReinforceOptions,
   listBattleSummonSources,
 } from '../engine/battle'
+import { scoreRecruitOption } from '../engine/recruit'
 import type { GameCommand, GameState, Legion } from '../engine/types'
 import { profileFor, type AiProfile } from './profiles'
 import { aiDefenderShouldFlee, engagementNeedsHumanInput } from './engagementDecision'
@@ -158,13 +159,11 @@ function pickMuster(state: GameState, profile: AiProfile, rng: () => number): Ga
   const legs = playerLegions(state, state.players[state.activePlayerIndex].id)
   if (profile.musterGreed >= 0.99) {
     let best: GameCommand | null = null
-    let bestRank = -1
+    let bestRank = -Infinity
     for (const leg of legs) {
       const recruits = getLegalRecruits(state, leg.id)
       for (const r of recruits) {
-        const power = state.variant.creatures[r]?.power ?? 0
-        const skill = state.variant.creatures[r]?.skill ?? 0
-        const rank = power * skill
+        const rank = scoreRecruitOption(state, r, leg.hexLabel, leg)
         if (rank > bestRank) {
           bestRank = rank
           best = { type: 'recruit', legionId: leg.id, creatureType: r }
@@ -182,13 +181,13 @@ function pickMuster(state: GameState, profile: AiProfile, rng: () => number): Ga
   }
   if (options.length === 0) return { type: 'doneMuster' }
   if (rng() < profile.musterGreed) {
-    let best = options[0]
-    let bestRank = -1
+    let best = options[0]!
+    let bestRank = -Infinity
     for (const cmd of options) {
       if (cmd.type !== 'recruit') continue
-      const power = state.variant.creatures[cmd.creatureType]?.power ?? 0
-      const skill = state.variant.creatures[cmd.creatureType]?.skill ?? 0
-      const rank = power * skill
+      const leg = state.legions.find((l) => l.id === cmd.legionId)
+      if (!leg) continue
+      const rank = scoreRecruitOption(state, cmd.creatureType, leg.hexLabel, leg)
       if (rank > bestRank) {
         bestRank = rank
         best = cmd
@@ -196,7 +195,7 @@ function pickMuster(state: GameState, profile: AiProfile, rng: () => number): Ga
     }
     return best
   }
-  return options[Math.floor(rng() * options.length)]
+  return options[Math.floor(rng() * options.length)]!
 }
 
 function pickBattleReinforce(state: GameState, profile: AiProfile, rng: () => number): GameCommand {

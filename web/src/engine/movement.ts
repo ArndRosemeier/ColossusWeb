@@ -23,9 +23,15 @@ function findBlock(hex: MasterHex): number {
   return block
 }
 
-function findEntrySide(hex: MasterHex, cameFrom: number): EntrySide {
+function terrainHasStartList(state: GameState, terrain: string): boolean {
+  const bl = state.variant.data.battlelands[terrain]
+  return Boolean(bl?.startlist?.length)
+}
+
+function findEntrySide(state: GameState, hex: MasterHex, cameFrom: number): EntrySide {
   if (cameFrom === -1) return 'Bottom'
-  if (hex.terrain === 'Tower') return 'Bottom'
+  // Colossus: any hasStartList land (Tower + Abyss) forces Bottom entry
+  if (terrainHasStartList(state, hex.terrain)) return 'Bottom'
   const entrySide = (6 + cameFrom - hex.labelSide) % 6
   // Map hexside to Left/Right/Bottom like Colossus EntrySide
   if (entrySide === 1 || entrySide === 2) return 'Right'
@@ -65,7 +71,7 @@ function findNormalMoves(
   if (enemies.length > 0 && cameFrom !== NOWHERE) {
     const friends = friendlyLegionsOn(state, hexLabel, legion.playerId)
     if (friends.length === 0) {
-      result.add(`${hexLabel}:${findEntrySide(hex, cameFrom)}`)
+      result.add(`${hexLabel}:${findEntrySide(state, hex, cameFrom)}`)
     }
     return result
   }
@@ -76,7 +82,7 @@ function findNormalMoves(
     )
     if (friends.length > 0) return result
     if (cameFrom !== NOWHERE) {
-      result.add(`${hexLabel}:${findEntrySide(hex, cameFrom)}`)
+      result.add(`${hexLabel}:${findEntrySide(state, hex, cameFrom)}`)
     }
     return result
   }

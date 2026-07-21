@@ -162,6 +162,11 @@ export interface DiceRollDisplay {
   label: string
   /** Player whose seat the throw came from. */
   playerId: string
+  /** Battle units for the strike arrow overlay (strike rolls only). */
+  strike?: {
+    attackerId: string
+    defenderId: string
+  }
 }
 
 /**

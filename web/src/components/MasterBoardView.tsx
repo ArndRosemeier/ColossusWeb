@@ -193,7 +193,9 @@ export function MasterBoardView({
     : null
   const player = activePlayer(state)
   const moveInfo =
-    state.phase === 'Move' && selected ? getMovesForSelected(state) : new Map()
+    state.phase === 'Move' && selected && selected.playerId === player.id
+      ? getMovesForSelected(state)
+      : new Map()
   const legalLabels = [...moveInfo.keys()]
 
   let maxX = 0

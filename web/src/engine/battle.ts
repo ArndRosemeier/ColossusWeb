@@ -94,7 +94,7 @@ export function startBattle(
   const terrain = hex?.terrain ?? 'Plains'
   const def = state.variant.data.battlelands[terrain] ?? state.variant.data.battlelands.Plains
   const land = buildBattleland(def)
-  const atkSide = attacker.enteredFrom ?? 'Bottom'
+  const atkSide = land.hasStartList ? 'Bottom' : (attacker.enteredFrom ?? 'Bottom')
   const defSide = oppositeSide(atkSide)
   const atkEntrances = land.entrances[atkSide]
   const defEntrances = land.entrances[defSide]
@@ -115,10 +115,13 @@ export function startBattle(
     })
   }
   for (const c of defender.creatures) {
-    // Tower: defender deploys on startlist
+    // Real Tower (isTower): defender pre-deploys on startlist and skips first maneuver.
+    // Abyss (hasStartList, !tower): off-board; turn-1 moves are startlist-only.
     const startHex =
-      land.tower && land.startlist.length
-        ? land.startlist[units.filter((u) => u.legionId === defender.id).length % land.startlist.length]
+      land.tower && land.hasStartList
+        ? land.startlist[
+            units.filter((u) => u.legionId === defender.id).length % land.startlist.length
+          ]!
         : null
     units.push({
       id: `bu-${uid++}`,
@@ -126,10 +129,10 @@ export function startBattle(
       playerId: defender.playerId,
       creatureType: c.type,
       hits: c.hits,
-      hex: land.tower ? startHex : null,
+      hex: startHex,
       struck: false,
       moved: false,
-      moveOriginHex: land.tower ? startHex : null,
+      moveOriginHex: startHex,
     })
   }
 
@@ -140,7 +143,7 @@ export function startBattle(
     terrain,
     activePlayerId: defenderFirst ? defender.playerId : attacker.playerId,
     activeHalf: defenderFirst ? 'defender' : 'attacker',
-    phase: land.tower ? 'Move' : 'Move',
+    phase: 'Move',
     units,
     fallen: [],
     turn: 1,

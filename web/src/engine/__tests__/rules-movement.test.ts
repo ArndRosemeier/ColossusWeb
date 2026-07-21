@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dispatch } from '../GameEngine'
+import { dispatch, getMovesForSelected } from '../GameEngine'
 import { listAllMoves, listNormalMoveHexes } from '../movement'
 import { twoPlayerGame, turn1SplitChild } from './helpers'
 import type { GameState } from '../types'
@@ -42,6 +42,15 @@ describe('rules-movement', () => {
     const again = dispatch(g, { type: 'move', legionId: mover.id, toHex: dest })
     expect(again.message).toMatch(/Already moved/i)
     expect(again.legions.find((l) => l.id === mover.id)!.hexLabel).toBe(dest)
+  })
+
+  it('selecting an enemy legion does not show move hints for your roll', () => {
+    let g = splitAndRoll(11)
+    const enemy = g.legions.find((l) => l.playerId === g.players[1].id)!
+    g = dispatch(g, { type: 'selectLegion', legionId: enemy.id })
+    expect(g.legalHexes).toEqual([])
+    expect(getMovesForSelected(g).size).toBe(0)
+    expect(g.message).toMatch(enemy.markerId)
   })
 
   it('M3/M4: destinations are exactly roll steps away or engagement stops; never friendly end hex', () => {

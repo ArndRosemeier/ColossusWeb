@@ -74,7 +74,13 @@ export interface BuiltBattleHex {
 
 export interface BuiltBattleland {
   terrain: string
+  /** Real Tower: attacker maneuvers first; defender pre-deploys on startlist. */
   tower: boolean
+  /**
+   * Colossus hasStartList — Tower and Abyss (anti-tower). Forces Bottom entry;
+   * turn-1 defender placement limited to startlist hexes when not pre-deployed.
+   */
+  hasStartList: boolean
   hexByLabel: Record<string, BuiltBattleHex>
   labels: string[]
   startlist: string[]
@@ -183,14 +189,12 @@ export function buildBattleland(def: BattlelandDef): BuiltBattleland {
   return {
     terrain: def.terrain,
     tower: def.tower,
+    hasStartList: def.startlist.length > 0,
     hexByLabel,
     labels: Object.keys(hexByLabel),
-    startlist: def.startlist.length
-      ? def.startlist
-      : Object.values(hexByLabel)
-          .filter((h) => h.terrain === 'Tower' || h.elevation > 0)
-          .map((h) => h.label)
-          .slice(0, 7),
+    // Only explicit battleland startlists (do not invent from elevated hexes —
+    // that wrongly tags Abyss rim / Hills as startlist terrain).
+    startlist: [...def.startlist],
     entrances,
   }
 }
