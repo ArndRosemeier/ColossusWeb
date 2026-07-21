@@ -12,7 +12,7 @@ export interface AiProfile {
   id: ResolvedAiProfileId
   label: string
   blurb: string
-  /** Chance to optionally split a 5+ legion mid-game */
+  /** Chance to optionally split mid-game stacks below height 7 (unused; AI always splits 7s). */
   splitChance: number
   /** Prefer leaving Titan on parent when splitting turn 1 (Angel goes to child) */
   preferAngelOnTurn1: number

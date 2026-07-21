@@ -481,9 +481,9 @@ export function BattleBoardView({
       (u) => !u.hex && isUnitAlive(state, u) && u.playerId === battle.activePlayerId,
     )
 
-  const strikePair =
-    state.pendingDice?.strike ??
-    (state.diceRoll?.context === 'strike' ? state.diceRoll.strike : undefined)
+  // Arrow only while dice are pending — settled strike results stay in the tray
+  // without pinning an arrow across later rangestrikes / the next half.
+  const strikePair = state.pendingDice?.strike
   const strikeAttacker = strikePair
     ? battle.units.find((u) => u.id === strikePair.attackerId)
     : undefined

@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { loadAssetManifest, markerImageUrl, markerPlainColor } from '../variant/assets'
+import { isDarkMarkerFill, loadAssetManifest, markerImageUrl, markerPlainColor } from '../variant/assets'
 
 interface MarkerChitProps {
   markerId: string
-  /** Override Colossus Plain color (defaults from marker prefix). */
+  /**
+   * Plain fill color. Prefer the owning player's color so captured markers
+   * (foreign marker ids) match the victor. Defaults to the marker-id prefix color.
+   */
   color?: string
   size?: number
   /** Legion height shown like Colossus Marker.showHeight */
@@ -13,8 +16,8 @@ interface MarkerChitProps {
 }
 
 /**
- * Colossus-style legion marker: Plain-{Color}Colossus fill + transparent symbol overlay.
- * Marker PNGs are palette+tRNS (black transparent); without the fill they look invisible.
+ * Colossus-style legion marker: Plain fill + transparent symbol overlay.
+ * Marker PNGs are palette+tRNS; without the fill they look invisible.
  */
 export function MarkerChit({
   markerId,
@@ -27,7 +30,7 @@ export function MarkerChit({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [failed, setFailed] = useState(false)
   const fill = color ?? markerPlainColor(markerId)
-  const dark = isDark(fill)
+  const dark = isDarkMarkerFill(fill)
 
   useEffect(() => {
     let cancelled = false
@@ -46,7 +49,7 @@ export function MarkerChit({
         ctx.fillStyle = fill
         ctx.fillRect(0, 0, size, size)
         ctx.drawImage(img, 0, 0, size, size)
-        // Black markers get a light border so they read on dark boards
+        // Dark fills get a light border so they read on dark boards
         ctx.strokeStyle = dark ? '#ffffff' : '#000000'
         ctx.lineWidth = Math.max(1, size / 28)
         ctx.strokeRect(0.5, 0.5, size - 1, size - 1)
@@ -103,13 +106,4 @@ export function MarkerChit({
       style={{ imageRendering: 'pixelated', width: size, height: size, verticalAlign: 'middle' }}
     />
   )
-}
-
-function isDark(css: string): boolean {
-  const hex = css.replace('#', '')
-  if (hex.length !== 6) return false
-  const r = parseInt(hex.slice(0, 2), 16)
-  const g = parseInt(hex.slice(2, 4), 16)
-  const b = parseInt(hex.slice(4, 6), 16)
-  return r + g + b < 200
 }

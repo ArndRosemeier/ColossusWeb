@@ -131,6 +131,7 @@ export function GameControls({
           <div className="selected-head">
             <MarkerChit
               markerId={selected.markerId}
+              color={state.players.find((p) => p.id === selected.playerId)?.color.css}
               size={36}
               height={selected.creatures.length}
             />
@@ -255,11 +256,21 @@ export function GameControls({
                     }
                   >
                     {a && (
-                      <MarkerChit markerId={a.markerId} size={28} height={a.creatures.length} />
+                      <MarkerChit
+                        markerId={a.markerId}
+                        color={state.players.find((p) => p.id === a.playerId)?.color.css}
+                        size={28}
+                        height={a.creatures.length}
+                      />
                     )}
                     <span>vs</span>
                     {d && (
-                      <MarkerChit markerId={d.markerId} size={28} height={d.creatures.length} />
+                      <MarkerChit
+                        markerId={d.markerId}
+                        color={state.players.find((p) => p.id === d.playerId)?.color.css}
+                        size={28}
+                        height={d.creatures.length}
+                      />
                     )}
                   </button>
                 )
@@ -356,6 +367,7 @@ export function GameControls({
                 <MarkerChit
                   className="legion-marker"
                   markerId={leg.markerId}
+                  color={owner.color.css}
                   size={32}
                   height={leg.creatures.length}
                 />

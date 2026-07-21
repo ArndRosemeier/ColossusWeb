@@ -15,6 +15,8 @@ export type MasterMoveAnim = {
   teleport: boolean
   durationMs: number
   markerId: string
+  /** Owning player's Plain fill (captured markers keep foreign glyphs). */
+  ownerColor: string
   count: number
 }
 
@@ -156,6 +158,7 @@ export function buildMoveAnim(
       forAi: opts.forAi,
     })
     if (durationMs <= 0) return null
+    const owner = state.players.find((p) => p.id === legion.playerId)
     return {
       board: 'master',
       pieceId: legion.id,
@@ -163,6 +166,7 @@ export function buildMoveAnim(
       teleport: info.teleport,
       durationMs,
       markerId: legion.markerId,
+      ownerColor: owner?.color.css ?? '#666666',
       count: legion.creatures.length,
     }
   }

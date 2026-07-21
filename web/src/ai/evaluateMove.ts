@@ -1,5 +1,6 @@
 import { bestRecruitAt } from '../engine/recruit'
-import { listAllMoves, listNormalMoveHexes } from '../engine/movement'
+import { listAllMoves } from '../engine/movement'
+import type { GateType, MasterHex } from '../types/variant'
 import type { GameCommand, GameState, Legion } from '../engine/types'
 import type { AiProfile } from './profiles'
 import {
@@ -11,6 +12,13 @@ import {
 } from './battleEstimate'
 import { creatureCombatValue } from './legionStrength'
 
+/** Per legal first-step exit when starting a move from the destination (tiebreaker). */
+const MOBILITY_PER_EXIT = 0.25
+/** Per other friendly legion within 1 hex (tiebreaker). */
+const FRIEND_ADJACENT = 0.4
+/** Per other friendly legion at distance 2 (tiebreaker). */
+const FRIEND_NEAR = 0.15
+
 export type ScoredMove = {
   legionId: string
   hex: string
@@ -20,10 +28,69 @@ export type ScoredMove = {
   forcedSplit: boolean
 }
 
+function isOpenExit(t: GateType): boolean {
+  return t === 'ARCH' || t === 'ARROW' || t === 'ARROWS'
+}
+
+/**
+ * How many first-step directions a legion can take when starting a move from this hex.
+ * Matches Movement.findNormalMoves with cameFrom = nowhere: a BLOCK forces one exit;
+ * otherwise every ARCH+ side with a neighbor counts (towers typically 3).
+ */
+export function startExitCount(hex: MasterHex): number {
+  const blockSide = hex.exitType.findIndex((t) => t === 'BLOCK')
+  if (blockSide >= 0) return hex.neighbors[blockSide] ? 1 : 0
+  let n = 0
+  for (let i = 0; i < 6; i++) {
+    if (isOpenExit(hex.exitType[i]) && hex.neighbors[i]) n++
+  }
+  return n
+}
+
+/**
+ * Small positional extras: exit freedom + nearby friendly stacks.
+ * Kept tiny so fights / recruits still dominate.
+ */
+export function locationTiebreakScore(
+  state: GameState,
+  legion: Legion,
+  hexLabel: string,
+): number {
+  const board = state.variant.board
+  const hex = board.hexByLabel[hexLabel]
+  if (!hex) return 0
+
+  let score = startExitCount(hex) * MOBILITY_PER_EXIT
+
+  const visited = new Set<string>([hexLabel])
+  let frontier = [hexLabel]
+  for (let dist = 1; dist <= 2; dist++) {
+    const next: string[] = []
+    for (const cur of frontier) {
+      const h = board.hexByLabel[cur]
+      if (!h) continue
+      for (const n of h.neighbors) {
+        if (n == null || visited.has(n)) continue
+        visited.add(n)
+        next.push(n)
+        const friendsHere = state.legions.filter(
+          (l) => l.hexLabel === n && l.playerId === legion.playerId && l.id !== legion.id,
+        ).length
+        if (friendsHere > 0) {
+          score += friendsHere * (dist === 1 ? FRIEND_ADJACENT : FRIEND_NEAR)
+        }
+      }
+    }
+    frontier = next
+  }
+
+  return score
+}
+
 /**
  * Score moving `legion` onto `hex` (fight + recruit + light terrain preference).
  * Sitting still is the zero baseline — only moves with positive score are attractive.
- * By default (balanced/expander) muster value outweighs routine attacks.
+ * Walk and teleport destinations use the same scorer.
  */
 export function evaluateDestination(
   state: GameState,
@@ -34,24 +101,24 @@ export function evaluateDestination(
   let score = 0
   const playerId = legion.playerId
   const enemy = state.legions.find((l) => l.hexLabel === hex && l.playerId !== playerId)
+  const toTerrain = state.variant.board.hexByLabel[hex]?.terrain
 
   if (enemy) {
     score += scoreFight(state, legion, enemy, hex, profile)
-  } else {
-    // Empty hex: small preference to leave towers / expand
-    const terrain = state.variant.board.hexByLabel[hex]?.terrain
-    if (terrain && terrain !== 'Tower') score += 2
-    if (terrain === 'Tower' && state.variant.board.hexByLabel[legion.hexLabel]?.terrain === 'Tower') {
-      score -= 1
-    }
+  } else if (toTerrain && toTerrain !== 'Tower') {
+    // Empty non-tower: slight expansion preference
+    score += 2
   }
 
   // Muster value if this legion ends here (moved)
   const recruit = bestRecruitAt(state, legion, hex)
   if (recruit) {
-    const recruitVal = creatureCombatValue(state, recruit, hex)
-    score += Math.max(0, recruitVal) * profile.recruitPreference
+    // Location-aware combat value (home turf); bestRecruitAt picks which creature
+    const recruitVal = Math.max(0, creatureCombatValue(state, recruit, hex))
+    score += recruitVal * profile.recruitPreference
   }
+
+  score += locationTiebreakScore(state, legion, hex)
 
   return score
 }
@@ -119,12 +186,10 @@ export function rankMoves(state: GameState, profile: AiProfile): ScoredMove[] {
       state.legions.filter((l) => l.playerId === playerId && l.hexLabel === leg.hexLabel)
         .length > 1
     const moves = listAllMoves(state, leg, state.movementRoll)
-    const conventional = listNormalMoveHexes(state, leg, state.movementRoll)
     for (const [hex, info] of moves) {
       let score = evaluateDestination(state, leg, hex, profile)
-      if (info.teleport) score += 3
-      const forcedSplit = stacked && conventional.has(hex)
-      // Prefer separating co-located split stacks (Colossus forced split moves)
+      // Any legal leave from a shared hex separates co-located stacks (walk or teleport).
+      const forcedSplit = stacked && hex !== leg.hexLabel
       if (forcedSplit) score += 80
       scored.push({
         legionId: leg.id,

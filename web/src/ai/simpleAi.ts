@@ -15,6 +15,7 @@ import {
   pickBestCarry,
 } from './evaluateBattle'
 import { creatureCombatValue, findBestSummonable } from './legionStrength'
+import { chooseCreaturesToSplitOut } from './splitChoice'
 
 function actingPlayer(state: GameState) {
   if (state.battle && !state.battle.done) {
@@ -61,7 +62,14 @@ export function pickRandomCommand(state: GameState, rng = Math.random): GameComm
 
 function mustSplitLegions(state: GameState) {
   return playerLegions(state, state.players[state.activePlayerIndex].id).filter(
-    (l) => l.creatures.length > 7,
+    (l) => l.creatures.length > 7 && !l.splitThisTurn,
+  )
+}
+
+/** Height-7 stacks that can still muster after shedding 2 (Colossus always considers these). */
+function fullLegionsNeedingSplit(state: GameState) {
+  return playerLegions(state, state.players[state.activePlayerIndex].id).filter(
+    (l) => l.creatures.length === 7 && !l.splitThisTurn,
   )
 }
 
@@ -72,41 +80,41 @@ function pickSplit(state: GameState, profile: AiProfile, rng: () => number): Gam
     return { type: 'doneSplit' }
   }
 
-  const legs = playerLegions(state, player.id)
   const forced = mustSplitLegions(state)
 
   if (state.turnNumber === 1 && forced.length > 0) {
-    const parent = forced[0]
+    const parent = forced[0]!
     const child = pickTurn1SplitChild(state, parent, profile, rng)
     return { type: 'split', parentId: parent.id, childCreatures: child }
   }
 
-  const candidates = forced.length > 0 ? forced : legs.filter((l) => l.creatures.length >= 5)
-  const shouldSplit = forced.length > 0 || (candidates.length > 0 && rng() < profile.splitChance)
+  // Always split height >7; always split height 7 so stacks can keep mustering
+  // (Colossus SimpleAI.splitOneLegion — only skips when no marker / rare combat cases).
+  const full = fullLegionsNeedingSplit(state)
+  const candidates = forced.length > 0 ? forced : full
+  if (candidates.length === 0) {
+    return { type: 'doneSplit' }
+  }
 
-  if (shouldSplit && candidates.length > 0) {
-    const parent = candidates[Math.floor(rng() * candidates.length)]
-    const types = parent.creatures.map((c) => c.type)
-    const child: string[] = []
-    for (const t of types) {
-      if (t === 'Titan') continue
-      child.push(t)
-      if (child.length >= 2) break
-    }
-    if (child.length >= 2 && parent.creatures.length - child.length >= 2) {
-      return { type: 'split', parentId: parent.id, childCreatures: child }
-    }
+  const parent = [...candidates].sort((a, b) => b.creatures.length - a.creatures.length)[0]!
+  const child =
+    parent.creatures.length >= 8 && state.turnNumber === 1
+      ? pickTurn1SplitChild(state, parent, profile, rng)
+      : chooseCreaturesToSplitOut(state, parent)
+
+  if (child.length >= 2 && parent.creatures.length - child.length >= 2) {
+    return { type: 'split', parentId: parent.id, childCreatures: child }
   }
-  if (forced.length > 0) {
-    const parent = [...forced].sort((a, b) => b.creatures.length - a.creatures.length)[0]
-    const child = parent.creatures
-      .filter((c) => c.type !== 'Titan')
-      .slice(0, 2)
-      .map((c) => c.type)
-    if (child.length >= 2 && parent.creatures.length - child.length >= 2) {
-      return { type: 'split', parentId: parent.id, childCreatures: child }
-    }
+
+  // Fallback: any two non-Titans (should be rare)
+  const fallback = parent.creatures
+    .filter((c) => c.type !== 'Titan')
+    .slice(0, 2)
+    .map((c) => c.type)
+  if (fallback.length >= 2 && parent.creatures.length - fallback.length >= 2) {
+    return { type: 'split', parentId: parent.id, childCreatures: fallback }
   }
+
   return { type: 'doneSplit' }
 }
 

@@ -224,6 +224,7 @@ export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
             </select>
             <MarkerChit
               markerId={`${PLAYER_COLORS.find((c) => c.id === row.colorId)?.shortName ?? 'Rd'}01`}
+              color={PLAYER_COLORS.find((c) => c.id === row.colorId)?.css}
               size={28}
             />
             {cappedRows.length > 2 && (

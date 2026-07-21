@@ -105,6 +105,16 @@ export function markerPlainColor(markerId: string): string {
   return known[short] ?? '#666666'
 }
 
+/** True when a marker fill needs a light border (e.g. Black / dark Blue). */
+export function isDarkMarkerFill(css: string): boolean {
+  const hex = css.replace('#', '')
+  if (hex.length !== 6) return false
+  const r = parseInt(hex.slice(0, 2), 16)
+  const g = parseInt(hex.slice(2, 4), 16)
+  const b = parseInt(hex.slice(4, 6), 16)
+  return r + g + b < 200
+}
+
 export function hazardImageUrl(hazardName: string): string {
   const name = `${hazardName}_Hazard.gif`
   if (hasFile(name)) return `${base}/${encodeURIComponent(name)}`

@@ -262,7 +262,12 @@ function LegionContents({
   return (
     <div className={`engagement-legion engagement-legion--${tone}`}>
       <div className="selected-head">
-        <MarkerChit markerId={legion.markerId} size={36} height={legion.creatures.length} />
+        <MarkerChit
+          markerId={legion.markerId}
+          color={owner.color.css}
+          size={36}
+          height={legion.creatures.length}
+        />
         <div>
           <strong>{legion.markerId}</strong>
           <div className="muted">@{legion.hexLabel}</div>

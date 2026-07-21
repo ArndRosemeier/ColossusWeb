@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { estimateBattleOutcome } from '../battleEstimate'
-import { evaluateDestination, rankMoves } from '../evaluateMove'
+import {
+  evaluateDestination,
+  locationTiebreakScore,
+  rankMoves,
+  startExitCount,
+} from '../evaluateMove'
 import { AI_PROFILES } from '../profiles'
 import { twoPlayerGame } from '../../engine/__tests__/helpers'
 import type { Legion } from '../../engine/types'
@@ -193,5 +198,52 @@ describe('evaluateDestination', () => {
     const aggAttack = evaluateDestination(g, legion, woods, AI_PROFILES.aggressive)
     const balAttack = evaluateDestination(g, legion, woods, AI_PROFILES.balanced)
     expect(aggAttack).toBeGreaterThan(balAttack)
+  })
+
+  it('prefers a high-exit tower over a one-exit land hex as a pure location tiebreak', () => {
+    const g = twoPlayerGame(1)
+    const tower = g.variant.board.towers[0]!
+    const oneExit = Object.values(g.variant.board.hexByLabel).find(
+      (h) => h.terrain !== 'Tower' && startExitCount(h) === 1,
+    )
+    expect(oneExit).toBeTruthy()
+    const legion = stubLegion({
+      id: 'mover',
+      playerId: g.players[0].id,
+      hexLabel: oneExit!.label,
+      creatures: [{ type: 'Centaur', hits: 0 }],
+    })
+    // Strip other stacks so proximity does not cloud mobility.
+    g.legions = [legion]
+    expect(startExitCount(g.variant.board.hexByLabel[tower]!)).toBeGreaterThan(1)
+    const towerLoc = locationTiebreakScore(g, legion, tower)
+    const landLoc = locationTiebreakScore(g, legion, oneExit!.label)
+    expect(towerLoc).toBeGreaterThan(landLoc)
+  })
+
+  it('gives a small bump when another owned legion is adjacent', () => {
+    const g = twoPlayerGame(1)
+    const plains = Object.values(g.variant.board.hexByLabel).find((h) => h.terrain === 'Plains')!
+    const adj = plains.neighbors.find((n): n is string => n != null)!
+    const mover = stubLegion({
+      id: 'mover',
+      playerId: g.players[0].id,
+      hexLabel: plains.label,
+      creatures: [{ type: 'Centaur', hits: 0 }],
+    })
+    const ally = stubLegion({
+      id: 'ally',
+      playerId: g.players[0].id,
+      markerId: 'Rd02',
+      hexLabel: adj,
+      creatures: [{ type: 'Ogre', hits: 0 }],
+    })
+    g.legions = [mover, ally]
+
+    const withFriend = locationTiebreakScore(g, mover, plains.label)
+    g.legions = [mover]
+    const alone = locationTiebreakScore(g, mover, plains.label)
+    expect(withFriend).toBeGreaterThan(alone)
+    expect(withFriend - alone).toBeLessThan(1)
   })
 })

@@ -3,8 +3,8 @@ import type { BuiltBoard, MasterHex } from '../types/variant'
 import { TERRAIN_COLORS } from '../variant/buildBoard'
 import {
   creatureImageUrl,
+  isDarkMarkerFill,
   markerImageUrl,
-  markerPlainColor,
   terrainImageUrl,
 } from '../variant/assets'
 import { activePlayer, canUndoRecruit, getLegalRecruits, getMovesForSelected } from '../engine/GameEngine'
@@ -139,8 +139,8 @@ function MasterAnimOverlay({
           <rect
             width={markerSize}
             height={markerSize}
-            fill={markerPlainColor(anim.markerId)}
-            stroke={anim.markerId.startsWith('Bk') ? '#ffffff' : '#000000'}
+            fill={anim.ownerColor}
+            stroke={isDarkMarkerFill(anim.ownerColor) ? '#ffffff' : '#000000'}
             strokeWidth={1}
           />
           <SafeSvgImage
@@ -434,6 +434,8 @@ export function MasterBoardView({
             const y = cy + 1.85 * SQRT3 * scale - markerSize / 2
             const musterChit = markerSize * 0.78
             const pendingMusterChit = markerSize * 0.5
+            const owner = state.players.find((p) => p.id === leg.playerId)
+            const fill = owner?.color.css ?? '#666666'
             const pendingCreature =
               state.phase === 'Muster' && leg.playerId === player.id && !leg.recruited
                 ? bestRecruit(state, leg)
@@ -468,8 +470,8 @@ export function MasterBoardView({
                   y={y}
                   width={markerSize}
                   height={markerSize}
-                  fill={markerPlainColor(leg.markerId)}
-                  stroke={leg.markerId.startsWith('Bk') ? '#ffffff' : '#000000'}
+                  fill={fill}
+                  stroke={isDarkMarkerFill(fill) ? '#ffffff' : '#000000'}
                   strokeWidth={1}
                 />
                 <SafeSvgImage
