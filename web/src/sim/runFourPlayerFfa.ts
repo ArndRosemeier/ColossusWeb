@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { hydrateVariant } from '../variant/loadVariant'
 import type { VariantData } from '../types/variant'
+import type { ResolvedAiProfileId } from '../ai/profiles'
 import { formatFfaSummary, runFourPlayerFfa } from './personaTournament'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -22,12 +23,16 @@ function parsePositiveInt(value: string | undefined, fallback: number): number {
 const variant = loadVariant()
 const games = parsePositiveInt(process.env.FFA_GAMES, 100)
 const seed = parsePositiveInt(process.env.FFA_SEED, 40_000)
+const personas = process.env.FFA_PERSONAS
+  ? (process.env.FFA_PERSONAS.split(',').map((s) => s.trim()) as ResolvedAiProfileId[])
+  : undefined
 
 process.stdout.write(
-  `Running 4-player FFA: all personas each game, ${games} games (rotated seats)\n`,
+  `Running 4-player FFA: ${(personas ?? ['balanced', 'aggressive', 'cautious', 'expander']).join(', ')}, ${games} games (rotated seats)\n`,
 )
 
 const summary = runFourPlayerFfa(variant, {
+  personas,
   games,
   seed,
   maxTurns: parsePositiveInt(process.env.SIM_MAX_TURNS, 500),

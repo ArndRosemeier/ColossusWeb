@@ -4,6 +4,17 @@ import type { AiProfileId, ResolvedAiProfileId } from '../ai/profiles'
 export type Phase = 'Split' | 'Move' | 'Fight' | 'Muster' | 'Battle'
 export type PlayerKind = 'human' | 'ai'
 export type EntrySide = 'Left' | 'Right' | 'Bottom'
+/** `spatial` is the current reference. Other ids are research forks. */
+export type AiHeuristicId =
+  | 'legacy'
+  | 'spatial'
+  | 'pipeline'
+  | 'delegate'
+  | 'perch'
+  | 'decisive'
+  | 'lookahead'
+  | 'lookfight'
+  | 'lookplus'
 
 export interface PlayerColor {
   id: string
@@ -65,6 +76,8 @@ export interface PlayerState {
   kind: PlayerKind
   /** Resolved AI personality; null for humans */
   aiProfileId: ResolvedAiProfileId | null
+  /** Board/battle evaluator. `spatial` is the reference; others are research forks. */
+  aiHeuristicId: AiHeuristicId
   startingTower: string
   score: number
   dead: boolean
@@ -292,6 +305,8 @@ export interface NewGameOptions {
     colorId?: string
     /** AI personality; `random` is resolved at createGame */
     aiProfileId?: AiProfileId
+    /** Evaluator generation; omitted means `spatial`. */
+    aiHeuristicId?: AiHeuristicId
   }[]
   seed?: number
   /** Default `rng`. App UI should pass `physical`. */

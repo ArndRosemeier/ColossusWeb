@@ -455,4 +455,39 @@ describe('R reinforce / U summon', () => {
     expect(next.battle!.phase).not.toBe('Summon')
     expect(next.battle!.summonState).toBe('tooLate')
   })
+
+  it('U: 1-high angel donor is not a legal summon source', () => {
+    let state = twoPlayerGame(45)
+    const alice = state.players[0]!
+    const bob = state.players[1]!
+    const parent = state.legions.find((l) => l.playerId === alice.id)!
+    state = dispatch(state, {
+      type: 'split',
+      parentId: parent.id,
+      childCreatures: turn1SplitChild(state, parent),
+    })
+    const aliceLegs = state.legions.filter((l) => l.playerId === alice.id)
+    const donor = aliceLegs.find((l) => l.creatures.some((c) => c.type === 'Angel'))!
+    const attacker = aliceLegs.find((l) => l.id !== donor.id)!
+    const defender = state.legions.find((l) => l.playerId === bob.id)!
+    const plains =
+      Object.values(state.variant.board.hexByLabel).find((h) => h.terrain === 'Plains')?.label ??
+      attacker.hexLabel
+    attacker.hexLabel = plains
+    defender.hexLabel = plains
+    const other =
+      Object.values(state.variant.board.hexByLabel).find(
+        (h) => h.terrain === 'Plains' && h.label !== plains,
+      )?.label ?? donor.hexLabel
+    donor.hexLabel = other
+    donor.creatures = [{ type: 'Angel', hits: 0 }]
+    attacker.enteredFrom = 'Bottom'
+    attacker.creatures = [
+      { type: 'Titan', hits: 0 },
+      { type: 'Lion', hits: 0 },
+    ]
+    const battle = startBattle(state, attacker, defender, () => 0.5)
+    state.battle = battle
+    expect(listBattleSummonSources(state, battle).some((l) => l.id === donor.id)).toBe(false)
+  })
 })

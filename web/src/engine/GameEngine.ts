@@ -193,6 +193,7 @@ export function createGame(variant: LoadedVariant, options: NewGameOptions): Gam
       color,
       kind: p.kind,
       aiProfileId,
+      aiHeuristicId: p.kind === 'ai' ? (p.aiHeuristicId ?? 'spatial') : 'spatial',
       startingTower: towers[i],
       score: 0,
       dead: false,
@@ -1408,6 +1409,7 @@ function handleBattleCommand(state: GameState, command: GameCommand, rng: () => 
       const src = state.legions.find((l) => l.id === command.fromLegionId)
       if (!src || src.playerId !== atk.playerId) throw new Error('Invalid source legion')
       if (src.id === atk.id) throw new Error('Cannot summon from self')
+      if (src.creatures.length < 2) throw new Error('Summon would empty the donor legion')
       // Source must not be in an unresolved engagement
       if (
         state.legions.some(

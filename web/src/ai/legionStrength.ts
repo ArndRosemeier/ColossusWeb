@@ -1,4 +1,5 @@
 import type { LoadedVariant } from '../variant/loadVariant'
+import { canDonateSummon } from '../engine/battle'
 import { bestRecruitAt } from '../engine/recruit'
 import type { GameState, Legion } from '../engine/types'
 
@@ -55,12 +56,6 @@ function terrainAt(state: GameState, hexLabel: string): string | null {
   return state.variant.board.hexByLabel[hexLabel]?.terrain ?? null
 }
 
-function isEngaged(state: GameState, legion: Legion): boolean {
-  return state.legions.some(
-    (l) => l.hexLabel === legion.hexLabel && l.playerId !== legion.playerId,
-  )
-}
-
 /**
  * Best summonable creature the attacker could call from another friendly legion
  * (mirrors battleSummon eligibility, ignoring the mid-fight “kill first” gate for estimates).
@@ -72,9 +67,7 @@ export function findBestSummonable(
   if (attacker.creatures.length >= 7) return null
   let best: { fromLegionId: string; creatureType: string; value: number } | null = null
   for (const donor of state.legions) {
-    if (donor.playerId !== attacker.playerId) continue
-    if (donor.id === attacker.id) continue
-    if (isEngaged(state, donor)) continue
+    if (!canDonateSummon(state, donor, attacker)) continue
     for (const c of donor.creatures) {
       const t = state.variant.creatures[c.type]
       if (!t?.summonable) continue

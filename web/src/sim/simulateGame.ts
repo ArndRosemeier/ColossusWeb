@@ -1,7 +1,7 @@
 import { pickAiCommand } from '../ai/simpleAi'
 import type { AiProfileId, ResolvedAiProfileId } from '../ai/profiles'
 import { createGame, createRng, dispatch } from '../engine/GameEngine'
-import type { GameCommand, GameState, NewGameOptions } from '../engine/types'
+import type { AiHeuristicId, GameCommand, GameState, NewGameOptions } from '../engine/types'
 import type { LoadedVariant } from '../variant/loadVariant'
 import { checkInvariants, stateFingerprint, type InvariantViolation } from './invariants'
 
@@ -39,20 +39,37 @@ export type SimulateOptions = {
    * When omitted, profiles rotate by seed as before.
    */
   profiles?: ResolvedAiProfileId[]
+  /**
+   * Evaluator generation per seat. When set, player names become
+   * `spatial` / `legacy` (or `spatial-aggressive` if profiles differ).
+   */
+  heuristics?: AiHeuristicId[]
 }
 
 function aiPlayers(
   count: number,
   seed: number,
   profiles?: ResolvedAiProfileId[],
+  heuristics?: AiHeuristicId[],
 ): NewGameOptions['players'] {
   const rotate: ResolvedAiProfileId[] = ['balanced', 'aggressive', 'cautious', 'expander']
   return Array.from({ length: count }, (_, i) => {
     const profile = profiles?.[i] ?? rotate[(seed + i) % rotate.length]!
+    const heuristic = heuristics?.[i] ?? 'spatial'
+    const sameProfiles =
+      !profiles || profiles.every((p) => p === profiles[0])
+    const name = heuristics
+      ? sameProfiles
+        ? heuristic
+        : `${heuristic}-${profile}`
+      : profiles
+        ? profile
+        : `AI-${i + 1}`
     return {
-      name: profiles ? profile : `AI-${i + 1}`,
+      name,
       kind: 'ai' as const,
       aiProfileId: profile as AiProfileId,
+      aiHeuristicId: heuristic,
     }
   })
 }
@@ -73,10 +90,15 @@ export function simulateGame(variant: LoadedVariant, options: SimulateOptions): 
       `profiles length ${options.profiles.length} does not match players ${players}`,
     )
   }
+  if (options.heuristics && options.heuristics.length !== players) {
+    throw new Error(
+      `heuristics length ${options.heuristics.length} does not match players ${players}`,
+    )
+  }
 
   const rng = createRng(seed)
   let state: GameState = createGame(variant, {
-    players: aiPlayers(players, seed, options.profiles),
+    players: aiPlayers(players, seed, options.profiles, options.heuristics),
     seed,
   })
 

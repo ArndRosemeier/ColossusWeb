@@ -63,18 +63,25 @@ export function shouldOfferPostBattleReinforce(state: GameState, battle: BattleS
   return listPostBattleReinforceOptions(state, defender.id).length > 0
 }
 
+/**
+ * Whether `donor` can legally give a summonable creature to `attacker`.
+ * A 1-high donor would be emptied by the summon — that is illegal.
+ */
+export function canDonateSummon(state: GameState, donor: Legion, attacker: Legion): boolean {
+  if (donor.playerId !== attacker.playerId || donor.id === attacker.id) return false
+  if (donor.creatures.length < 2) return false
+  if (state.legions.some((e) => e.hexLabel === donor.hexLabel && e.playerId !== donor.playerId)) {
+    return false
+  }
+  return donor.creatures.some((c) => state.variant.creatures[c.type]?.summonable)
+}
+
 /** Friendly unengaged legions that can donate a summonable creature to the attacker. */
 export function listBattleSummonSources(state: GameState, battle: BattleState): Legion[] {
   const atk = state.legions.find((l) => l.id === battle.attackerLegionId)
   if (!atk || atk.creatures.length >= 7) return []
   if (battle.attackerSummoned || battle.denySummon || battle.summonState === 'tooLate') return []
-  return state.legions.filter((l) => {
-    if (l.playerId !== atk.playerId || l.id === atk.id) return false
-    if (state.legions.some((e) => e.hexLabel === l.hexLabel && e.playerId !== l.playerId)) {
-      return false
-    }
-    return l.creatures.some((c) => state.variant.creatures[c.type]?.summonable)
-  })
+  return state.legions.filter((l) => canDonateSummon(state, l, atk))
 }
 
 /** End the one-time mid-battle summon window (used, skipped, or unavailable). */

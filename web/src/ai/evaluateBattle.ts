@@ -419,6 +419,89 @@ export function prospectiveExposure(
   return exposure
 }
 
+/**
+ * Stand next to friends; bodyguard our Titan when enemies can reach it.
+ * Distinct from approach (close on enemies) and threat (hits we take).
+ */
+export function formationScore(
+  state: GameState,
+  battle: BattleState,
+  unit: BattleUnit,
+  toHex: string,
+): number {
+  const land = battleLand(state, battle)
+  const neighbors = battleNeighbors(land, toHex)
+  const friends = battle.units.filter(
+    (u) =>
+      u.id !== unit.id &&
+      u.playerId === unit.playerId &&
+      isUnitAlive(state, u) &&
+      u.hex != null,
+  )
+  const enemies = battle.units.filter(
+    (e) => e.playerId !== unit.playerId && isUnitAlive(state, e) && e.hex != null,
+  )
+  const adjFriends = friends.filter((f) => neighbors.includes(f.hex!)).length
+
+  if (unit.creatureType === 'Titan') {
+    return adjFriends * 7
+  }
+
+  let score = adjFriends * 1.8
+  const titan = battle.units.find(
+    (u) =>
+      u.playerId === unit.playerId &&
+      u.creatureType === 'Titan' &&
+      isUnitAlive(state, u) &&
+      u.hex != null,
+  )
+  if (!titan?.hex) return score
+
+  const nextToTitan = battleNeighbors(land, titan.hex).includes(toHex)
+  const titanThreatened = enemies.some((e) => {
+    if (battleNeighbors(land, e.hex!).includes(titan.hex!)) return true
+    return findLegalStrikes(state, battle, land, e, true).includes(titan.id)
+  })
+  if (nextToTitan && titanThreatened) {
+    score += 14
+    const blockers = enemies.filter((e) => neighbors.includes(e.hex!)).length
+    score += blockers * 8
+  }
+  return score
+}
+
+/**
+ * Rangestrike perch + high ground. Only used by the `perch` research fork.
+ * Called while `unit.hex` is already the candidate hex.
+ */
+export function perchScore(
+  state: GameState,
+  battle: BattleState,
+  unit: BattleUnit,
+  toHex: string,
+): number {
+  const land = battleLand(state, battle)
+  const hex = land.hexByLabel[toHex]
+  if (!hex) return 0
+  const def = state.variant.creatures[unit.creatureType]
+  let score = hex.elevation * 3.5
+
+  if (def?.rangestrikes) {
+    const enemies = battle.units.filter(
+      (e) => e.playerId !== unit.playerId && isUnitAlive(state, e) && e.hex != null,
+    )
+    const adjacent = battleNeighbors(land, toHex)
+    const targets = findLegalStrikes(state, battle, land, unit, true)
+    for (const e of enemies) {
+      if (!targets.includes(e.id) || !e.hex) continue
+      if (adjacent.includes(e.hex)) continue
+      score += 9
+      if (e.creatureType === 'Titan') score += 10
+    }
+  }
+  return score
+}
+
 /** Score placing `unit` on `toHex` (offense − threat + approach ± clock ± deploy). */
 export function evaluateBattleHex(
   state: GameState,
@@ -563,7 +646,10 @@ export function evaluateBattleHex(
       }
     }
 
-    return offenseW - threatW + approachW + posture + deployBonus
+    const heuristic = state.players.find((p) => p.id === unit.playerId)?.aiHeuristicId ?? 'spatial'
+    const formation = heuristic === 'legacy' ? 0 : formationScore(state, battle, unit, toHex)
+    const perch = heuristic === 'perch' ? perchScore(state, battle, unit, toHex) : 0
+    return offenseW - threatW + approachW + posture + deployBonus + formation + perch
   } finally {
     unit.hex = prevHex
   }

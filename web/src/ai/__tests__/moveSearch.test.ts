@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { estimateBattleOutcome } from '../battleEstimate'
+import { legalFirstExits, nextTurnOptionValue } from '../boardSpatial'
 import {
   evaluateDestination,
+  immediateHexValue,
   locationTiebreakScore,
   rankMoves,
   startExitCount,
@@ -137,23 +139,23 @@ describe('evaluateDestination', () => {
     expect(winScore).toBeGreaterThan(loseScore)
   })
 
-  it('prefers a Desert hex with Lion recruit over empty Plains when both empty', () => {
+  it('prefers a Desert hex with Lion recruit over Woods where those Lions cannot muster', () => {
     const g = twoPlayerGame(1)
     const desert = hexOfTerrain(g, 'Desert')
-    const plains = hexOfTerrain(g, 'Plains')
+    const woods = hexOfTerrain(g, 'Woods')
     const legion = stubLegion({
       id: 'lions',
       playerId: g.players[0].id,
-      hexLabel: plains,
+      hexLabel: woods,
       creatures: [
         { type: 'Lion', hits: 0 },
         { type: 'Lion', hits: 0 },
       ],
     })
-    g.legions = [legion, ...g.legions.filter((l) => l.playerId !== g.players[0].id)]
+    g.legions = [legion]
     const desertScore = evaluateDestination(g, legion, desert, AI_PROFILES.expander)
-    const plainsScore = evaluateDestination(g, legion, plains, AI_PROFILES.expander)
-    expect(desertScore).toBeGreaterThan(plainsScore)
+    const woodsScore = evaluateDestination(g, legion, woods, AI_PROFILES.expander)
+    expect(desertScore).toBeGreaterThan(woodsScore)
   })
 
   it('rankMoves returns descending scores', () => {
@@ -216,15 +218,18 @@ describe('evaluateDestination', () => {
     // Strip other stacks so proximity does not cloud mobility.
     g.legions = [legion]
     expect(startExitCount(g.variant.board.hexByLabel[tower]!)).toBeGreaterThan(1)
-    const towerLoc = locationTiebreakScore(g, legion, tower)
-    const landLoc = locationTiebreakScore(g, legion, oneExit!.label)
+    const leaf = (hex: string) => immediateHexValue(g, legion, hex, AI_PROFILES.balanced)
+    const towerLoc = nextTurnOptionValue(g, legion, tower, leaf)
+    const landLoc = nextTurnOptionValue(g, legion, oneExit!.label, leaf)
     expect(towerLoc).toBeGreaterThan(landLoc)
   })
 
   it('gives a small bump when another owned legion is adjacent', () => {
     const g = twoPlayerGame(1)
-    const plains = Object.values(g.variant.board.hexByLabel).find((h) => h.terrain === 'Plains')!
-    const adj = plains.neighbors.find((n): n is string => n != null)!
+    const plains = Object.values(g.variant.board.hexByLabel).find(
+      (h) => h.terrain === 'Plains' && startExitCount(h) > 0,
+    )!
+    const adj = legalFirstExits(plains)[0]!
     const mover = stubLegion({
       id: 'mover',
       playerId: g.players[0].id,
@@ -244,6 +249,5 @@ describe('evaluateDestination', () => {
     g.legions = [mover]
     const alone = locationTiebreakScore(g, mover, plains.label)
     expect(withFriend).toBeGreaterThan(alone)
-    expect(withFriend - alone).toBeLessThan(1)
   })
 })

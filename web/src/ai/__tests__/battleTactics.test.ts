@@ -8,6 +8,7 @@ import {
   battleWinConfidence,
   evaluateBattleHex,
   evaluateBattleStrike,
+  formationScore,
   expectedHits,
   musterTier,
   ownKeepValue,
@@ -182,6 +183,46 @@ describe('evaluateBattleHex', () => {
     // Move titan off contact toward empty bottom
     const safer = evaluateBattleHex(g, battle, titan, 'A1', profile)
     expect(safer).toBeGreaterThan(surrounded)
+  })
+
+  it('bodyguards the Titan: a creature prefers the hex between Titan and the enemy', () => {
+    const g = twoPlayerGame(8)
+    const plains = hexOfTerrain(g, 'Plains')
+    const atk = stubLegion({
+      id: 'atk',
+      playerId: g.players[0]!.id,
+      markerId: 'Rd01',
+      hexLabel: plains,
+      enteredFrom: 'Bottom',
+      creatures: [
+        { type: 'Titan', hits: 0 },
+        { type: 'Ogre', hits: 0 },
+      ],
+    })
+    const def = stubLegion({
+      id: 'def',
+      playerId: g.players[1]!.id,
+      markerId: 'Bu01',
+      hexLabel: plains,
+      enteredFrom: null,
+      creatures: [{ type: 'Cyclops', hits: 0 }],
+    })
+    g.legions = [atk, def]
+    g.players[0]!.titanPower = 6
+    const battle = startBattle(g, atk, def, () => 0.5)
+    g.battle = battle
+    const titan = battle.units.find((u) => u.creatureType === 'Titan')!
+    const ogre = battle.units.find((u) => u.creatureType === 'Ogre')!
+    const foe = battle.units.find((u) => u.creatureType === 'Cyclops')!
+    placeUnits(battle, [
+      { id: titan.id, hex: 'D3' },
+      { id: foe.id, hex: 'D5' },
+      { id: ogre.id, hex: 'A1' },
+    ])
+    ogre.moved = false
+    const cover = formationScore(g, battle, ogre, 'D4')
+    const far = formationScore(g, battle, ogre, 'A1')
+    expect(cover).toBeGreaterThan(far)
   })
 
   it('aggressive closes harder than cautious on open approach', () => {

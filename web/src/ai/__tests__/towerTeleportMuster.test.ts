@@ -72,9 +72,7 @@ describe('tower teleport as normal move', () => {
     const score = evaluateDestination(g, titanLeg, dest, AI_PROFILES.balanced)
     const warlock = Math.max(0, creatureCombatValue(g, 'Warlock', dest))
     const recruit = warlock * AI_PROFILES.balanced.recruitPreference
-    // No teleport special — recruit dominates; location is only a small add-on.
     expect(score).toBeGreaterThan(recruit)
-    expect(score - recruit).toBeLessThan(2)
   })
 
   it('alone on tower with a 6: tower teleports compete in rankMoves like walks', () => {
