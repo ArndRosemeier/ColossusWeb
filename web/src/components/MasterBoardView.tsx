@@ -7,13 +7,26 @@ import {
   markerImageUrl,
   terrainImageUrl,
 } from '../variant/assets'
-import { activePlayer, canUndoRecruit, getLegalRecruits, getMovesForSelected } from '../engine/GameEngine'
+import {
+  activePlayer,
+  canUndoRecruit,
+  canUndoSplit,
+  getLegalRecruits,
+  getMovesForSelected,
+  playerLegions,
+  unseparatedSplitStacks,
+} from '../engine/GameEngine'
+import { listEnemyMovePreview } from '../engine/movement'
 import { bestRecruit, bestRecruitAt } from '../engine/recruit'
 import type { GameCommand, GameState, Legion } from '../engine/types'
 import type { MasterMoveAnim } from '../ui/moveAnimation'
 import { pointsToSvg, usePathTween } from '../ui/usePathTween'
 import { MusterForm, SplitForm } from './LegionActions'
+import { MasterHexGates } from './MasterHexGates'
 import { SafeSvgImage } from './SafeSvgImage'
+
+const PREVIEW_STROKE = '#5ec8d4'
+const SPLIT_STROKE = '#ff6b35'
 
 const WALK_STROKE = '#e08a45'
 const TELEPORT_STROKE = '#a78bfa'
@@ -185,9 +198,13 @@ export function MasterBoardView({
   const markerSize = 28
   const wrapRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
-  const [overlayPos, setOverlayPos] = useState<{ left: number; top: number; flip: boolean } | null>(
-    null,
-  )
+  const overlayElRef = useRef<HTMLDivElement>(null)
+  const [overlayPos, setOverlayPos] = useState<{
+    left: number
+    top: number
+    flipX: boolean
+    flipY: boolean
+  } | null>(null)
   const selected = state.selectedLegionId
     ? state.legions.find((l) => l.id === state.selectedLegionId)
     : null
@@ -195,8 +212,25 @@ export function MasterBoardView({
   const moveInfo =
     state.phase === 'Move' && selected && selected.playerId === player.id
       ? getMovesForSelected(state)
-      : new Map()
+      : new Map<string, { side: string; teleport: boolean }>()
+  const enemyPreview =
+    state.phase === 'Move' && selected && selected.playerId !== player.id
+      ? listEnemyMovePreview(state, selected)
+      : new Map<string, { minRoll: number; teleport: boolean }>()
   const legalLabels = [...moveInfo.keys()]
+  const splitHexes = new Set(
+    state.phase === 'Move' ? unseparatedSplitStacks(state).map((g) => g.hexLabel) : [],
+  )
+  const canUndoSelectedSplit =
+    selected != null && selected.playerId === player.id && canUndoSplit(state, selected.id)
+  const turn1SplitDone =
+    state.turnNumber === 1 && playerLegions(state, player.id).length > 1
+  const canSplitMore =
+    selected != null &&
+    selected.playerId === player.id &&
+    selected.creatures.length >= 4 &&
+    player.markersAvailable.length > 0 &&
+    !turn1SplitDone
 
   let maxX = 0
   let maxY = 0
@@ -219,8 +253,7 @@ export function MasterBoardView({
     state.phase === 'Split' &&
     selected != null &&
     selected.playerId === player.id &&
-    selected.creatures.length >= 4 &&
-    player.markersAvailable.length > 0
+    (canSplitMore || canUndoSelectedSplit)
 
   const recruits =
     selected && state.phase === 'Muster' && selected.playerId === player.id
@@ -269,8 +302,11 @@ export function MasterBoardView({
       const wrapBox = wrap.getBoundingClientRect()
       const left = screen.x - wrapBox.left
       const top = screen.y - wrapBox.top
-      const flip = left > wrapBox.width * 0.55
-      setOverlayPos({ left, top, flip })
+      const flipX = left > wrapBox.width * 0.55
+      const spaceBelow = wrapBox.height - top
+      const spaceAbove = top
+      const flipY = spaceBelow < 240 && spaceAbove > spaceBelow
+      setOverlayPos({ left, top, flipX, flipY })
     }
 
     update()
@@ -327,12 +363,20 @@ export function MasterBoardView({
           const { cx, cy } = hexPixel(board, hex, scale)
           const fill = TERRAIN_COLORS[hex.terrain] ?? '#ccc'
           const move = moveInfo.get(hex.label)
+          const preview = enemyPreview.get(hex.label)
           const isLegal = move != null
-          const isTeleport = move?.teleport === true
+          const isPreview = !isLegal && preview != null
+          const isTeleport = move?.teleport === true || (isPreview && preview?.teleport === true)
+          const isSplitHere = splitHexes.has(hex.label)
           const isSelectedHere = selected?.hexLabel === hex.label
           const bounds = hexBounds(cx, cy, scale, hex.inverted)
           const terrainSrc = terrainImageUrl(hex.terrain, hex.inverted)
-          const accent = isTeleport ? TELEPORT_STROKE : WALK_STROKE
+          const accent = isPreview
+            ? PREVIEW_STROKE
+            : isTeleport
+              ? TELEPORT_STROKE
+              : WALK_STROKE
+          const verts = hexVertices(cx, cy, scale, hex.inverted)
           return (
             <g key={hex.label} onClick={() => onHexClick(hex.label)} style={{ cursor: 'pointer' }}>
               <polygon
@@ -353,20 +397,45 @@ export function MasterBoardView({
                   preserveAspectRatio="xMidYMid slice"
                 />
               ) : null}
-              {isLegal && (
+              {isSplitHere && !isLegal && (
                 <polygon
-                  className="legal-hex-ring"
+                  className="split-hex-ring"
+                  points={hexPoints(cx, cy, scale, hex.inverted)}
+                  fill={SPLIT_STROKE}
+                  stroke="none"
+                />
+              )}
+              {(isLegal || isPreview) && (
+                <polygon
+                  className={isPreview ? 'preview-hex-ring' : 'legal-hex-ring'}
                   points={hexPoints(cx, cy, scale, hex.inverted)}
                   fill={accent}
                   stroke="none"
                 />
               )}
               <polygon
-                className={isLegal ? 'legal-hex-stroke' : undefined}
+                className={
+                  isLegal ? 'legal-hex-stroke' : isPreview ? 'preview-hex-stroke' : undefined
+                }
                 points={hexPoints(cx, cy, scale, hex.inverted)}
                 fill="none"
-                stroke={isLegal ? accent : isSelectedHere ? '#e8edf2' : '#0c1218'}
-                strokeWidth={isLegal ? 3.5 : 1.2}
+                stroke={
+                  isLegal || isPreview
+                    ? accent
+                    : isSplitHere
+                      ? SPLIT_STROKE
+                      : isSelectedHere
+                        ? '#e8edf2'
+                        : '#0c1218'
+                }
+                strokeWidth={isLegal || isPreview || isSplitHere ? 3.5 : 1.2}
+              />
+              <MasterHexGates
+                verts={verts}
+                inverted={hex.inverted}
+                exitType={hex.exitType}
+                entranceType={hex.entranceType}
+                scale={scale}
               />
               <text
                 x={cx + scale}
@@ -382,6 +451,23 @@ export function MasterBoardView({
               >
                 {hex.label}
               </text>
+              {isPreview && preview && (
+                <text
+                  className="preview-roll"
+                  x={cx + scale}
+                  y={cy + 1.55 * SQRT3 * scale}
+                  textAnchor="middle"
+                  fontSize={7}
+                  fontWeight={700}
+                  fontFamily="Sora, sans-serif"
+                  fill={PREVIEW_STROKE}
+                  stroke="#0a1014"
+                  strokeWidth={2}
+                  paintOrder="stroke"
+                >
+                  {preview.teleport ? 'T' : preview.minRoll}
+                </text>
+              )}
             </g>
           )
         })}
@@ -440,10 +526,11 @@ export function MasterBoardView({
               state.phase === 'Muster' && leg.playerId === player.id && !leg.recruited
                 ? bestRecruit(state, leg)
                 : null
-            const showDoneMuster =
+            const ownMustered =
               state.phase === 'Muster' &&
               leg.playerId === player.id &&
               Boolean(leg.musteredThisTurn)
+            const showLastMuster = Boolean(leg.musteredThisTurn)
             return (
               <g
                 key={leg.id}
@@ -465,37 +552,39 @@ export function MasterBoardView({
                     rx={2}
                   />
                 )}
-                <rect
-                  x={x}
-                  y={y}
-                  width={markerSize}
-                  height={markerSize}
-                  fill={fill}
-                  stroke={isDarkMarkerFill(fill) ? '#ffffff' : '#000000'}
-                  strokeWidth={1}
-                />
-                <SafeSvgImage
-                  href={markerImageUrl(leg.markerId)}
-                  x={x}
-                  y={y}
-                  width={markerSize}
-                  height={markerSize}
-                  preserveAspectRatio="xMidYMid meet"
-                />
-                <text
-                  x={x + markerSize * 0.78}
-                  y={y + markerSize * 0.78}
-                  textAnchor="middle"
-                  fontSize={Math.max(9, markerSize * 0.42)}
-                  fontWeight={700}
-                  fontFamily="sans-serif"
-                  fill="#000"
-                  stroke="#fff"
-                  strokeWidth={3}
-                  paintOrder="stroke"
-                >
-                  {leg.creatures.length}
-                </text>
+                <g className={ownMustered ? 'legion-marker-dimmed' : undefined}>
+                  <rect
+                    x={x}
+                    y={y}
+                    width={markerSize}
+                    height={markerSize}
+                    fill={fill}
+                    stroke={isDarkMarkerFill(fill) ? '#ffffff' : '#000000'}
+                    strokeWidth={1}
+                  />
+                  <SafeSvgImage
+                    href={markerImageUrl(leg.markerId)}
+                    x={x}
+                    y={y}
+                    width={markerSize}
+                    height={markerSize}
+                    preserveAspectRatio="xMidYMid meet"
+                  />
+                  <text
+                    x={x + markerSize * 0.78}
+                    y={y + markerSize * 0.78}
+                    textAnchor="middle"
+                    fontSize={Math.max(9, markerSize * 0.42)}
+                    fontWeight={700}
+                    fontFamily="sans-serif"
+                    fill="#000"
+                    stroke="#fff"
+                    strokeWidth={3}
+                    paintOrder="stroke"
+                  >
+                    {leg.creatures.length}
+                  </text>
+                </g>
                 {pendingCreature && (
                   <g className="muster-pending" pointerEvents="none">
                     <SafeSvgImage
@@ -509,9 +598,11 @@ export function MasterBoardView({
                     <title>{`Best muster: ${pendingCreature}`}</title>
                   </g>
                 )}
-                {showDoneMuster && leg.musteredThisTurn && (
+                {showLastMuster && leg.musteredThisTurn && (
                   <g
-                    className="muster-done"
+                    className={
+                      leg.playerId === player.id ? 'muster-done' : 'muster-done enemy-muster'
+                    }
                     pointerEvents="none"
                     transform={`rotate(-18 ${x + markerSize / 2} ${y + markerSize / 2})`}
                   >
@@ -523,7 +614,7 @@ export function MasterBoardView({
                       height={musterChit}
                       preserveAspectRatio="xMidYMid meet"
                     />
-                    <title>{`Mustered: ${leg.musteredThisTurn}`}</title>
+                    <title>{`Mustered: ${leg.musteredThisTurn} @${leg.hexLabel}`}</title>
                   </g>
                 )}
               </g>
@@ -553,7 +644,14 @@ export function MasterBoardView({
 
       {overlayPos && selected && dispatch && (showSplit || showMuster) && (
         <div
-          className={`legion-action-overlay${overlayPos.flip ? ' flip' : ''}`}
+          ref={overlayElRef}
+          className={[
+            'legion-action-overlay',
+            overlayPos.flipX ? 'flip-x' : '',
+            overlayPos.flipY ? 'flip-y' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
           style={{
             left: overlayPos.left,
             top: overlayPos.top,
@@ -562,17 +660,30 @@ export function MasterBoardView({
         >
           {showSplit && (
             <>
-              <div className="legion-action-title">Split {selected.markerId}</div>
-              <SplitForm
-                key={`split-${selected.id}-${selected.creatures.map((c) => c.type).join(',')}`}
-                state={state}
-                creatures={selected.creatures.map((c) => c.type)}
-                turn1={state.turnNumber === 1}
-                compact
-                onSplit={(child) =>
-                  dispatch({ type: 'split', parentId: selected.id, childCreatures: child })
-                }
-              />
+              <div className="legion-action-title">
+                {canSplitMore ? `Split ${selected.markerId}` : selected.markerId}
+              </div>
+              {canSplitMore && (
+                <SplitForm
+                  key={`split-${selected.id}-${selected.creatures.map((c) => c.type).join(',')}`}
+                  state={state}
+                  creatures={selected.creatures.map((c) => c.type)}
+                  turn1={state.turnNumber === 1}
+                  compact
+                  onSplit={(child) =>
+                    dispatch({ type: 'split', parentId: selected.id, childCreatures: child })
+                  }
+                />
+              )}
+              {canUndoSelectedSplit && (
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => dispatch({ type: 'undoSplit', childId: selected.id })}
+                >
+                  Undo split
+                </button>
+              )}
             </>
           )}
           {showMuster && (

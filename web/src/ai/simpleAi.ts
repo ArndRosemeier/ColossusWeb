@@ -172,47 +172,44 @@ function pickFight(state: GameState, profile: AiProfile, rng: () => number): Gam
   return { type: 'startEngagement', attackerId: e.attackerId, defenderId: e.defenderId }
 }
 
+type RecruitCommand = Extract<GameCommand, { type: 'recruit' }>
+
+function scoreMusterRecruit(state: GameState, cmd: RecruitCommand): number {
+  const leg = state.legions.find((l) => l.id === cmd.legionId)
+  if (!leg) return -Infinity
+  return scoreRecruitOption(state, cmd.creatureType, leg.hexLabel, leg)
+}
+
+/**
+ * Muster picks. Full greed → global best score.
+ * Lower greed may randomize among *near-best* scores only — never uniform
+ * among all legal recruits (that produced 4–5 Ogre piles on cautious AI).
+ */
 function pickMuster(state: GameState, profile: AiProfile, rng: () => number): GameCommand {
   const legs = playerLegions(state, state.players[state.activePlayerIndex].id)
-  if (profile.musterGreed >= 0.99) {
-    let best: GameCommand | null = null
-    let bestRank = -Infinity
-    for (const leg of legs) {
-      const recruits = getLegalRecruits(state, leg.id)
-      for (const r of recruits) {
-        const rank = scoreRecruitOption(state, r, leg.hexLabel, leg)
-        if (rank > bestRank) {
-          bestRank = rank
-          best = { type: 'recruit', legionId: leg.id, creatureType: r }
-        }
-      }
-    }
-    return best ?? { type: 'doneMuster' }
-  }
-
-  const options: GameCommand[] = []
+  const options: RecruitCommand[] = []
   for (const leg of legs) {
     for (const r of getLegalRecruits(state, leg.id)) {
       options.push({ type: 'recruit', legionId: leg.id, creatureType: r })
     }
   }
   if (options.length === 0) return { type: 'doneMuster' }
-  if (rng() < profile.musterGreed) {
-    let best = options[0]!
-    let bestRank = -Infinity
-    for (const cmd of options) {
-      if (cmd.type !== 'recruit') continue
-      const leg = state.legions.find((l) => l.id === cmd.legionId)
-      if (!leg) continue
-      const rank = scoreRecruitOption(state, cmd.creatureType, leg.hexLabel, leg)
-      if (rank > bestRank) {
-        bestRank = rank
-        best = cmd
-      }
-    }
-    return best
+
+  const scored = options.map((cmd) => ({ cmd, rank: scoreMusterRecruit(state, cmd) }))
+  let bestRank = -Infinity
+  for (const s of scored) {
+    if (s.rank > bestRank) bestRank = s.rank
   }
-  return options[Math.floor(rng() * options.length)]!
+
+  if (profile.musterGreed >= 0.99 || rng() < profile.musterGreed) {
+    return scored.find((s) => s.rank === bestRank)!.cmd
+  }
+
+  // Slack: small absolute floor so close ties can vary; never includes dumpster picks
+  // (e.g. another Ogre at ~12 when Guardian/Troll/Minotaur scores ~25).
+  const slack = Math.max(2, Math.abs(bestRank) * 0.12)
+  const nearBest = scored.filter((s) => s.rank >= bestRank - slack)
+  return nearBest[Math.floor(rng() * nearBest.length)]!.cmd
 }
 
 function pickBattleReinforce(state: GameState, profile: AiProfile, rng: () => number): GameCommand {

@@ -1,5 +1,12 @@
 import { AI_PROFILES } from '../ai/profiles'
-import { activePlayer, canUndoMove, canUndoRecruit, playerLegions } from '../engine/GameEngine'
+import {
+  activePlayer,
+  canUndoMove,
+  canUndoRecruit,
+  playerLegions,
+  undoableSplitChildren,
+  unseparatedSplitStacks,
+} from '../engine/GameEngine'
 import { publicViewSlots } from '../engine/publicKnowledge'
 import type { GameCommand, GameState } from '../engine/types'
 import { CreatureChit, UnknownChit } from './CreatureChit'
@@ -59,6 +66,8 @@ export function GameControls({
       ? undoCommandForLegion(state, selected.id)
       : null
   const undoLabel = undoCmd ? undoLabelForCommand(undoCmd) : null
+  const splitStacks = state.phase === 'Move' ? unseparatedSplitStacks(state) : []
+  const splitHexes = new Set(splitStacks.map((g) => g.hexLabel))
   // Hide generic selection panel while resolving an engagement (focus on attacker).
   const showSelected = Boolean(selected && !engagementFocus)
 
@@ -140,6 +149,11 @@ export function GameControls({
               <div className="muted">@{selected.hexLabel}</div>
             </div>
           </div>
+          {selected.playerId !== player.id && selected.musteredThisTurn ? (
+            <p className="hint last-muster">
+              Last muster: {selected.musteredThisTurn} @{selected.hexLabel}
+            </p>
+          ) : null}
           <div className="chit-row">
             {publicViewSlots(state, selected).map((slot, i) => {
               if (slot.kind === 'unknown') {
@@ -191,8 +205,17 @@ export function GameControls({
                   ? 'Turn 1: click your legion, pick 4 with one Lord on the board overlay.'
                   : player.markersAvailable.length === 0
                     ? 'No free legion markers (12-legion limit). You cannot split until a legion is eliminated.'
-                    : 'Click a legion to open the split board — click chits to move them between stacks.'}
+                    : 'Click a legion to open the split board — click chits to move them between stacks. Undo split if you want a different split.'}
               </p>
+              {undoableSplitChildren(state).map((l) => (
+                <button
+                  key={`undo-split-${l.id}`}
+                  type="button"
+                  onClick={() => dispatch({ type: 'undoSplit', childId: l.id })}
+                >
+                  Undo {l.markerId} split
+                </button>
+              ))}
               {endCmd && (
                 <button type="button" className="primary" onClick={() => dispatch(endCmd)}>
                   {endLabel}
@@ -205,8 +228,16 @@ export function GameControls({
             <>
               <p className="hint">
                 Select a legion to highlight moves. Copper = walk, violet = teleport; creature
-                icons show the best muster if you end there. After moving, Undo appears below.
+                icons show the best muster if you end there. Click an enemy legion to preview
+                where it can walk on rolls 1–6 (number on the hex). After moving, Undo appears
+                below.
               </p>
+              {splitStacks.map((g) => (
+                <p key={`split-warn-${g.hexLabel}`} className="hint split-must-leave">
+                  Split stacks on hex {g.hexLabel} must separate:{' '}
+                  {g.legions.map((l) => l.markerId).join(' & ')}. Move one away.
+                </p>
+              ))}
               {state.mulliganAvailable && state.turnNumber === 1 && (
                 <button type="button" onClick={() => dispatch({ type: 'mulligan' })}>
                   Mulligan (re-roll)
@@ -286,9 +317,9 @@ export function GameControls({
           {state.phase === 'Muster' && (
             <>
               <p className="hint">
-                Click a legion that moved — recruit choices appear beside it. Best possible
-                musters show on each legion. After recruiting, Undo appears on the legion and
-                below.
+                Click a legion that moved — recruit choices appear beside it. Enter auto-musters
+                only when the recruit is obvious; real choices (e.g. third Cyclops vs Gorgon)
+                stay for you. After recruiting, the stack dims and Undo appears.
               </p>
               {myLegs
                 .filter((l) => canUndoRecruit(state, l.id))
@@ -392,6 +423,9 @@ export function GameControls({
                     })}
                   </span>
                   {leg.moved ? <span className="muted">moved</span> : null}
+                  {state.phase === 'Move' && splitHexes.has(leg.hexLabel) && !leg.moved ? (
+                    <span className="must-leave">must leave</span>
+                  ) : null}
                 </span>
               </button>
             )

@@ -167,6 +167,8 @@ const MUSTER_RANGESTRIKE_BONUS = 1
 const MUSTER_MAGIC_MISSILE_BONUS = 1
 /** How strongly future unlocks (e.g. 3 Cyclops → Behemoth) outweigh immediate PV. */
 const MUSTER_DEVELOPMENT_WEIGHT = 1.35
+/** Penalize stacking past every primary-upgrade recruiter count (e.g. 4th Ogre). */
+const MUSTER_SURPLUS_PENALTY = 10
 
 /**
  * Primary upgrade edges only (consecutive Ter.xml steps), not regularRecruit
@@ -273,9 +275,21 @@ export function compositionDevelopmentValue(
 }
 
 /**
+ * Highest primary-upgrade recruiter count still useful for this creature type.
+ * Used to penalize surplus stacks (e.g. a 4th Ogre once Minotaur's 3 are held).
+ */
+export function maxUsefulRecruiterCount(state: GameState, recruiter: string): number {
+  let max = 0
+  for (const e of listDevelopmentEdges(state)) {
+    if (e.recruiter === recruiter) max = Math.max(max, e.needed)
+  }
+  return max
+}
+
+/**
  * Rank a legal muster option for AI / Enter auto-pick / move previews.
- * Immediate ability-aware value + how much the new composition advances toward
- * the biggest units elsewhere in the variant's recruit graphs.
+ * Immediate ability-aware value + development toward higher-tier unlocks.
+ * Surplus copies past every useful recruiter count are penalized.
  */
 export function scoreRecruitOption(
   state: GameState,
@@ -296,10 +310,18 @@ export function scoreRecruitOption(
   const developmentDelta =
     compositionDevelopmentValue(state, afterCounts, maxOwned) -
     compositionDevelopmentValue(state, beforeCounts, maxOwned)
-  return (
+  let score =
     intrinsicMusterValue(state, creatureType) +
     MUSTER_DEVELOPMENT_WEIGHT * developmentDelta
-  )
+
+  // Already hold enough of this type for every upgrade edge (e.g. 3 Ogres for
+  // Minotaur) — further copies are filler, not development.
+  const useful = maxUsefulRecruiterCount(state, creatureType)
+  const already = beforeCounts[creatureType] ?? 0
+  if (useful > 0 && already >= useful) {
+    score -= MUSTER_SURPLUS_PENALTY
+  }
+  return score
 }
 
 function pickBestRecruitName(
@@ -324,6 +346,40 @@ function pickBestRecruitName(
 /** Best eligible recruit for a legion on its current hex (Muster phase). */
 export function bestRecruit(state: GameState, legion: Legion): string | null {
   return pickBestRecruitName(state, legion, legion.hexLabel, listRecruits(state, legion))
+}
+
+function isSurplusRecruit(state: GameState, legion: Legion, creatureType: string): boolean {
+  const useful = maxUsefulRecruiterCount(state, creatureType)
+  if (useful <= 0) return false
+  return countCreatures(legion, creatureType) >= useful
+}
+
+function isDowngradeRecruit(state: GameState, legion: Legion, creatureType: string): boolean {
+  let maxOwned = 0
+  for (const c of legion.creatures) {
+    maxOwned = Math.max(maxOwned, intrinsicMusterValue(state, c.type))
+  }
+  return intrinsicMusterValue(state, creatureType) < maxOwned
+}
+
+/**
+ * Recruit to apply automatically, or null when the player should choose.
+ * One legal type is always unambiguous. Extra types that are surplus copies
+ * (4th Ogre) or weaker down-tree filler (Centaur when you already have a Lion)
+ * do not count as a choice.
+ * Example: 2 Cyclops on Brush → Cyclops or Gorgon → null.
+ */
+export function unambiguousRecruit(state: GameState, legion: Legion): string | null {
+  const options = listRecruits(state, legion)
+  if (options.length === 0) return null
+  if (options.length === 1) return options[0]!
+  const useful = options.filter(
+    (name) => !isSurplusRecruit(state, legion, name) && !isDowngradeRecruit(state, legion, name),
+  )
+  if (useful.length === 1) return useful[0]!
+  if (useful.length === 0) return pickBestRecruitName(state, legion, legion.hexLabel, options)
+  if (new Set(useful).size === 1) return useful[0]!
+  return null
 }
 
 /** Best eligible recruit at a destination (ability-aware + development). */

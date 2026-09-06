@@ -49,7 +49,7 @@ export interface AiProfile {
   skipReinforceChance: number
   /** Chance to skip summon when options exist */
   skipSummonChance: number
-  /** 0 = random recruit, 1 = always highest ability-aware muster score */
+  /** 0 = random among near-best muster scores, 1 = always global best */
   musterGreed: number
   /** Chance to concede battle when alive units << enemy alive */
   concedeWhenHopelessChance: number

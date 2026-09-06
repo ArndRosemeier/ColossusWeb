@@ -505,6 +505,20 @@ try {
     Write-Host ("SYNC finished. Uploaded {0}, skipped {1}, deleted {2}." -f $uploaded, $skipped, $deleted) -ForegroundColor Green
     Write-Host ("Manifest saved: {0}" -f $ManifestPath) -ForegroundColor Cyan
     Write-Host ("App should now work at: {0}" -f $PublicUrl) -ForegroundColor Cyan
+
+    $registerScript = "C:\Projekte\Futuremagic\scripts\Register-FuturemagicApp.ps1"
+    if (Test-Path $registerScript) {
+        Write-Host ""
+        & $registerScript `
+            -Slug "ColossusWeb" `
+            -Title "ColossusWeb" `
+            -Path "/ColossusWeb/" `
+            -FtpPassword $FTP_PASSWORD `
+            -ManifestoLocalPath (Join-Path $DistDir "futuremagic.json") `
+            -AppRemoteDir $RemotePath
+    } else {
+        Write-Host "[SKIP] Futuremagic registry helper not found: $registerScript" -ForegroundColor Yellow
+    }
 } catch {
     Write-Host ("Deployment failed: {0}" -f $_.Exception.Message) -ForegroundColor Red
     exit 1

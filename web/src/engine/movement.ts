@@ -211,6 +211,45 @@ export function listAllMoves(state: GameState, legion: Legion, roll: number): Ma
   return result
 }
 
+/**
+ * Legal destinations as if this legion were about to move on `roll`.
+ * Ignores leftover moved / hasTeleported flags from a previous turn
+ * (needed to preview enemy stacks during another player's Move).
+ */
+export function listMovePreview(
+  state: GameState,
+  legion: Legion,
+  roll: number,
+): Map<string, { side: EntrySide; teleport: boolean }> {
+  const ghost: Legion = { ...legion, moved: false, teleported: false }
+  const previewState: GameState = {
+    ...state,
+    players: state.players.map((p) =>
+      p.id === legion.playerId ? { ...p, hasTeleported: false } : p,
+    ),
+  }
+  return listAllMoves(previewState, ghost, roll)
+}
+
+/** Union of walks/teleports on rolls 1–6; `minRoll` is the cheapest way to reach the hex. */
+export function listEnemyMovePreview(
+  state: GameState,
+  legion: Legion,
+): Map<string, { minRoll: number; teleport: boolean }> {
+  const result = new Map<string, { minRoll: number; teleport: boolean }>()
+  for (let roll = 1; roll <= 6; roll++) {
+    for (const [hex, info] of listMovePreview(state, legion, roll)) {
+      const prev = result.get(hex)
+      if (!prev || roll < prev.minRoll) {
+        result.set(hex, { minRoll: roll, teleport: info.teleport })
+      } else if (prev.teleport && !info.teleport) {
+        result.set(hex, { minRoll: prev.minRoll, teleport: false })
+      }
+    }
+  }
+  return result
+}
+
 export function rollDie(rng: () => number): number {
   return 1 + Math.floor(rng() * 6)
 }

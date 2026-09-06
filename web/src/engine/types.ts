@@ -47,7 +47,7 @@ export interface Legion {
   teleported: boolean
   /** Already recruited this enlistment phase */
   recruited: boolean
-  /** Creature type mustered this turn (board badge until muster phase ends). */
+  /** Creature type mustered this turn (board badge until that player’s next Move). */
   musteredThisTurn: string | null
   /** Parent already split during this Split phase (cannot split again). */
   splitThisTurn: boolean

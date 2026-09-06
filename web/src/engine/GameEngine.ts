@@ -16,7 +16,6 @@ import {
   legalBattleMovesFor,
   legalStrikes,
   listBattleReinforceOptions,
-  listBattleSummonSources,
   listPostBattleReinforceOptions,
   resolveStrike,
   shouldOfferPostBattleReinforce,
@@ -360,14 +359,7 @@ function applyCommand(state: GameState, command: GameCommand, rng: () => number)
       break
     case 'doneMove':
       if (!canEndMovePhase(state)) {
-        const anyoneMoved = playerLegions(state, activePlayer(state).id).some((l) => l.moved)
-        if (!anyoneMoved) {
-          state.message = 'You must move at least one legion if able'
-        } else if (splitLegionHasForcedMove(state)) {
-          state.message = 'Must separate split legions'
-        } else {
-          state.message = 'You must move at least one legion if able'
-        }
+        state.message = blockedMovePhaseMessage(state)
         break
       }
       recombineIllegalSplits(state)
@@ -674,7 +666,14 @@ function selectLegion(state: GameState, legionId: string): void {
   }
 
   // Inspection (own or enemy) — enemy AI stacks show public knowledge only
-  state.message = `${legion.markerId}: [${formatPublicContents(state, legion)}]`
+  const lastMuster = !isMine && legion.musteredThisTurn
+    ? ` Last muster: ${legion.musteredThisTurn} @${legion.hexLabel}.`
+    : ''
+  if (state.phase === 'Move' && !isMine) {
+    state.message = `${legion.markerId}: movement preview (rolls 1–6). [${formatPublicContents(state, legion)}]${lastMuster}`
+    return
+  }
+  state.message = `${legion.markerId}: [${formatPublicContents(state, legion)}]${lastMuster}`
 }
 
 function doSplit(state: GameState, parentId: string, childTypes: string[]): void {
@@ -946,18 +945,54 @@ function canEndMovePhase(state: GameState): boolean {
   return true
 }
 
+export type UnseparatedSplitStack = {
+  hexLabel: string
+  legions: Legion[]
+}
+
+/** Friendly stacks that still share a hex and at least one can walk away. */
+export function unseparatedSplitStacks(state: GameState): UnseparatedSplitStack[] {
+  if (state.movementRoll == null) return []
+  const mine = playerLegions(state, activePlayer(state).id)
+  const seen = new Set<string>()
+  const groups: UnseparatedSplitStack[] = []
+  for (const leg of mine) {
+    if (seen.has(leg.hexLabel)) continue
+    const stack = mine.filter((l) => l.hexLabel === leg.hexLabel)
+    if (stack.length < 2) continue
+    seen.add(leg.hexLabel)
+    const canWalk = stack.some((l) => listNormalMoveHexes(state, l, state.movementRoll!).size > 0)
+    if (canWalk) groups.push({ hexLabel: leg.hexLabel, legions: stack })
+  }
+  return groups
+}
+
 /** True when ≥2 friendlies share a hex and at least one has a non-teleport move. */
 export function splitLegionHasForcedMove(state: GameState): boolean {
-  if (state.movementRoll == null) return false
+  return unseparatedSplitStacks(state).length > 0
+}
+
+export function separateSplitMessage(state: GameState): string {
+  const groups = unseparatedSplitStacks(state)
+  if (groups.length === 0) return 'Must separate split legions'
+  const parts = groups.map((g) => {
+    const marks = g.legions.map((l) => l.markerId).join(' & ')
+    return `${marks} still share hex ${g.hexLabel}`
+  })
+  return `Must separate split legions — ${parts.join('; ')}`
+}
+
+function blockedMovePhaseMessage(state: GameState): string {
+  const anyoneMoved = playerLegions(state, activePlayer(state).id).some((l) => l.moved)
+  if (anyoneMoved && splitLegionHasForcedMove(state)) return separateSplitMessage(state)
+  return 'You must move at least one legion if able'
+}
+
+/** Child stacks created this Split phase (for Undo-split buttons). */
+export function undoableSplitChildren(state: GameState): Legion[] {
+  if (state.phase !== 'Split') return []
   const player = activePlayer(state)
-  const mine = playerLegions(state, player.id)
-  for (const leg of mine) {
-    const stacked =
-      mine.filter((l) => l.hexLabel === leg.hexLabel).length > 1
-    if (!stacked) continue
-    if (listNormalMoveHexes(state, leg, state.movementRoll).size > 0) return true
-  }
-  return false
+  return playerLegions(state, player.id).filter((l) => l.splitParentId != null)
 }
 
 /**
@@ -1162,14 +1197,7 @@ function passPhase(state: GameState, rng: () => number): void {
     beginMovePhase(state, rng)
   } else if (state.phase === 'Move') {
     if (!canEndMovePhase(state)) {
-      const anyoneMoved = playerLegions(state, activePlayer(state).id).some((l) => l.moved)
-      if (!anyoneMoved) {
-        state.message = 'You must move at least one legion if able'
-      } else if (splitLegionHasForcedMove(state)) {
-        state.message = 'Must separate split legions'
-      } else {
-        state.message = 'You must move at least one legion if able'
-      }
+      state.message = blockedMovePhaseMessage(state)
       return
     }
     recombineIllegalSplits(state)

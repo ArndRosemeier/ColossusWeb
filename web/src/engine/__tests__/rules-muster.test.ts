@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { applyEnterKeyPhaseEnd } from '../../components/LegionActions'
 import { dispatch, getLegalRecruits } from '../GameEngine'
 import { listAllMoves } from '../movement'
-import { bestRecruit, listRecruits } from '../recruit'
+import { bestRecruit, listRecruits, unambiguousRecruit } from '../recruit'
 import { turn1SplitChild, twoPlayerGame } from './helpers'
 import type { GameState } from '../types'
 
@@ -98,16 +98,55 @@ describe('rules-muster', () => {
     expect(skipped.activePlayerIndex).not.toBe(warned.activePlayerIndex)
   })
 
-  it('Enter auto-musters best for every pending legion then finishes', () => {
+  it('Enter auto-musters only unambiguous recruits then finishes or opens a choice', () => {
     let { g, movedId } = musterReady(1)
-    const expected = bestRecruit(g, g.legions.find((l) => l.id === movedId)!)
-    expect(expected).toBeTruthy()
-
+    const leg = g.legions.find((l) => l.id === movedId)!
+    const auto = unambiguousRecruit(g, leg)
+    const expected = bestRecruit(g, leg)
     const after = applyEnterKeyPhaseEnd(g)
-    const leg = after.legions.find((l) => l.id === movedId)!
-    expect(leg.recruited).toBe(true)
-    expect(leg.musteredThisTurn).toBe(expected)
-    expect(after.phase).not.toBe('Muster')
+    const afterLeg = after.legions.find((l) => l.id === movedId)!
+    if (auto) {
+      expect(afterLeg.recruited).toBe(true)
+      expect(afterLeg.musteredThisTurn).toBe(expected)
+      expect(after.phase).not.toBe('Muster')
+    } else {
+      expect(afterLeg.recruited).toBe(false)
+      expect(after.phase).toBe('Muster')
+      expect(after.selectedLegionId).toBe(movedId)
+    }
+  })
+
+  it('Enter leaves a Cyclops/Gorgon fork for the player', () => {
+    let g = twoPlayerGame(1)
+    const parent = g.legions.find((l) => l.playerId === g.players[0].id)!
+    g = dispatch(g, {
+      type: 'split',
+      parentId: parent.id,
+      childCreatures: turn1SplitChild(g, parent),
+    })
+    const mover = g.legions.find((l) => l.playerId === g.players[0].id)!
+    const brush = Object.values(g.variant.board.hexByLabel).find((h) => h.terrain === 'Brush')!
+    mover.creatures = [
+      { type: 'Cyclops', hits: 0 },
+      { type: 'Cyclops', hits: 0 },
+    ]
+    mover.hexLabel = brush.label
+    mover.moved = true
+    mover.recruited = false
+    g.phase = 'Muster'
+    const after = applyEnterKeyPhaseEnd(g)
+    expect(after.phase).toBe('Muster')
+    expect(after.legions.find((l) => l.id === mover.id)!.recruited).toBe(false)
+    expect(after.selectedLegionId).toBe(mover.id)
+  })
+
+  it('inspecting an enemy shows their last muster', () => {
+    const { g } = musterReady(1)
+    const enemy = g.legions.find((l) => l.playerId === g.players[1].id)!
+    enemy.musteredThisTurn = 'Lion'
+    enemy.hexLabel = '18'
+    const seen = dispatch(g, { type: 'selectLegion', legionId: enemy.id })
+    expect(seen.message).toMatch(/Last muster: Lion @18/)
   })
 
   it('Q3: tower Warlock requires Titan; Guardian requires 3 identical non-lords', () => {

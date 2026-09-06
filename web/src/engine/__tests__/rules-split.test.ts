@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { eliminateLegionToCaretaker } from '../engagement'
-import { dispatch } from '../GameEngine'
+import { dispatch, undoableSplitChildren } from '../GameEngine'
 import { turn1SplitChild, twoPlayerGame } from './helpers'
 
 describe('rules-split', () => {
@@ -259,6 +259,21 @@ describe('rules-split', () => {
     expect(restored[0]!.splitThisTurn).toBe(false)
     expect(g.players[0]!.markersAvailable.length).toBe(beforeMarkers)
     expect(g.selectedLegionId).toBe(parentId)
+    expect(undoableSplitChildren(g)).toHaveLength(0)
+  })
+
+  it('undoableSplitChildren lists the new stack until it is undone', () => {
+    let g = twoPlayerGame(5)
+    const parent = g.legions.find((l) => l.playerId === g.players[0].id)!
+    expect(undoableSplitChildren(g)).toHaveLength(0)
+    g = dispatch(g, {
+      type: 'split',
+      parentId: parent.id,
+      childCreatures: turn1SplitChild(g, parent),
+    })
+    const children = undoableSplitChildren(g)
+    expect(children).toHaveLength(1)
+    expect(children[0]!.splitParentId).toBe(parent.id)
   })
 
   it('undoSplit works when the parent is selected', () => {

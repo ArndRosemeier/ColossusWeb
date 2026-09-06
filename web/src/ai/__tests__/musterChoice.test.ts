@@ -6,6 +6,7 @@ import {
   listDevelopmentEdges,
   listRecruitOptionsAt,
   scoreRecruitOption,
+  unambiguousRecruit,
 } from '../../engine/recruit'
 import { twoPlayerGame, turn1SplitChild } from '../../engine/__tests__/helpers'
 import { dispatch } from '../../engine/GameEngine'
@@ -39,6 +40,30 @@ describe('development-aware muster ranking', () => {
     expect(edges).toContainEqual({ recruiter: 'Troll', recruit: 'Wyvern', needed: 3 })
     // Down-tree regularRecruit edges must not appear
     expect(edges.some((e) => e.recruiter === 'Gorgon' && e.recruit === 'Cyclops')).toBe(false)
+  })
+
+  it('Brush: 2 Cyclops is a real choice — Enter must not auto-pick Cyclops over Gorgon', () => {
+    const g = twoPlayerGame(1)
+    const legion = stubMovedLegion(g, ['Cyclops', 'Cyclops'], 'Brush')
+    expect(listRecruitOptionsAt(g, legion, legion.hexLabel)).toEqual(
+      expect.arrayContaining(['Cyclops', 'Gorgon']),
+    )
+    expect(unambiguousRecruit(g, legion)).toBeNull()
+  })
+
+  it('Marsh: 3 Trolls auto-muster Ranger (extra Troll is surplus)', () => {
+    const g = twoPlayerGame(1)
+    const legion = stubMovedLegion(g, ['Troll', 'Troll', 'Troll'], 'Marsh')
+    expect(unambiguousRecruit(g, legion)).toBe('Ranger')
+  })
+
+  it('Plains: 1 Lion auto-musters Lion (Centaur is down-tree filler)', () => {
+    const g = twoPlayerGame(1)
+    const legion = stubMovedLegion(g, ['Lion'], 'Plains')
+    expect(listRecruitOptionsAt(g, legion, legion.hexLabel)).toEqual(
+      expect.arrayContaining(['Lion']),
+    )
+    expect(unambiguousRecruit(g, legion)).toBe('Lion')
   })
 
   it('Brush: 2 Cyclops prefer a third Cyclops (unlocks Behemoth) over Gorgon', () => {
@@ -111,5 +136,59 @@ describe('development-aware muster ranking', () => {
       legionId: mover.id,
       creatureType: 'Cyclops',
     })
+  })
+
+  it('Tower: 2 Ogres prefer a third (Minotaur unlock); 3+ prefer Guardian', () => {
+    const g = twoPlayerGame(1)
+    const with2 = stubMovedLegion(g, ['Ogre', 'Ogre'], 'Tower')
+    expect(bestRecruitAt(g, with2, with2.hexLabel)).toBe('Ogre')
+
+    const with3 = stubMovedLegion(g, ['Ogre', 'Ogre', 'Ogre'], 'Tower')
+    expect(bestRecruitAt(g, with3, with3.hexLabel)).toBe('Guardian')
+    expect(scoreRecruitOption(g, 'Guardian', with3.hexLabel, with3)).toBeGreaterThan(
+      scoreRecruitOption(g, 'Ogre', with3.hexLabel, with3),
+    )
+  })
+
+  it('Marsh/Hills: never prefer a 4th Ogre once 3 are held', () => {
+    const g = twoPlayerGame(1)
+    const marsh = stubMovedLegion(g, ['Ogre', 'Ogre', 'Ogre'], 'Marsh')
+    expect(bestRecruitAt(g, marsh, marsh.hexLabel)).toBe('Troll')
+
+    const hills = stubMovedLegion(g, ['Ogre', 'Ogre', 'Ogre'], 'Hills')
+    expect(bestRecruitAt(g, hills, hills.hexLabel)).toBe('Minotaur')
+  })
+
+  it('cautious AI still musters Guardian (not another Ogre) with 3 Ogres on Tower', () => {
+    let g = twoPlayerGame(1)
+    g.players[0].kind = 'ai'
+    g.players[0].aiProfileId = 'cautious'
+    const parent = g.legions.find((l) => l.playerId === g.players[0].id)!
+    g = dispatch(g, {
+      type: 'split',
+      parentId: parent.id,
+      childCreatures: turn1SplitChild(g, parent),
+    })
+    const mover = g.legions.find((l) => l.playerId === g.players[0].id)!
+    mover.creatures = [
+      { type: 'Ogre', hits: 0 },
+      { type: 'Ogre', hits: 0 },
+      { type: 'Ogre', hits: 0 },
+    ]
+    mover.hexLabel = hexOfTerrain(g, 'Tower')
+    mover.moved = true
+    mover.recruited = false
+    g.phase = 'Muster'
+    g.activePlayerIndex = 0
+
+    // rng always above musterGreed → near-best band; Guardian must still win
+    for (const roll of [0.99, 0.85, 0.71, 0.5, 0.0]) {
+      const cmd = pickAiCommand(g, () => roll)
+      expect(cmd).toEqual({
+        type: 'recruit',
+        legionId: mover.id,
+        creatureType: 'Guardian',
+      })
+    }
   })
 })

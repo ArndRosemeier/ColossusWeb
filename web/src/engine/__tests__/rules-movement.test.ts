@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { dispatch, getMovesForSelected } from '../GameEngine'
-import { listAllMoves, listNormalMoveHexes } from '../movement'
+import { dispatch, getMovesForSelected, unseparatedSplitStacks } from '../GameEngine'
+import { listAllMoves, listEnemyMovePreview, listNormalMoveHexes } from '../movement'
 import { twoPlayerGame, turn1SplitChild } from './helpers'
 import type { GameState } from '../types'
 
@@ -44,13 +44,28 @@ describe('rules-movement', () => {
     expect(again.legions.find((l) => l.id === mover.id)!.hexLabel).toBe(dest)
   })
 
-  it('selecting an enemy legion does not show move hints for your roll', () => {
+  it('selecting an enemy legion does not offer click-to-move on your roll', () => {
     let g = splitAndRoll(11)
     const enemy = g.legions.find((l) => l.playerId === g.players[1].id)!
+    enemy.moved = true
     g = dispatch(g, { type: 'selectLegion', legionId: enemy.id })
     expect(g.legalHexes).toEqual([])
     expect(getMovesForSelected(g).size).toBe(0)
+    expect(g.message).toMatch(/movement preview/i)
     expect(g.message).toMatch(enemy.markerId)
+    expect(listEnemyMovePreview(g, enemy).size).toBeGreaterThan(0)
+  })
+
+  it('Done is allowed once every friendly stack is alone on its hex', () => {
+    let g = splitAndRoll(11)
+    const mine = g.legions.filter((l) => l.playerId === g.players[0]!.id)
+    expect(mine).toHaveLength(2)
+    const mover = mine.find((l) => listAllMoves(g, l, g.movementRoll!).size > 0)!
+    const dest = [...listAllMoves(g, mover, g.movementRoll!).keys()][0]!
+    g = dispatch(g, { type: 'move', legionId: mover.id, toHex: dest })
+    expect(unseparatedSplitStacks(g)).toHaveLength(0)
+    g = dispatch(g, { type: 'doneMove' })
+    expect(g.phase).not.toBe('Move')
   })
 
   it('M3/M4: destinations are exactly roll steps away or engagement stops; never friendly end hex', () => {

@@ -120,6 +120,9 @@ describe('multi-split movement', () => {
     const stuck = dispatch(g, { type: 'doneMove' })
     expect(stuck.phase).toBe('Move')
     expect(stuck.message).toMatch(/separate split/i)
+    expect(stuck.message).toMatch(pairB[0].markerId)
+    expect(stuck.message).toMatch(pairB[1].markerId)
+    expect(stuck.message).toMatch(pairB[0].hexLabel)
 
     const destB = [...listAllMoves(stuck, pairB[0], stuck.movementRoll!).keys()].find(
       (h) => h !== dest,

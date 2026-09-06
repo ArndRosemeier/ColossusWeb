@@ -7,7 +7,7 @@ import {
   dispatch,
   legionsWithPendingMuster,
 } from '../engine/GameEngine'
-import { bestRecruit } from '../engine/recruit'
+import { unambiguousRecruit } from '../engine/recruit'
 import type { GameCommand, GameState } from '../engine/types'
 import { CreatureChit } from './CreatureChit'
 
@@ -172,9 +172,9 @@ export function phaseEndCommand(state: GameState): GameCommand | null {
 }
 
 /**
- * Enter key phase end. Same as Space except Muster: every legion that can
- * still muster takes its best recruit (board preview), then the phase ends.
- * In battle, Space and Enter both advance (skip reinforce/summon when needed).
+ * Enter key phase end. Same as Space except Muster: every legion with an
+ * unambiguous recruit takes it. Remaining choices stay open. If none remain,
+ * the phase ends. In battle, Space and Enter both advance.
  */
 export function applyEnterKeyPhaseEnd(state: GameState): GameState {
   if (state.pendingDice) return state
@@ -189,7 +189,7 @@ export function applyEnterKeyPhaseEnd(state: GameState): GameState {
       const pending = legionsWithPendingMuster(s)
       let progressed = false
       for (const leg of pending) {
-        const creatureType = bestRecruit(s, leg)
+        const creatureType = unambiguousRecruit(s, leg)
         if (!creatureType) continue
         s = dispatch(s, { type: 'recruit', legionId: leg.id, creatureType })
         progressed = true
@@ -197,7 +197,9 @@ export function applyEnterKeyPhaseEnd(state: GameState): GameState {
       }
       if (!progressed) break
     }
-    return dispatch(s, { type: 'doneMuster' })
+    const leftover = legionsWithPendingMuster(s)
+    if (leftover.length === 0) return dispatch(s, { type: 'doneMuster' })
+    return dispatch(s, { type: 'selectLegion', legionId: leftover[0]!.id })
   }
   const cmd = phaseEndCommand(state)
   if (!cmd) return state
@@ -247,7 +249,7 @@ export function phaseKeyboardHints(
   if (state.phase === 'Muster') {
     return {
       space: 'Done mustering',
-      enter: 'Muster best for all, then done',
+      enter: 'Auto-muster obvious recruits, then done',
     }
   }
   const label = phaseEndLabel(state)
