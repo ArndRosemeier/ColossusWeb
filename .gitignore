@@ -32,3 +32,8 @@ Colossus/txt/
 Colossus/forceboard
 Colossus/loadfile
 Colossus/headless
+
+# Process machinery (chief of staff) — the gate log and lock are SHARED across worktrees
+/.gate-logs/
+/.gate-lock/
+/worktrees/
