@@ -139,6 +139,13 @@ PUBLISH | slug=ColossusWeb | delivers=the ARCH gate fix (lands=0b1fa3d)
   still resolve the old hash in the entry it was served
   | hub=bash ~/projects/futuremagic/scripts/publish-apps-root.sh exit 0; 13 cards written
 
+PUBLISH | slug=ColossusWeb | delivers=THE MULTIPLAYER FEATURE (S1 transport + S2 lobby + S3 turn sync, lands through `e0f1237`)
+  | build=(cd web && npx tsc -b && COLOSSUS_BASE=/ColossusWeb/ npx vite build) -> asset index-NPGqaq-d.js
+  | method=rsync -ai --exclude='.htaccess' web/dist/ ~/apps/ColossusWeb/ (NO --delete) | exit 0
+  | verify=BY CONTENT, not by 200: the served entry references /ColossusWeb/assets/index-NPGqaq-d.js; 1374 files byte-identical to the build apart from 3 SUPERSEDED assets deliberately retained for the 4h CDN window on the unchanged index.html; `.htaccess` not published; over http://127.0.0.1:8082/ColossusWeb/ the new asset is 200 and hashes 2a36b958… == dist; and a headless-Chrome load renders **8212 chars** of `#root` whose DOM now contains Connect / Multiplayer / Lobby — so the new code renders rather than crashing on load (Chrome tree reaped to 0)
+  | cdn=cf-cache-status DYNAMIC on the public URL, so the new bytes are already being served; hub refreshed exit 0, 13 cards
+  | not-proven=A LIVE AUTHENTICATED ROUND TRIP. No key, no browser ever connected, and nothing has ever been written to the live `colossus` store. Every claim about the multiplayer behaviour rests on S1's in-memory twin. This is the one gap between the feature as built and the owner's acceptance criteria.
+
 RECOVERY | publish=(cd web && npx tsc -b && COLOSSUS_BASE=/ColossusWeb/ npx vite build) · rsync -ai --exclude='.htaccess' web/dist/ ~/apps/ColossusWeb/ · bash ~/projects/futuremagic/scripts/publish-apps-root.sh
 RECOVERY | repo=/home/administrator/projects/ColossusWeb | remote=origin=https://github.com/ArndRosemeier/ColossusWeb.git
 RECOVERY | branch=master | base=6ff7115638d26f3b31d1de625ba17b7e0088d028 (S3's base was 5326bd3f) | gate=bash scripts/gate.sh (from the tree ROOT)
