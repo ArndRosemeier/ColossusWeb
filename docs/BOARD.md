@@ -52,9 +52,9 @@ independently names the verified base. See decision-ledger row 4.
 ## Board
 
 ```
-reconciled: 6c5d0196252ac65bc1bb322d5797b4c62dea73be · 2026-09-27T22:36Z
+reconciled: 6ff7115638d26f3b31d1de625ba17b7e0088d028 · 2026-09-27T23:10Z
 
-SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=dispatching to completion — OWNER AWAY, instruction "try to build this to completion"; S1 and S2 both VERIFIED and RETIRED by the dispatcher, S3 (turn sync) IN FLIGHT, SERIALLY because they all touch `web/src/components/App.tsx`
+SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=dispatching to completion — OWNER AWAY, instruction "try to build this to completion"; S1 and S2 VERIFIED and RETIRED by the dispatcher, S3 (turn sync) LANDED on `feat/sync` by its writer and awaiting the dispatcher's own verification, SERIALLY because all three touch `web/src/components/App.tsx`
 
 QUEUE | row=1 | owner: "be my chief of staff" — a designation, not yet a work order; awaiting the first task
 QUEUE | row=5 | known debt: docs/ARCHITECTURE.md §2 (the seam index) is NOT surveyed — a read-only probe could fill it
@@ -79,8 +79,17 @@ LANDED | row=S1 | lands=this commit (`git log -1 --format=%H -- docs/BOARD.md`) 
 QUEUE | row=11 | also cross-project, lower priority: ServerStore has NO concurrency control (a PUT is an unconditional overwrite) and NO rate limiting. A snapshot design with writer-tagged names does not need concurrency control; a public poll loop does eventually want the rate limit
 QUEUE | row=12 | design constraint to remember: there is NO per-object isolation in ServerStore (no ACL, no owner column), so any key with read/write on `colossus` can read, overwrite and DELETE every object in it, including other players'. Isolation is only available by partitioning into more stores
 
-IN-FLIGHT | row=S3 | worktree=/home/administrator/projects/ColossusWeb/worktrees/sync | branch=feat/sync | base=5326bd3f5e1c9c703cf2c0478047c40e773bcb36 | session=11f10bc0-3587-47f0-a4d4-6b569e35127e | state=dispatched | brief=docs/briefs/slice-s3-sync.md | ledger row assigned=9
-  scope=TURN SYNC, the slice that makes a started game PLAYABLE. The snapshot protocol (`g.<gameid>.s.<tttt>.<sss>.<tag>`, body = header + `serializeGame`'s state, `parent`-linked so a race is a visible FORK rather than a lost update); publish after every local command; poll ~2s only while the tab is visible, with backoff; adopt the GREATEST name with deterministic, fork-SURFACING handling; an explicit seat order written by the creator at Start; input enabled only for the seat whose turn it is; and resume-by-adoption instead of starting a fresh local game. Every local state change must funnel through ONE commit path so nothing can change state without publishing. OUT OF SCOPE: automatic fork resolution, AI seats, any push transport, and the declined per-player-store / encryption work
+LANDED | row=S3 | lands=this commit (`git log -1 --format=%H -- docs/BOARD.md`) | writer=11f10bc0-3587-47f0-a4d4-6b569e35127e | branch=feat/sync | worktree=/home/administrator/projects/ColossusWeb/worktrees/sync | base=5326bd3f5e1c9c703cf2c0478047c40e773bcb36 | rebased onto master `6ff7115` before pushing | ledger row=9 | brief=docs/briefs/slice-s3-sync.md
+  | deliverable=TURN SYNC — the slice that makes a started game PLAYABLE. `web/src/net/snapshot.ts` is the WHOLE snapshot protocol and is pure (no React, no fetch): the name `g.<gameid>.s.<tttt>.<sss>.<tag>` IS the ordering (zero-padded, tag = the writer's 8-char public handle, so two writers at one position make two objects), the body is a header plus the output of `serializeGame` — the ONE state serialiser, reused unchanged — and every field is validated LOUDLY on the way in (a name that disagrees with its own body, a turn/seq whose padding would sort wrongly, a parent from another game and a bad save version are all thrown `ServerStoreError`s, never empty data). `web/src/net/sync.ts` owns `publishSnapshot` / `fetchLatest` / `adopt` (adoption = `deserializeGame` + the local UI-only fields `selectedLegionId`/`legalHexes`), the ONE commit path (`createCommitPath`: every local command updates state AND publishes exactly one snapshot; UI-only selection publishes nothing; a pending physical throw defers until committed; a REMOTE adoption goes through the same seam and never publishes), the turn predicate, and the poll loop (~2s, ONE request in flight, **no request at all while the tab is hidden**, exponential backoff, `stop()` + `AbortSignal`). `web/src/net/activeGame.ts` is the ONE resume pointer (`colossusweb.multiplayer.v1`, a game id and nothing else), so opening or reloading offers to ADOPT the latest snapshot instead of starting a fresh game.
+  | deliverable-seats=The game record is schema **v2** with a REQUIRED `seatOrder`, written by the creator at Start (creator first, then the joined sorted by tag, `seatOrderFor`), so every client derives the SAME seat mapping; a v1 record is `unsupported_record_version`, a started record with <2 seats is `bad_game_record`, and a spectator (seat −1) is told so in the lobby and read-only on the board — never silently seat 0. Turn authority is the STATE's answer, not a claim: `actingPlayerIds` = the active seat, the battle step's `activePlayerId`, the thrower of a pending physical roll, the defender awaiting a post-battle reinforcement, or BOTH parties to a pre-battle engagement (the defender must be able to flee/agree). It feeds the board's `interactive` flag; `applyCommand`'s own refusal is the backstop. Multiplayer seats are humans who hold keys: `assertHumanSeats` refuses an AI seat loudly and the AI autoplay effect is off whenever a session is open. `MultiplayerStatus.tsx` shows seat, whose turn, your-turn/read-only, poll state, a FORK warning and a sync failure.
+  | deliverable-fork=A race is DETECTED and SURFACED, never silently resolved: `fetchLatest` returns the `SnapshotFork` at the greatest `(turn, seq)`, the status line renders it with both writer tags, and the choice among the fork's members is deterministic (the parent we hold, else the lowest tag). **The brief's own protocol was measured and corrected:** `GameState.turnNumber` is the ROUND (`GameEngine.ts:1137` increments it only when the active seat wraps past the last), so an independent per-writer `sss` reset each turn does not order states within a round — seat 0's older `s.0001.002` beats seat 1's newer `s.0001.000` and the move is lost. `sss` is therefore the SUCCESSOR of the parent snapshot's counter (adoption seeds the cursor); two clients deriving from the same parent still collide and fork. Three digits cap a round at 1000 publishes and `snapshotObjectName` REFUSES beyond that rather than minting a name that lies. Recorded in ledger row 9.
+  | verify=WRITER'S OWN, on this commit's tree, gated three times (**exit 0** every time; two before the docs record and one FINAL on the tree with every doc and the differential script in place): cheap tier GREEN (`cd web && npx tsc -b && npx vite build`, **78 modules**) · full gate **exit 0** · oxlint **14 warnings / 0 errors** (the base tree's count — no new warning) · vitest **438 passed | 2 todo (440)** in 58 files + 1 skipped · final peak **328976 KB (~321 MB)** (earlier runs 333088 / 336212 KB — host-load variance, the same result) · raw log `.gate-logs/gate.log`; writer's copies `.gate-logs/s3-gate-run1.txt`, `s3-gate-run2.txt`, `s3-gate-final.txt`. The lock was released (`.gate-lock` absent) after every run.
+  | verify=DIFFERENTIAL, writer's own, **9 S3 source arms appended to `scripts/differential.sh`** (the project's ONE differential harness), alongside S1's 12 and S2's 5: **26/26 RED as intended, FAILED=0**, under the shared suite lock, each target's sha256 PRINTED before and after and restored from HEAD in the `cleanup` trap. Every arm broke a REAL rule at its line: **Q** `sss` is not seeded from the parent (`sync.ts` `213cdd63…`; `tracker.seq + 1` → `0`, so two snapshots in one turn collide on the same name and the first is overwritten) → RED `a local command publishes exactly ONE snapshot named for its turn/seq; UI-only commands publish none` (1 failed | 16 passed) · **R** a state with a pending throw IS published → RED `a state with a pending throw is NOT published until the throw is committed` · **S** adoption resets the local selection (→ `null`) → RED `a remote snapshot is adopted and the local UI-only fields survive` · **T** the fork is never detected (`group.length < 2` → `< 999`) → RED `two writers at the same (turn, seq) produce two names; the fork is surfaced` · **U** the name fields are not zero-padded (`snapshot.ts` `3e7c3244…`; `String(value).padStart(digits, '0')` → `String(value)`) → RED `sorts names into state order, padded, across a turn boundary and at the seq ceiling` (6 failed | 4 passed) · **V** turn authority ignores an engagement (the defender could never flee) → RED `enables only the active seat, and follows a battle, a throw and a reinforcement` · **W** polling ignores visibility → RED `polls while visible, makes NO request while hidden, and stops when torn down` · **X** the key is smuggled into the snapshot body → RED `a published body contains no key material and no key-shaped field` · **Y** Start writes the seat order in JOIN order (`lobby.ts` `f11d23a3…`) → RED `Start writes the explicit seat order: creator first, then the joined by tag` (2 failed | 41 passed). Every target hash was identical after restore and `git status --porcelain` was EMPTY. Logs `.gate-logs/differential/*.log`, transcript `.gate-logs/s3-differential-run2.txt`.
+  | verify=PROBE BUG FOUND AND FIXED, not reported as a finding: arm R's first run injected a literal `&&` into a sed REPLACEMENT, where `&` means the whole match — the injected file became a PARSE error and vitest said "no tests", which the harness correctly called **VOID**, not RED (transcript `.gate-logs/s3-differential-run1.txt`, FAILED=1). The trap is now written into `scripts/differential.sh`'s header so it cannot recur.
+  | COPIES: 11→1 — every path in `App.tsx` that changes the GAME state now goes through `createCommitPath` (`web/src/net/sync.ts`); `grep -n 'setState(' App.tsx` finds exactly ONE bare setter (inside `putState`, the commit path's only `setState`), where before S3 there were eleven scattered writers. Also folded: 2→1 — `MIN_SEATS` (`gameRecord.ts`) is the ONE seats floor, re-exported as `lobby.ts`'s `MIN_PLAYERS_TO_START` (the strict v2 parser and the lobby rule can no longer drift); 2→1 — `readPlayerRecords` is the ONE bulk reader of `p.` bodies, used by both `readLobby` and `startGame`; and the snapshot body reuses `serializeGame`/`deserializeGame` unchanged — grepped `serializeGame\|deserializeGame` under `web/src/net`, the only non-test call sites are `sync.ts:280` (publish) and `sync.ts:390` (adopt), so there is no second state format.
+  | docs=this file, docs/DECISION-LEDGER.md row 9, docs/ARCHITECTURE.md §1 (the `web/src/net/` dependency row) + §2 (eight new seam rows and the state-flow diagram) + §3 (the `turnNumber`-is-the-round gotcha)
+  | scope-not-taken=no automatic fork RESOLUTION (detect and surface only); no AI seats on the multiplayer path; no push/WebSocket transport; no per-player stores, dice commit–reveal or encryption (owner-declined); no change to the rules engine; no cleanup of finished games (S4). Every test runs against S1's in-memory twin or a stubbed `fetch` — no test calls the live service.
+  | note=**STILL NOT PROVEN** (writer's own honest gap): the live `colossus` store has still never been written to by this client, and no authenticated call has been made from a browser — that needs a valid key, which this writer does not hold and did not go looking for. The pins prove the protocol against the in-memory twin only.
 
 LANDED | row=S2 | lands=this commit (`git log -1 --format=%H -- docs/BOARD.md`) | writer=345c61c6-a65c-4e3e-bca9-e646d3d71923 | branch=feat/lobby | worktree=/home/administrator/projects/ColossusWeb/worktrees/lobby | base=162364071c769255a64f44d8c2c2f2456301ec04 | rebased onto master `1c48bdf` before pushing | ledger row=8 | brief=docs/briefs/slice-s2-lobby.md
   | deliverable=THE LOBBY LIFECYCLE ONLY, implementing the owner's Create Multiplayer / Join Multiplayer / Start Multiplayer (creator only). `web/src/net/gameRecord.ts` owns the object shapes and names: `g.<gameid>.game` (creator-only writer) and `g.<gameid>.p.<tag>` (owner-only writer), with `gameid` = a ≤23-char slug + 8 random hex so two same-named games cannot collide and BOTH names fit the service's 64-char rule; the display name is uncapped and lives in the body. The player tag is the first 8 lowercased characters of the full `whoami().id` (ServerStore's own public prefix) while the full id stays in the body for identity comparison, so a tag collision is refused (`player_tag_collision`) instead of overwriting. `web/src/net/lobby.ts` owns the operations (`createGame`/`listGames`/`joinGame`/`leaveGame`/`startGame`/`readLobby`) and enforces every rule BEFORE any write, as a thrown `ServerStoreError` the ONE error surface renders: Start is the creator's alone (`not_creator`), a second Start is refused (`already_started`), Start needs ≥2 joined players (`not_enough_players` — a decision taken in this slice because the hand-off requires two seats), a started game takes no joins (`game_started`), a full game takes no joins (`game_full`), and a re-join returns the existing object with NO write. Discovery is the store's own list route filtered to `g.<id>.game`: a non-game name is in NEITHER result list, while a malformed or unfetchable game is reported in `GameListing.unreadable` with the service's own code and message — never dropped. `web/src/net/storeName.ts` is the ONE place the store name comes from (`colossus`; `VITE_SERVERSTORE_STORE` overrides). `web/src/components/LobbyPanel.tsx` renders Create / Join / Start, shows Start only to the creator, and hands a started game to the existing local new-game flow; `SetupScreen.tsx` now owns ONE `useConnection()` state and passes it to both panels (ConnectPanel takes it as a prop).
@@ -129,7 +138,7 @@ PUBLISH | slug=ColossusWeb | delivers=the ARCH gate fix (lands=0b1fa3d)
 
 RECOVERY | publish=(cd web && npx tsc -b && COLOSSUS_BASE=/ColossusWeb/ npx vite build) · rsync -ai --exclude='.htaccess' web/dist/ ~/apps/ColossusWeb/ · bash ~/projects/futuremagic/scripts/publish-apps-root.sh
 RECOVERY | repo=/home/administrator/projects/ColossusWeb | remote=origin=https://github.com/ArndRosemeier/ColossusWeb.git
-RECOVERY | branch=master | base=6c5d0196252ac65bc1bb322d5797b4c62dea73be (S1's base was 470cd9a5) | gate=bash scripts/gate.sh (from the tree ROOT)
+RECOVERY | branch=master | base=6ff7115638d26f3b31d1de625ba17b7e0088d028 (S3's base was 5326bd3f) | gate=bash scripts/gate.sh (from the tree ROOT)
 RECOVERY | product=web/ (TypeScript, verifiable) | reference=Colossus/ (Java, NOT buildable on this host)
 RECOVERY | logs=.gate-logs/gate.log (gitignored) | worktrees=./worktrees/ (gitignored)
 ```
@@ -137,7 +146,8 @@ RECOVERY | logs=.gate-logs/gate.log (gitignored) | worktrees=./worktrees/ (gitig
 retired_branch=feat/mp-transport
 retired_branch=feat/lobby
 
-**S1 AND S2 ARE VERIFIED AND RETIRED; S3 IS NEXT.** (This paragraph previously said S2 awaited the
+**S1 AND S2 ARE VERIFIED AND RETIRED; S3 IS LANDED ON `feat/sync` AND AWAITS THE
+DISPATCHER'S OWN VERIFICATION.** (This paragraph previously said S2 awaited the
 DISPATCHER'S OWN VERIFICATION; S3 IS NEXT.** `feat/mp-transport` is gone locally AND on the
 remote, and its worktree is removed — the `retired_branch=` line above is the claim the
 reconciler reads. S2's branch is **not** retired: it holds the lobby landings above and is the
@@ -150,7 +160,16 @@ objects after a real connect (`keyPersistence.test.ts`), and the transport rules
 requests the client actually made (`serverStore.test.ts`). S2's pins live in
 `web/src/net/__tests__/lobby.test.ts` (operations, run against BOTH transports),
 `web/src/net/__tests__/gameRecord.test.ts` (names and record shapes) and
-`web/src/components/__tests__/lobbyUi.test.ts` (Start is the creator's alone).
+`web/src/components/__tests__/lobbyUi.test.ts` (Start is the creator's alone). S3's pins are
+`web/src/net/__tests__/snapshot.test.ts` (the name IS the ordering, the padding and the
+64-character budget, fork detection and the deterministic choice, LOUD body validation),
+`web/src/net/__tests__/sync.test.ts` (publish → fetch → adopt, exactly one snapshot per shared
+command, UI-only commands publish nothing, the pending throw defers, remote adoption preserves
+the local UI and never publishes, the fork is surfaced, turn authority, polling while
+hidden/torn down with backoff, seats/seeds and the AI refusal, no key material, migration),
+`web/src/net/__tests__/activeGame.test.ts` (the one resume pointer) and
+`web/src/components/__tests__/multiplayerStatus.test.ts` (whose turn / read-only / fork /
+failure are visible).
 
 **DISPATCHER'S OWN ERRORS, recorded rather than quietly corrected** (per `AGENTS.md`):
 1. **A masked exit code.** `git branch -d feat/mp-transport | tail -2` printed `[branch delete
@@ -163,6 +182,18 @@ requests the client actually made (`serverStore.test.ts`). S2's pins live in
    unmerged. `git merge-base --is-ancestor feat/mp-transport master` returned **0** first, so
    every commit was provably in the tree being pushed; `-D` removed a branch whose content was
    already integrated. The true exit code (`0`) was taken without a pipe.
+3. **S3's brief asserted a fact from plausibility and was WRONG — caught by the writer's own
+   measurement, not by the gate.** The brief's protocol says `sss` is "a per-writer counter
+   within that turn (reset each turn)" and that `tttt` is `state.turnNumber`. Measured in
+   `GameEngine.ts:1137` and confirmed with a 3-player probe (2026-09-28): `turnNumber` is the
+   **ROUND**, incremented only when the active seat wraps past the last, so `activePlayerIndex`
+   runs 0 → 1 → 2 while `turnNumber` stays 1. An independent per-writer counter therefore does
+   not order states inside a round: seat 0's older `s.0001.002` beats seat 1's newer
+   `s.0001.000`, and the newer move is silently ignored — the exact failure the protocol exists
+   to prevent. The writer implemented the brief's INTENT (greatest name = newest state) by
+   seeding `sss` from the parent snapshot's counter, which is what the `parent` field is for;
+   two clients deriving from the same parent still fork. Recorded in ledger row 9 and in
+   `ARCHITECTURE.md §3` so the next brief checks the field before quoting a meaning.
 
 **This worktree has no `web/node_modules` until `(cd web && npm ci)` is run once** — a fresh
 worktree fails the gate's preflight with exit 1 (not a test failure) until then. `jsdom` is
@@ -215,6 +246,9 @@ the dispatcher's reading of "completion", recorded here so the owner can correct
 parallelisable in practice: all three touch `web/src/components/App.tsx`, and the rule is
 that a shared file means SERIALIZE. Each slice runs in its own worktree off the then-current
 `origin/master`, and each landing is verified by the dispatcher before the next is dispatched.
+All three have now landed; nothing is in flight. The slices remaining in the design
+(`docs/design/multiplayer.md` §7) are **S4** (fork RESOLUTION, reconnect, cleanup of finished
+games) and the closed S5.
 
 **Per landing, the dispatcher (not the writer) must:**
 1. read the writer's diff before dispatching the next slice (sequencing is proven, not predicted);
@@ -225,14 +259,15 @@ that a shared file means SERIALIZE. Each slice runs in its own worktree off the 
    the branch claim as its own `retired_branch=<name>` line;
 5. amend this board in the same commit as the landing.
 
-**If this session dies:** the record above is true as of the S2 landing on
-`feat/lobby`. The S2 writer (`345c61c6-a65c-4e3e-bca9-e646d3d71923`) committed the lobby
-landing there and pushes it with this record — **salvage-check its branch log and worktree
-status before deleting anything**. `feat/lobby` is the dispatcher's to verify, integrate and
-retire, and the worktree `/home/administrator/projects/ColossusWeb/worktrees/lobby` holds its
-raw gate and differential logs under `.gate-logs/`. The brief for S3 does not exist yet; write
-it from `docs/briefs/slice-s1-transport.md` / `slice-s2-lobby.md` as the templates and
-`docs/BRIEF.md` as the contract.
+**If this session dies:** the record above is true as of the S3 landing on `feat/sync`. The S3
+writer (`11f10bc0-3587-47f0-a4d4-6b569e35127e`) committed the turn-sync landing there and pushes
+it with this record — **salvage-check its branch log and worktree status before deleting
+anything**. `feat/sync` is the dispatcher's to verify, integrate and retire, and the worktree
+`/home/administrator/projects/ColossusWeb/worktrees/sync` holds its raw gate and differential
+logs under `.gate-logs/`. `feat/lobby` (S2) is likewise still the dispatcher's to retire. The
+next work is **S4** — fork RESOLUTION (S3 detects and surfaces a fork but deliberately does not
+resolve it), reconnect, and cleanup of finished games — briefed from
+`docs/briefs/slice-s3-sync.md` as the closest template and `docs/BRIEF.md` as the contract.
 
 ## Guards
 
@@ -276,5 +311,15 @@ Each was **verified**, not assumed, on 2026-09-27 at the base commit.
 
 ## Traps (each with the rule that prevents it)
 
-- `TRAP` — none recorded yet. The first one gets written here with the rule that
-  prevents it.
+- `TRAP` — **in a `sed` REPLACEMENT, `&` means THE WHOLE MATCH.** S3's differential
+  arm R injected a literal `&&` (`s|&& !next.pendingDice|&& true|`); sed expanded both
+  `&`s into the matched text, the file became a PARSE error, and vitest reported
+  "no tests" — which the harness correctly called **VOID**, not RED. The arm proved
+  nothing and looked finished. **The rule:** write `\&\&` in a replacement, and treat a
+  "no tests" result as a probe bug to FIX, never as a finding to report. Now encoded in
+  `scripts/differential.sh`'s header (mistake 3).
+- `TRAP` — **`GameState.turnNumber` is the ROUND.** S3's brief asserted it was the
+  player's turn and built the ordering on that; it is not (see §3 of
+  `docs/ARCHITECTURE.md`). **The rule:** before a brief quotes a field's MEANING, read
+  the line that assigns it, and let a pin drive two writers through a real sequence
+  rather than trusting the field name.

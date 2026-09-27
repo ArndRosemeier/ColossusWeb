@@ -9,11 +9,14 @@
 
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  PLAYER_RECORD_VERSION,
   gameObjectName,
   parseGameRecord,
   playerObjectName,
   playerTagFor,
+  seatOrderFor,
   serializeGameRecord,
+  type PlayerRecord,
 } from '../gameRecord'
 import { installKey, forgetKey } from '../keyStore'
 import {
@@ -282,6 +285,30 @@ describe.each(ARMS)('%s — the lobby', (_name, makeArm) => {
     expect(MIN_PLAYERS_TO_START).toBe(2)
   })
 
+  it('Start writes the explicit seat order: creator first, then the joined by tag', async () => {
+    const game = await createGame(ctx(arm.transport, CREATOR), request())
+    await joinGame(ctx(arm.transport, JOINER), game.gameId)
+    await joinGame(ctx(arm.transport, CREATOR), game.gameId)
+    const started = await startGame(ctx(arm.transport, CREATOR), game.gameId)
+    // The creator is seat 0 whatever order they joined in; the rest sort by tag
+    // (`AAAAbbbb1111` → `aaaabbbb` before `key_5e1a1d3f` → `key_5e1a`).
+    expect(started.seatOrder).toEqual([CREATOR.id, JOINER.id])
+    const stored = parseGameRecord(
+      (await arm.transport.get(TEST_STORE, gameObjectName(game.gameId))).value,
+    )
+    expect(stored.seatOrder).toEqual(started.seatOrder)
+    // Both clients derive the SAME seats from the same store, in any input order.
+    const records: PlayerRecord[] = [CREATOR, JOINER].map((identity) => ({
+      version: PLAYER_RECORD_VERSION,
+      gameId: game.gameId,
+      playerId: identity.id,
+      label: identity.label,
+      joinedAt: '2026-09-28T10:01:00.000Z',
+    }))
+    expect(seatOrderFor(CREATOR.id, records)).toEqual(started.seatOrder)
+    expect(seatOrderFor(CREATOR.id, [...records].reverse())).toEqual(started.seatOrder)
+  })
+
   it('Join is refused for a STARTED game and writes nothing', async () => {
     const game = await createGame(ctx(arm.transport, CREATOR), request())
     await joinGame(ctx(arm.transport, CREATOR), game.gameId)
@@ -330,7 +357,7 @@ describe.each(ARMS)('%s — the lobby', (_name, makeArm) => {
     const good = await createGame(ctx(arm.transport, CREATOR), request({ displayName: 'Good Game' }))
     await arm.seed('random.object', '{"hello":1}')
     await arm.seed('g.abc.p.key_5e1a', '{"some":"player"}')
-    await arm.seed('g.broken-1111aaaa.game', '{"version":1,"gameId":"broken-1111aaaa"}')
+    await arm.seed('g.broken-1111aaaa.game', '{"version":2,"gameId":"broken-1111aaaa"}')
     await arm.seed('g.notjson-2222bbbb.game', 'not json at all')
     await arm.seed('g.other-3333cccc.game', serializeGameRecord({ ...good, gameId: 'other-3333cccc' }))
 

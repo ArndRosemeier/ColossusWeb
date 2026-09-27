@@ -23,8 +23,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { forgetActiveGame, readActiveGame } from '../net/activeGame'
 import { describeFailure, type FailureDescription } from '../net/failure'
-import type { GameRecord, PlayerRecord } from '../net/gameRecord'
+import { seatIndexOf } from '../net/gameRecord'
 import {
   createGame,
   joinBlockedReason,
@@ -40,8 +41,9 @@ import {
   type LobbyContext,
 } from '../net/lobby'
 import { createServerStoreTransport } from '../net/serverStore'
+import type { MultiplayerHandoff } from '../net/sync'
 import type { ConnectionState } from '../net/useConnection'
-import type { StoreIdentity } from '../net/transport'
+import { ServerStoreError, type StoreIdentity } from '../net/transport'
 
 export interface LobbyPanelViewProps {
   /** The connected identity, or `null` when no key is connected yet. */
@@ -59,6 +61,8 @@ export interface LobbyPanelViewProps {
   onCreate: () => void
   onJoin: (gameId: string) => void
   onStart: () => void
+  /** Enter a STARTED game: adopt the latest snapshot rather than start fresh. */
+  onEnter: () => void
   onLeave: () => void
   onRefresh: () => void
   onClose: () => void
@@ -83,6 +87,9 @@ export function LobbyPanelView(props: LobbyPanelViewProps) {
     isCreator && active !== null
       ? startRefusal(active.record, identity, active.players.length)
       : null
+  // A spectator (joined but not seated) is told so; they are never treated as
+  // seat 0. `seatOrder` is written at Start, so it is meaningless in the lobby.
+  const seat = active === null ? -1 : seatIndexOf(active.record, identity.id)
 
   return (
     <section className="setup-panel lobby-panel" aria-label="Multiplayer lobby">
@@ -125,8 +132,21 @@ export function LobbyPanelView(props: LobbyPanelViewProps) {
                 Start Multiplayer (creator)
               </button>
             )}
-            {isCreator && active.record.status === 'started' && (
-              <span className="muted">Started — handing this game to the local flow…</span>
+            {active.record.status === 'started' && seat >= 0 && (
+              <button
+                type="button"
+                className="primary"
+                onClick={props.onEnter}
+                disabled={props.busy}
+              >
+                Enter game
+              </button>
+            )}
+            {active.record.status === 'started' && seat < 0 && (
+              <span className="muted">
+                Watching — you are not one of this game&apos;s {active.record.seatOrder.length}{' '}
+                seats.
+              </span>
             )}
             {startBlocked && (
               <span className="muted lobby-refusal">
@@ -248,8 +268,11 @@ interface Props {
   connection: ConnectionState
   variantName: string
   maxPlayers: number
-  /** Called with the started game so the app can begin a local game. */
-  onStarted: (record: GameRecord, players: PlayerRecord[]) => void
+  /**
+   * The started game to open. `mode` decides who writes the first snapshot:
+   * the creator (`host`) publishes it, everyone else (`adopt`) reads it.
+   */
+  onStarted: (handoff: MultiplayerHandoff) => void
 }
 
 export function LobbyPanel({ connection, variantName, maxPlayers, onStarted }: Props) {
@@ -272,7 +295,8 @@ export function LobbyPanel({ connection, variantName, maxPlayers, onStarted }: P
   }, [])
 
   // Discovery on connect — once, and again only on an action or the Refresh
-  // button. There is no poll loop here: watching the store is S3's job.
+  // button. The lobby does not poll the store: WATCHING it is the game's job
+  // (`net/sync.ts`), and a lobby that watched would be a second poll loop.
   useEffect(() => {
     if (ctx === null) {
       setListing(null)
@@ -286,7 +310,31 @@ export function LobbyPanel({ connection, variantName, maxPlayers, onStarted }: P
     void (async () => {
       try {
         const next = await listGames(ctx)
-        if (!cancelled) setListing(next)
+        if (cancelled) return
+        setListing(next)
+        // RESUME: a game this client was in before a reload is read back and
+        // offered, so opening it ADOPTS its latest snapshot instead of starting
+        // a fresh local game. A pointer to a game that is gone is forgotten.
+        let remembered: string | null = null
+        try {
+          remembered = readActiveGame()
+        } catch (error) {
+          setFailure(describeFailure(error))
+          return
+        }
+        if (remembered === null) return
+        try {
+          const lobby = await readLobby(ctx, remembered)
+          if (cancelled) return
+          setActive(lobby)
+          setNotice(`Resuming "${lobby.record.displayName}" — press Enter game.`)
+        } catch (error) {
+          if (error instanceof ServerStoreError && error.code === 'not_found') {
+            forgetActiveGame()
+            return
+          }
+          if (!cancelled) setFailure(describeFailure(error))
+        }
       } catch (error) {
         if (!cancelled) setFailure(describeFailure(error))
       }
@@ -340,19 +388,35 @@ export function LobbyPanel({ connection, variantName, maxPlayers, onStarted }: P
 
   const onStart = useCallback(() => {
     void run(async (context) => {
-      if (active === null) return
+      if (active === null || identity === null) return
       const started = await startGame(context, active.record.gameId)
       const lobby = await readLobby(context, started.gameId)
       setActive(lobby)
       await refresh(context)
-      onStarted(lobby.record, lobby.players)
+      onStarted({
+        record: lobby.record,
+        players: lobby.players,
+        identity,
+        mode: 'host',
+      })
     })
-  }, [run, active, refresh, onStarted])
+  }, [run, active, identity, refresh, onStarted])
+
+  const onEnter = useCallback(() => {
+    if (active === null || identity === null) return
+    onStarted({
+      record: active.record,
+      players: active.players,
+      identity,
+      mode: 'adopt',
+    })
+  }, [active, identity, onStarted])
 
   const onLeave = useCallback(() => {
     void run(async (context) => {
       if (active === null) return
       await leaveGame(context, active.record.gameId)
+      forgetActiveGame()
       setActive(null)
       await refresh(context)
       setNotice(`Left "${active.record.displayName}".`)
@@ -386,6 +450,7 @@ export function LobbyPanel({ connection, variantName, maxPlayers, onStarted }: P
       onCreate={onCreate}
       onJoin={onJoin}
       onStart={onStart}
+      onEnter={onEnter}
       onLeave={onLeave}
       onRefresh={onRefresh}
       onClose={onClose}

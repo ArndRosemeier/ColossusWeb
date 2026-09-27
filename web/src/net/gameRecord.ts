@@ -46,8 +46,18 @@
 import { ServerStoreError, assertObjectName } from './transport'
 
 /** Schema versions. A record from another version is refused, never guessed at. */
-export const GAME_RECORD_VERSION = 1
+export const GAME_RECORD_VERSION = 2
 export const PLAYER_RECORD_VERSION = 1
+
+/**
+ * The fewest seats a STARTED game may have. This is the ONE constant: `lobby.ts`
+ * re-exports it as `MIN_PLAYERS_TO_START` (its rule is the same rule), and
+ * {@link parseGameRecord} uses it so a started record with one seat cannot be
+ * adopted as if it were a game. Two players is the engine's own floor
+ * (`createGame` refuses fewer), so a lobby that started with fewer could never
+ * have produced a playable state.
+ */
+export const MIN_SEATS = 2
 
 export const GAME_STATUSES = ['lobby', 'started'] as const
 export type GameStatus = (typeof GAME_STATUSES)[number]
@@ -58,7 +68,22 @@ export interface GameCreator {
   readonly label: string
 }
 
-/** The body of `g.<gameid>.game`. Written only by the creator. */
+/**
+ * The body of `g.<gameid>.game`. Written only by the creator.
+ *
+ * ## `seatOrder` (S3)
+ *
+ * The explicit mapping from a **seat index** — the index into
+ * `GameState.players`, which is what `activePlayerIndex` counts — to a player's
+ * **full `whoami().id`**. It is written by the creator at Start and is the ONLY
+ * thing that makes "whose turn is it?" agree across clients: every client derives
+ * the same seat from the same list.
+ *
+ * It is EMPTY in the `lobby` status (there are no seats yet) and must hold at
+ * least {@link MIN_SEATS} distinct full ids once the status is `started`. A
+ * record without it is a version-1 record and is refused as
+ * `unsupported_record_version`, never guessed at.
+ */
 export interface GameRecord {
   readonly version: number
   readonly gameId: string
@@ -68,6 +93,8 @@ export interface GameRecord {
   readonly creator: GameCreator
   readonly status: GameStatus
   readonly maxPlayers: number
+  /** The seat index → full `whoami().id` mapping. Creator first. Empty before Start. */
+  readonly seatOrder: string[]
   readonly createdAt: string
 }
 
@@ -204,6 +231,35 @@ export function playerTagFor(identityId: string): string {
   return tag
 }
 
+/**
+ * The seat order the creator writes at Start: **the creator first, then every
+ * other joined player sorted by tag** (the same 8-character public handle the
+ * object names use, full id as the tie-break so the order is total).
+ *
+ * This is a pure function of the joined player records, so two clients that read
+ * the same store derive the SAME seats — which is the whole point. It is written
+ * once, by the creator, and read by everyone after.
+ */
+export function seatOrderFor(creatorId: string, players: readonly PlayerRecord[]): string[] {
+  const others = players
+    .filter((player) => player.playerId !== creatorId)
+    .sort((a, b) => {
+      const byTag = playerTagFor(a.playerId).localeCompare(playerTagFor(b.playerId))
+      return byTag !== 0 ? byTag : a.playerId.localeCompare(b.playerId)
+    })
+    .map((player) => player.playerId)
+  return [creatorId, ...others]
+}
+
+/**
+ * The seat index of `playerId` in a record, or **-1** for a spectator (joined,
+ * or not, but not seated). A spectator is told so by the UI; it is never
+ * silently treated as seat 0.
+ */
+export function seatIndexOf(record: GameRecord, playerId: string): number {
+  return record.seatOrder.indexOf(playerId)
+}
+
 // ---------------------------------------------------------------------------
 // Serialise / parse
 // ---------------------------------------------------------------------------
@@ -320,6 +376,7 @@ export function parseGameRecord(text: string): GameRecord {
     )
   }
   const creator = requireObject(record, 'creator', code, what)
+  const seatOrder = requireSeatOrder(record, status as GameStatus, code, what)
   return {
     version: GAME_RECORD_VERSION,
     gameId,
@@ -331,8 +388,54 @@ export function parseGameRecord(text: string): GameRecord {
     },
     status: status as GameStatus,
     maxPlayers: requireInteger(record, 'maxPlayers', code, what, 2),
+    seatOrder,
     createdAt: requireTimestamp(record, 'createdAt', code, what),
   }
+}
+
+/**
+ * `seatOrder` is validated STRICTLY, and its rule depends on the status:
+ *
+ *  - `lobby`   → present and EMPTY (there are no seats before Start);
+ *  - `started` → at least {@link MIN_SEATS} DISTINCT non-empty full ids.
+ *
+ * A missing field, a duplicate seat, or a started game with no seats is a loud
+ * `bad_game_record` — never a guess, and never an empty seat list standing in
+ * for a mapping the clients must agree on.
+ */
+function requireSeatOrder(
+  record: Record<string, unknown>,
+  status: GameStatus,
+  code: string,
+  what: string,
+): string[] {
+  const value = record['seatOrder']
+  if (!Array.isArray(value)) {
+    throw new ServerStoreError(code, `${what}.seatOrder must be an array of full player ids`)
+  }
+  const seats: string[] = []
+  for (const seat of value) {
+    if (typeof seat !== 'string' || seat.length === 0) {
+      throw new ServerStoreError(code, `${what}.seatOrder holds a non-string or empty seat`)
+    }
+    seats.push(seat)
+  }
+  if (new Set(seats).size !== seats.length) {
+    throw new ServerStoreError(code, `${what}.seatOrder lists the same player in two seats`)
+  }
+  if (status === 'lobby' && seats.length !== 0) {
+    throw new ServerStoreError(
+      code,
+      `${what}.seatOrder is written at Start; a lobby record must have no seats, this one has ${seats.length}`,
+    )
+  }
+  if (status === 'started' && seats.length < MIN_SEATS) {
+    throw new ServerStoreError(
+      code,
+      `${what} is started with ${seats.length} seat(s); a playable game needs at least ${MIN_SEATS}`,
+    )
+  }
+  return seats
 }
 
 /** Parse and validate a player body. A malformed body is `bad_player_record`. */

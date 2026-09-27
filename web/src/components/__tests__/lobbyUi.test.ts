@@ -32,13 +32,14 @@ const OTHER: StoreIdentity = {
 
 function game(overrides: Partial<GameRecord> = {}): GameRecord {
   return {
-    version: 1,
+    version: 2,
     gameId: 'toms-game-1234abcd',
     displayName: "Tom's Game!",
     variant: 'Default',
     creator: { id: CREATOR.id, label: CREATOR.label },
     status: 'lobby',
     maxPlayers: 6,
+    seatOrder: [],
     createdAt: '2026-09-28T10:00:00.000Z',
     ...overrides,
   }
@@ -77,6 +78,7 @@ function render(overrides: Partial<LobbyPanelViewProps> = {}): string {
     onCreate: () => undefined,
     onJoin: () => undefined,
     onStart: () => undefined,
+    onEnter: () => undefined,
     onLeave: () => undefined,
     onRefresh: () => undefined,
     onClose: () => undefined,
@@ -221,13 +223,25 @@ describe('Start Multiplayer is the creator alone', () => {
     expect(markup).toContain('not_enough_players')
   })
 
-  it('shows the creator a disabled Start once the game has started', () => {
-    const markup = render({
-      identity: CREATOR,
-      active: active(game({ status: 'started' }), twoPlayers),
-    })
+  it('offers Enter game to a SEATED player once the game has started', () => {
+    const started = game({ status: 'started', seatOrder: [CREATOR.id, OTHER.id] })
+    const markup = render({ identity: CREATOR, active: active(started, twoPlayers) })
     expect(markup).not.toContain('>Start Multiplayer (creator)</button>')
-    expect(markup).toContain('Started')
+    expect(markup).toContain('Enter game')
+    expect(markup).not.toContain('Watching')
+  })
+
+  it('tells a SPECTATOR they are watching, never treating them as seat 0', () => {
+    const started = game({ status: 'started', seatOrder: [CREATOR.id, OTHER.id] })
+    const stranger: StoreIdentity = {
+      id: 'ZZZZ9999watching',
+      label: 'caspar',
+      stores: ['colossus'],
+      perms: ['read'],
+    }
+    const markup = render({ identity: stranger, active: active(started, twoPlayers) })
+    expect(markup).toContain('Watching')
+    expect(markup).not.toContain('Enter game')
   })
 })
 

@@ -3,8 +3,8 @@ import type { AiProfileId } from '../ai/profiles'
 import { AI_PROFILE_CHOICES } from '../ai/profiles'
 import type { NewGameOptions, PlayerKind } from '../engine/types'
 import { PLAYER_COLORS } from '../engine/types'
-import type { GameRecord, PlayerRecord } from '../net/gameRecord'
 import { useConnection } from '../net/useConnection'
+import type { MultiplayerHandoff } from '../net/sync'
 import type { SavedGameMeta } from '../persistence/saveGame'
 import { KNOWN_VARIANTS } from '../variant/loadVariant'
 import { BackgroundAtmosphereSelect } from './BackgroundAtmosphere'
@@ -14,6 +14,8 @@ import { MarkerChit } from './MarkerChit'
 
 interface Props {
   onStart: (options: NewGameOptions) => void
+  /** Open a started multiplayer game (host publishes, everyone else adopts). */
+  onMultiplayerStart: (handoff: MultiplayerHandoff) => void
   onContinue?: () => void
   savedGame?: SavedGameMeta | null
 }
@@ -56,7 +58,7 @@ function formatSavedAt(iso: string): string {
   }
 }
 
-export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
+export function SetupScreen({ onStart, onMultiplayerStart, onContinue, savedGame }: Props) {
   const [variantName, setVariantName] = useState('Default')
   const meta = VARIANT_META[variantName] ?? VARIANT_META.Default!
   const maxPlayers = meta.maxPlayers
@@ -73,22 +75,16 @@ export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
   ])
 
   /**
-   * Hand-off (S2's last step): a started lobby becomes a LOCAL game exactly as
-   * the existing flow builds one — the joined players, in join order, as human
-   * seats. Publishing or adopting game state is S3 and is not done here.
+   * Hand-off (S2's last step, completed by S3): a started lobby becomes a LOCAL
+   * game whose seats come from the record's explicit seat order, all human, and
+   * the App then publishes or adopts the opening snapshot. The handoff carries
+   * `mode`, so the creator writes the first snapshot and everyone else reads it.
    */
   const onMultiplayerStarted = useCallback(
-    (record: GameRecord, players: PlayerRecord[]) => {
-      void onStart({
-        variantName: record.variant,
-        players: players.map((player, index) => ({
-          name: player.label,
-          kind: 'human' as PlayerKind,
-          colorId: PLAYER_COLORS[index % PLAYER_COLORS.length]!.id,
-        })),
-      })
+    (handoff: MultiplayerHandoff) => {
+      onMultiplayerStart(handoff)
     },
-    [onStart],
+    [onMultiplayerStart],
   )
 
   const cappedRows = useMemo(() => rows.slice(0, maxPlayers), [rows, maxPlayers])
@@ -180,7 +176,6 @@ export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
         maxPlayers={maxPlayers}
         onStarted={onMultiplayerStarted}
       />
-
       <section className="setup-panel" aria-label="Game setup">
         <h2>Variant</h2>
         <div className="player-row">

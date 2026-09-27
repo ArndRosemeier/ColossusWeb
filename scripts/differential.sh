@@ -23,6 +23,11 @@
 #      cannot resolve and every arm "fails" at config load — a VOID probe);
 #   2. a `vi.mock` path in a setup file is resolved from THE SETUP FILE's
 #      directory, so it must be written `../src/net/<module>` — not `../../…`.
+#   3. in a sed REPLACEMENT, `&` means THE WHOLE MATCH: an arm injecting a
+#      literal `&&` must write `\&\&`, or the replacement duplicates the match
+#      and the injected file is a PARSE error. vitest then reports "no tests",
+#      which the harness correctly calls VOID, not RED — a probe bug, not a
+#      finding. (S3's arm R was run once with this bug; the log is kept.)
 #
 # Usage: bash differential.sh            (from anywhere; paths are absolute)
 set -u
@@ -45,15 +50,18 @@ printf 'pid=%s\nstarted=%s\ntier=differential\ntree=%s\n' "$$" "$(date -u +%FT%T
 # S2's arms inject a REAL rule break into a source file, so the target list is
 # held here and restored from HEAD by the ONE cleanup trap: an interrupted run
 # cannot leave an injected tree behind. (HEAD is the committed landing, so the
-# restore target IS the tree under test, byte-for-byte.)
+# restore target IS the tree under test, byte-for-byte.) S3's arms edit two more
+# files, so their targets are in the SAME list.
 S2_TARGETS="web/src/net/lobby.ts web/src/net/gameRecord.ts"
+S3_TARGETS="web/src/net/snapshot.ts web/src/net/sync.ts web/src/net/lobby.ts"
+SOURCE_TARGETS="$S2_TARGETS $S3_TARGETS"
 
 cleanup() {
   rm -rf "$SETUPS" "$WEB/.differential.vitest.config.ts" "$LOCK_DIR"
   # The redirecting test files live beside the real ones so the suite's
   # `include` matches them; they must never outlive the run.
   rm -f "$WEB"/src/net/__tests__/*.redirect.test.ts
-  for target in $S2_TARGETS; do
+  for target in $SOURCE_TARGETS; do
     git -C "$ROOT" checkout -- "$target" 2>/dev/null || true
   done
 }
@@ -513,6 +521,66 @@ run_source_arm "P-key-in-body" "src/net/__tests__/lobby.test.ts" \
   "web/src/net/lobby.ts" \
   "s|creator: { id: ctx.identity.id, label: ctx.identity.label },|creator: { id: ctx.identity.id, label: ctx.identity.label, secret: (await import('./keyStore')).getKey() },|" \
   "no object body and no request body ever contains key material" || FAILED=1
+
+# ---------------------------------------------------------------------------
+# S3 · turn sync — one arm per pin, each breaking a REAL rule at its line.
+
+# Q · The publish counter is NOT seeded from the parent: two snapshots in one
+#     turn collide on the same (turn, seq) and the first is silently overwritten.
+run_source_arm "Q-seq-not-seeded" "src/net/__tests__/sync.test.ts" \
+  "web/src/net/sync.ts" \
+  "s|tracker.turn === turn ? tracker.seq + 1 : 0|tracker.turn === turn ? 0 : 0|" \
+  "a local command publishes exactly ONE snapshot named for its turn/seq; UI-only commands publish none" || FAILED=1
+
+# R · A state with a physical throw pending IS published, so another client
+#     adopts a half-thrown game and can commit it with the rng.
+#     (`\&\&` — in a sed replacement a bare `&` is the whole match.)
+run_source_arm "R-publish-pending-throw" "src/net/__tests__/sync.test.ts" \
+  "web/src/net/sync.ts" \
+  "s|&& !next.pendingDice|\&\& true|" \
+  "a state with a pending throw is NOT published until the throw is committed" || FAILED=1
+
+# S · Adoption RESETS the local selection instead of preserving it.
+run_source_arm "S-adopt-resets-ui" "src/net/__tests__/sync.test.ts" \
+  "web/src/net/sync.ts" \
+  "s|next.selectedLegionId = selected|next.selectedLegionId = null|" \
+  "a remote snapshot is adopted and the local UI-only fields survive" || FAILED=1
+
+# T · A fork is never detected, so a race is silently resolved.
+run_source_arm "T-fork-silent" "src/net/__tests__/sync.test.ts" \
+  "web/src/net/snapshot.ts" \
+  "s|if (group.length < 2) return null|if (group.length < 999) return null|" \
+  "two writers at the same (turn, seq) produce two names; the fork is surfaced" || FAILED=1
+
+# U · The fields are NOT zero-padded, so the name stops being the ordering.
+run_source_arm "U-name-not-padded" "src/net/__tests__/snapshot.test.ts" \
+  "web/src/net/snapshot.ts" \
+  "s|String(value).padStart(digits, '0')|String(value)|" \
+  "sorts names into state order, padded, across a turn boundary and at the seq ceiling" || FAILED=1
+
+# V · Turn authority ignores an engagement, so the defender can never flee.
+run_source_arm "V-no-engagement-authority" "src/net/__tests__/sync.test.ts" \
+  "web/src/net/sync.ts" \
+  "s|if (state.activeEngagement && state.phase === 'Fight') {|if (false) {|" \
+  "enables only the active seat, and follows a battle, a throw and a reinforcement" || FAILED=1
+
+# W · The poll loop ignores visibility and hammers a hidden tab.
+run_source_arm "W-poll-hidden" "src/net/__tests__/sync.test.ts" \
+  "web/src/net/sync.ts" \
+  "s|if (!visibility.visible()) {|if (false) {|" \
+  "polls while visible, makes NO request while hidden, and stops when torn down" || FAILED=1
+
+# X · The caller's KEY is smuggled into the snapshot body.
+run_source_arm "X-key-in-snapshot" "src/net/__tests__/sync.test.ts" \
+  "web/src/net/sync.ts" \
+  "s|state: serializeGame(state),|state: { ...serializeGame(state), key: (await import('./keyStore')).getKey() },|" \
+  "a published body contains no key material and no key-shaped field" || FAILED=1
+
+# Y · Start writes the seat order in JOIN order, so two clients disagree on seats.
+run_source_arm "Y-seats-in-join-order" "src/net/__tests__/lobby.test.ts" \
+  "web/src/net/lobby.ts" \
+  "s|seatOrder: seatOrderFor(record.creator.id, players),|seatOrder: players.map((player) => player.playerId),|" \
+  "Start writes the explicit seat order: creator first, then the joined by tag" || FAILED=1
 
 echo
 echo "=================================================================="

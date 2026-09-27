@@ -42,7 +42,7 @@ Two trees, one product. **`Colossus/` is not built here** — see `AGENTS.md §H
 | `web/src/ui/` | non-React UI logic (dice physics, animation, path tween, speed) | `engine` |
 | `web/src/components/` | React views (master board SVG, battle, controls, connection and lobby panels) | `engine`, `ai`, `ui`, `net` |
 | `web/src/persistence/` | save/load | `engine`, `types` |
-| `web/src/net/` | ServerStore transport **and the multiplayer lobby** — **no React, no game import** | `types` (nothing else) |
+| `web/src/net/` | ServerStore transport, the multiplayer lobby, **and turn sync** — **no React** | `types`, `persistence` (the ONE save serialiser), engine types |
 | `web/src/sim/` | headless simulations + tournaments (`npm run simulate`, `tourney`) | `engine`, `ai`, `variant` |
 | `web/public/variants/**` | **generated + tracked** variant JSON (see `AGENTS.md` fact 3) | — |
 | `Colossus/**` | original Java implementation — **reference only, not buildable here** | — |
@@ -50,6 +50,18 @@ Two trees, one product. **`Colossus/` is not built here** — see `AGENTS.md §H
 
 Dependency direction is asserted from `web/README.md` and directory shape, **not** yet
 verified by import analysis. Verify before relying on it.
+
+**The state-flow direction (one arrow each way, and they meet at one setter).**
+
+```
+board input ─▶ commitPath.local(reducer, command) ─▶ putState(next) ─▶ publishSnapshot ─▶ ServerStore
+                                                        ▲
+ServerStore ─▶ pollLatest ─▶ fetchLatest ─▶ commitPath.remote(body) ─▶ adopt(state) ─┘
+```
+
+A LOCAL command and a REMOTE adoption both end at the same `putState`; only the
+local side publishes. `App.tsx` has no other write to the game state, so "no
+path changes state without publishing" is structural rather than a convention.
 
 ## 2 · The one way to do X
 
@@ -62,6 +74,14 @@ verified by import analysis. Verify before relying on it.
 | A game's object names and record shapes | `GameRecord` / `PlayerRecord` + `gameObjectName` / `playerObjectName` / `parseGameObjectName` / `parseGameObjectRecord` / `parseGameRecord` | `web/src/net/gameRecord.ts` | The ONLY place `g.<gameid>.game` and `g.<gameid>.p.<tag>` are built and parsed. `gameid` is a ≤23-char slug + 8 random hex (`MAX_GAME_ID_LENGTH = 32`), so both object names fit the service's 64-character rule regardless of the display name; the tag is the first 8 lowercased characters of the full id (`playerTagFor`), while the full id rides in the body. A body that does not parse is a thrown `bad_game_record` / `bad_player_record` / `unsupported_record_version` — never empty data. |
 | A lobby operation | `createGame` / `listGames` / `joinGame` / `leaveGame` / `startGame` / `readLobby`, over a `LobbyContext` | `web/src/net/lobby.ts` | The ONE way to Create, Join, Start, Leave and discover games. Each rule is a predicate (`joinBlockedReason`, `startRefusal`) used by BOTH the operation and the UI, enforced before any write; every refusal is a thrown `ServerStoreError`, never a silent no-op. Discovery is the store's own list route filtered client-side; an unreadable game is reported in `GameListing.unreadable`, never dropped. No `fetch`, no React, no polling (S3 owns sync) — `lobby.test.ts` drives it against both transports. |
 | Which store the lobby talks to | `serverStoreName()` (default `colossus`) | `web/src/net/storeName.ts` | The ONE place the store's name is decided; `VITE_SERVERSTORE_STORE` overrides it, exactly as `VITE_SERVERSTORE_URL` overrides the base URL. The store stays a PARAMETER of every transport call, so partitioning remains a config change. |
+| A game's seats | `seatOrderFor` / `seatIndexOf` + `GameRecord.seatOrder` | `web/src/net/gameRecord.ts` | The ONE seat mapping: creator first, then the joined sorted by tag, written by the creator at Start and read by everyone. The record is schema **v2** and `seatOrder` is REQUIRED and status-dependent (empty in `lobby`, ≥2 distinct ids in `started`); a v1 record is `unsupported_record_version`, never guessed. A spectator is `-1`, never seat 0. |
+| A snapshot's name and body | `snapshotObjectName` / `parseSnapshotObjectName` / `serializeSnapshot` / `parseSnapshot` / `detectFork` / `chooseSnapshot` | `web/src/net/snapshot.ts` | The ONE place `g.<gameid>.s.<tttt>.<sss>.<tag>` is built and parsed. The name IS the ordering; the body is a header plus `serializeGame`'s blob. A turn/seq whose padding would sort wrongly and a name that disagrees with its own body are thrown `ServerStoreError`s. No key material, no `variant` payload. See the gotcha below for what `sss` actually counts. |
+| A local state change | `createCommitPath` (`local` / `remote` / `publishCurrent`) | `web/src/net/sync.ts` | The ONE path a command takes (`App.tsx` has no other write to the game state). `local` updates state AND publishes exactly one snapshot for a shared command; UI-only selection publishes nothing and a pending physical throw defers until committed. `remote` adopts through the same seam and NEVER publishes. |
+| State → the store, and back | `publishSnapshot` / `fetchLatest` / `adopt` | `web/src/net/sync.ts` | The ONE writer/reader of game state. `adopt` is `deserializeGame` (the ONE deserialiser — migration included) plus the local UI-only fields (`selectedLegionId`, `legalHexes`); `fetchLatest` takes the greatest name and returns any FORK rather than resolving it silently. |
+| Whose turn it is | `actingPlayerIds` / `isMyTurn` | `web/src/net/sync.ts` | The ONE turn-authority predicate, and it is the STATE's answer, not a claim: the active seat, the battle step's `activePlayerId`, the thrower of a pending physical roll, the defender awaiting a post-battle reinforcement, or BOTH parties to a pre-battle engagement. It feeds the board's `interactive` flag; the engine's own refusal is the backstop. |
+| Watching the store | `pollLatest` + `browserVisibility` | `web/src/net/sync.ts` | The ONE poll loop: ~2s, ONE request in flight, **no request at all while the tab is hidden**, exponential backoff on error, and a `stop()` handle plus an `AbortSignal`. The lobby deliberately does not watch the store. |
+| The game to resume | `rememberActiveGame` / `readActiveGame` / `forgetActiveGame` | `web/src/net/activeGame.ts` | The ONE local pointer (`colossusweb.multiplayer.v1`) and it holds a game id and nothing else. It is what makes a reload offer to ADOPT a started game instead of starting a fresh one; a pointer to a deleted game is forgotten, a corrupt one is loud. |
+| The multiplayer status line | `MultiplayerStatus` (seat, turn, read-only, poll state, fork, failure) | `web/src/components/MultiplayerStatus.tsx` | Presentational, so "it says whose turn it is" and "a fork is surfaced" are checkable with `react-dom/server`. |
 | *(rest not yet surveyed)* | | | |
 
 ## 3 · Gotchas
@@ -77,6 +97,14 @@ verified by import analysis. Verify before relying on it.
   **BLANK page**, and **the gate would not catch it** — the two artifacts differ only in this env
   var. Always verify with `grep -o '/ColossusWeb/assets/[^"]*' web/dist/index.html` before
   publishing.
+- **`GameState.turnNumber` is the ROUND, not one player's turn.** `GameEngine.ts:1137`
+  (`advanceToNextLivingPlayer`) increments it only when the active seat wraps past the
+  last, so in a 3-player game `activePlayerIndex` runs 0 → 1 → 2 while `turnNumber`
+  stays 1 (measured with a probe, 2026-09-28). Anything that orders or timestamps
+  per-player turns must NOT use `turnNumber` alone: the snapshot protocol's `sss`
+  component is the successor of the counter of the snapshot a state was derived from
+  (`net/snapshot.ts`), which is what keeps the name monotonic within a round. An
+  independent per-writer counter here would silently lose moves.
 - **The rules test suite is organised by rule family, not by module.**
   `web/src/engine/__tests__/rules-*.test.ts` and `docs/rules/COMPLIANCE.md` are the
   project's own coverage map — check it before writing a new rules test, so a second

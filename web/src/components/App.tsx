@@ -1,9 +1,34 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { isAiActing, pickAiCommand } from '../ai/simpleAi'
-import { createGame, dispatch as engDispatch, getMovesForSelected, activePlayer } from '../engine/GameEngine'
+import {
+  activePlayer,
+  createGame,
+  dispatch as engDispatch,
+  getMovesForSelected,
+} from '../engine/GameEngine'
 import { battleLand } from '../engine/battle'
 import { listStrikeRaiseOptions } from '../engine/battleStrike'
 import type { GameCommand, GameState, NewGameOptions } from '../engine/types'
+import { forgetActiveGame, rememberActiveGame } from '../net/activeGame'
+import type { FailureDescription } from '../net/failure'
+import { seatIndexOf } from '../net/gameRecord'
+import { createServerStoreTransport } from '../net/serverStore'
+import {
+  actingPlayerId,
+  adopt,
+  assertHumanSeats,
+  createCommitPath,
+  createSyncSession,
+  fetchLatest,
+  isMyTurn,
+  multiplayerSeatOptions,
+  pollLatest,
+  type CommitPath,
+  type MultiplayerHandoff,
+  type PollHandle,
+  type SyncSession,
+  type SyncStatus,
+} from '../net/sync'
 import {
   loadGameFromLocalStorage,
   peekSavedGameMeta,
@@ -18,7 +43,7 @@ import {
   type MoveAnim,
 } from '../ui/moveAnimation'
 import { loadAssetManifest } from '../variant/assets'
-import { loadVariant } from '../variant/loadVariant'
+import { loadVariant, type LoadedVariant } from '../variant/loadVariant'
 import { BattleBoardView } from './BattleBoardView'
 import {
   BoardDecisionOverlay,
@@ -29,9 +54,18 @@ import { GameControls } from './GameControls'
 import { phaseEndCommand, applyEnterKeyPhaseEnd } from './LegionActions'
 import { MasterBoardView } from './MasterBoardView'
 import { BackgroundAtmosphereSelect } from './BackgroundAtmosphere'
+import { MultiplayerStatus } from './MultiplayerStatus'
 import { SetupScreen } from './SetupScreen'
 
 export type { AiSpeedId }
+
+/** The open multiplayer game, as the UI needs it. */
+interface MultiplayerSeatInfo {
+  readonly gameId: string
+  /** This client's seat index, or -1 for a spectator. */
+  readonly seat: number
+  readonly seatCount: number
+}
 
 function stepAi(state: GameState, batch: number): GameState {
   let s = state
@@ -61,8 +95,55 @@ export default function App() {
   const [aiSpeed, setAiSpeed] = useState<AiSpeedId>('normal')
   const [moveAnim, setMoveAnim] = useState<MoveAnim | null>(null)
   const [pendingStrike, setPendingStrike] = useState<PendingStrikeAnnounce | null>(null)
+  const [multiplayer, setMultiplayer] = useState<MultiplayerSeatInfo | null>(null)
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
+  const [syncFailure, setSyncFailure] = useState<FailureDescription | null>(null)
   const pendingCmdRef = useRef<GameCommand | null>(null)
   const animatingRef = useRef(false)
+  /** The game state as of NOW, so a command never acts on a stale render. */
+  const stateRef = useRef<GameState | null>(null)
+  const variantRef = useRef<LoadedVariant | null>(null)
+  const sessionRef = useRef<SyncSession | null>(null)
+  const pollRef = useRef<PollHandle | null>(null)
+
+  /**
+   * The ONE writer of the game state. Everything — a local command, an adopted
+   * snapshot, a new or resumed game, "New game" — goes through here, and the
+   * single commit path below is the only caller that can also publish.
+   */
+  const putState = useCallback((next: GameState | null) => {
+    stateRef.current = next
+    setState(next)
+  }, [])
+
+  /**
+   * THE commit path. Every local reducer runs through `commitPath.local`, which
+   * both updates the state and publishes exactly one snapshot when a
+   * multiplayer session is open; every remote snapshot runs through
+   * `commitPath.remote`, which never publishes. There is no other way for this
+   * component to change the game state — `setState` is reachable only through
+   * `putState`, and `putState` only from here, `start`, `continueSaved` and
+   * `startMultiplayer`.
+   */
+  const commitPath = useMemo<CommitPath>(
+    () =>
+      createCommitPath({
+        getState: () => stateRef.current,
+        setState: putState,
+        getSession: () => sessionRef.current,
+        onFailure: (failure) => setSyncFailure(failure),
+      }),
+    [putState],
+  )
+
+  const stopSession = useCallback(() => {
+    pollRef.current?.stop()
+    pollRef.current = null
+    sessionRef.current = null
+    setMultiplayer(null)
+    setSyncStatus(null)
+    setSyncFailure(null)
+  }, [])
 
   useEffect(() => {
     Promise.all([loadVariant('Default'), loadAssetManifest('Default')])
@@ -76,26 +157,118 @@ export default function App() {
       })
   }, [])
 
-  const start = useCallback(async (options: NewGameOptions) => {
-    const name = options.variantName ?? 'Default'
-    const variant = await loadVariant(name)
-    await loadAssetManifest(name)
-    const g = createGame(variant, { ...options, diceMode: 'physical' })
-    setState(g)
-    setSaveFlash(null)
-    setMoveAnim(null)
-    setPendingStrike(null)
-    pendingCmdRef.current = null
-    animatingRef.current = false
-    const allAi = options.players.every((p) => p.kind === 'ai')
-    setAiSpeed(allAi ? 'normal' : 'fast')
-  }, [])
+  // Tear the poll loop down with the view: nothing outlives the component.
+  useEffect(() => () => pollRef.current?.stop(), [])
+
+  const start = useCallback(
+    async (options: NewGameOptions) => {
+      try {
+        stopSession()
+        const name = options.variantName ?? 'Default'
+        const variant = await loadVariant(name)
+        await loadAssetManifest(name)
+        variantRef.current = variant
+        const g = createGame(variant, { ...options, diceMode: 'physical' })
+        putState(g)
+        setSaveFlash(null)
+        setMoveAnim(null)
+        setPendingStrike(null)
+        pendingCmdRef.current = null
+        animatingRef.current = false
+        const allAi = options.players.every((p) => p.kind === 'ai')
+        setAiSpeed(allAi ? 'normal' : 'fast')
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : String(e))
+      }
+    },
+    [stopSession, putState],
+  )
+
+  /**
+   * Open a started multiplayer game. The creator's client (`host`) publishes the
+   * opening snapshot; everyone else's (`adopt`) reads the newest one FIRST and
+   * only falls back to the freshly built board if the host has not published
+   * yet. Both builds are identical (`multiplayerSeatOptions` seeds `createGame`
+   * from the game id), so a fallback can never show a different position.
+   */
+  const startMultiplayer = useCallback(
+    async (handoff: MultiplayerHandoff) => {
+      try {
+        stopSession()
+        const name = handoff.record.variant
+        const variant = await loadVariant(name)
+        await loadAssetManifest(name)
+        variantRef.current = variant
+
+        const transport = createServerStoreTransport()
+        const session = createSyncSession({
+          transport,
+          identity: handoff.identity,
+          record: handoff.record,
+        })
+        sessionRef.current = session
+
+        let initial: GameState | null = null
+        if (handoff.mode === 'adopt') {
+          const latest = await fetchLatest(transport, handoff.record.gameId, {
+            store: session.store,
+            heldName: null,
+          })
+          if (latest !== null) {
+            initial = adopt(latest.body, null, variant)
+            session.tracker.last = latest.body.header.name
+            session.tracker.turn = latest.body.header.turn
+            session.tracker.seq = latest.body.header.seq
+          }
+        }
+        if (initial === null) {
+          initial = createGame(variant, {
+            ...multiplayerSeatOptions(handoff.record, handoff.players),
+            variantName: name,
+          })
+        }
+        // A multiplayer seat is a human holding a key. An AI seat here would be
+        // driven by every client at once — refuse it loudly, never play it.
+        assertHumanSeats(initial)
+
+        setMultiplayer({
+          gameId: handoff.record.gameId,
+          seat: seatIndexOf(handoff.record, handoff.identity.id),
+          seatCount: handoff.record.seatOrder.length,
+        })
+        rememberActiveGame(handoff.record.gameId)
+        setSaveFlash(null)
+        setMoveAnim(null)
+        setPendingStrike(null)
+        pendingCmdRef.current = null
+        animatingRef.current = false
+        setAiSpeed('fast')
+        putState(initial)
+
+        if (handoff.mode === 'host') commitPath.publishCurrent()
+        pollRef.current = pollLatest(session, {
+          onAdopt: (body) => {
+            const current = variantRef.current
+            if (current !== null) commitPath.remote(body, current)
+          },
+          onStatus: (status) => setSyncStatus(status),
+        })
+      } catch (e: unknown) {
+        stopSession()
+        putState(null)
+        setError(e instanceof Error ? e.message : String(e))
+      }
+    },
+    [stopSession, putState, commitPath],
+  )
 
   const continueSaved = useCallback(async () => {
+    stopSession()
     const meta = peekSavedGameMeta()
     const name = meta?.variantName ?? 'Default'
     const variant = await loadVariant(name)
     await loadAssetManifest(name)
+    variantRef.current = variant
     const loaded = loadGameFromLocalStorage(variant)
     if (!loaded) {
       setSaveMeta(null)
@@ -104,17 +277,16 @@ export default function App() {
     // Resume in the UI with physical dice; clear any mid-throw pending
     loaded.diceMode = 'physical'
     if (loaded.pendingDice) {
-      const resumed = engDispatch(loaded, { type: 'commitDice' })
-      setState(resumed)
+      putState(engDispatch(loaded, { type: 'commitDice' }))
     } else {
-      setState(loaded)
+      putState(loaded)
     }
     setSaveFlash(null)
     setMoveAnim(null)
     setPendingStrike(null)
     pendingCmdRef.current = null
     animatingRef.current = false
-  }, [])
+  }, [stopSession, putState])
 
   const save = useCallback(() => {
     if (!state) return
@@ -146,22 +318,22 @@ export default function App() {
     animatingRef.current = false
     setMoveAnim(null)
     if (!cmd) return
-    setState((prev) => (prev ? engDispatch(prev, cmd) : prev))
-  }, [])
+    commitPath.local((prev) => engDispatch(prev, cmd), cmd)
+  }, [commitPath])
 
-  const onDiceThrowDone = useCallback((values: number[] | undefined) => {
-    setState((prev) => {
-      if (!prev?.pendingDice) return prev
-      return engDispatch(prev, { type: 'commitDice', values })
-    })
-  }, [])
+  const onDiceThrowDone = useCallback(
+    (values: number[] | undefined) => {
+      const cmd: GameCommand = { type: 'commitDice', values }
+      commitPath.local((prev) => (prev.pendingDice ? engDispatch(prev, cmd) : prev), cmd)
+    },
+    [commitPath],
+  )
 
   const apply = useCallback(
     (cmd: GameCommand, forAi = false) => {
       if (animatingRef.current) return
       setPendingStrike(null)
-      setState((prev) => {
-        if (!prev) return prev
+      commitPath.local((prev) => {
         if (prev.pendingDice) return prev
         if (isMoveCommand(cmd) && !shouldSkipMoveAnim(aiSpeed, forAi)) {
           const anim = buildMoveAnim(prev, cmd, { aiSpeed, forAi })
@@ -180,14 +352,36 @@ export default function App() {
           }
         }
         return next
-      })
+      }, cmd)
     },
-    [aiSpeed],
+    [aiSpeed, commitPath],
   )
 
-  // Paced AI autoplay — blocked while a physical throw is pending
+  const busy = Boolean(moveAnim) || animatingRef.current || Boolean(state?.pendingDice)
+  const aiActing = state ? isAiActing(state) : false
+  const gameOver = Boolean(state?.winnerId || state?.draw)
+  /**
+   * Turn authority. Hotseat has no seats, so the local player may always act.
+   * In a multiplayer game only the seats `actingPlayerIds` names may act — the
+   * active seat, both parties to an engagement, the battle step's owner, the
+   * defender awaiting a post-battle reinforcement, or the thrower of a pending
+   * physical roll. A spectator (seat -1) is read-only. The engine's own refusal
+   * inside `applyCommand` is the backstop, not the mechanism.
+   */
+  const myPlayerId =
+    multiplayer !== null && state !== null && multiplayer.seat >= 0
+      ? (state.players[multiplayer.seat]?.id ?? null)
+      : null
+  const myTurn =
+    multiplayer === null ? true : state !== null && myPlayerId !== null && isMyTurn(state, myPlayerId)
+  const interactive = Boolean(state) && !aiActing && !busy && !gameOver && myTurn
+
+  // Paced AI autoplay — blocked while a physical throw is pending, and NEVER on
+  // in a multiplayer game (those seats are human; a client-driven AI would
+  // diverge from every other client).
   useEffect(() => {
     if (!state) return
+    if (multiplayer !== null) return
     if (moveAnim || animatingRef.current) return
     if (state.pendingDice) return
     if (state.winnerId || state.draw) return
@@ -197,13 +391,10 @@ export default function App() {
 
     const id = window.setTimeout(() => {
       if (aiSpeed === 'instant' || cfg.batch > 1) {
-        setState((prev) => {
-          if (!prev || !isAiActing(prev)) return prev
-          return stepAi(prev, cfg.batch)
-        })
+        commitPath.local((prev) => (prev && isAiActing(prev) ? stepAi(prev, cfg.batch) : prev))
         return
       }
-      setState((prev) => {
+      commitPath.local((prev) => {
         if (!prev || !isAiActing(prev) || animatingRef.current) return prev
         if (prev.pendingDice) return prev
         const cmd = pickAiCommand(prev)
@@ -227,11 +418,11 @@ export default function App() {
       })
     }, cfg.delayMs)
     return () => window.clearTimeout(id)
-  }, [state, aiSpeed, moveAnim])
+  }, [state, aiSpeed, moveAnim, multiplayer, commitPath])
 
   const stepOnce = useCallback(() => {
     if (animatingRef.current) return
-    setState((prev) => {
+    commitPath.local((prev) => {
       if (!prev || !isAiActing(prev)) return prev
       if (prev.pendingDice) return prev
       const cmd = pickAiCommand(prev)
@@ -253,13 +444,10 @@ export default function App() {
       }
       return next
     })
-  }, [aiSpeed])
-
-  const busy = Boolean(moveAnim) || animatingRef.current || Boolean(state?.pendingDice)
+  }, [aiSpeed, commitPath])
 
   const onHexClick = (label: string) => {
-    if (!state || isAiActing(state) || busy) return
-    if (state.pendingDice) return
+    if (!state || !interactive) return
     if (state.battle && !state.battle.done) {
       const battle = state.battle
       if (battle.phase === 'Move' && battle.selectedUnitId) {
@@ -292,7 +480,7 @@ export default function App() {
   }
 
   const onLegionClick = (legionId: string) => {
-    if (!state || busy) return
+    if (!state || !interactive) return
     // Toggle off when re-clicking the selected legion during split/muster
     if (
       state.selectedLegionId === legionId &&
@@ -303,11 +491,7 @@ export default function App() {
     }
     // Colossus spin cycle: second click on the selected mover ends on the start hex
     // when an exact-roll loop is legal (tower-adjacent brush, swamp/desert on a 6, etc.).
-    if (
-      state.phase === 'Move' &&
-      state.selectedLegionId === legionId &&
-      !isAiActing(state)
-    ) {
+    if (state.phase === 'Move' && state.selectedLegionId === legionId && !isAiActing(state)) {
       const legion = state.legions.find((l) => l.id === legionId)
       if (legion && legion.playerId === activePlayer(state).id) {
         const moves = getMovesForSelected(state)
@@ -328,14 +512,14 @@ export default function App() {
   }
 
   const onBattleHex = (hex: string) => {
-    if (!state?.battle?.selectedUnitId || isAiActing(state) || busy) return
+    if (!state?.battle?.selectedUnitId || !interactive) return
     if (state.battle.phase === 'Move') {
       apply({ type: 'battleMove', unitId: state.battle.selectedUnitId, toHex: hex })
     }
   }
 
   const onBattleUnit = (unitId: string) => {
-    if (!state?.battle || isAiActing(state) || busy) return
+    if (!state?.battle || !interactive) return
     const battle = state.battle
     if (battle.phase === 'Strike' || battle.phase === 'Strikeback') {
       if (battle.selectedUnitId && battle.highlighted.includes(unitId)) {
@@ -360,10 +544,6 @@ export default function App() {
     setPendingStrike(null)
     apply({ type: 'battleSelectUnit', unitId })
   }
-
-  const aiActing = state ? isAiActing(state) : false
-  const gameOver = Boolean(state?.winnerId || state?.draw)
-  const interactive = Boolean(state) && !aiActing && !busy && !gameOver
 
   useEffect(() => {
     if (!interactive || !state) return
@@ -396,10 +576,9 @@ export default function App() {
       }
       if (isEnter) {
         e.preventDefault()
-        setState((prev) => {
-          if (!prev || animatingRef.current || prev.pendingDice) return prev
-          return applyEnterKeyPhaseEnd(prev)
-        })
+        commitPath.local((prev) =>
+          animatingRef.current || prev.pendingDice ? prev : applyEnterKeyPhaseEnd(prev),
+        )
         return
       }
       const cmd = phaseEndCommand(state)
@@ -409,7 +588,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [interactive, state, apply, pendingStrike])
+  }, [interactive, state, apply, pendingStrike, commitPath])
 
   if (loading) return <div className="boot">Loading Default variant…</div>
   if (error && !state) return <div className="boot error">Error: {error}</div>
@@ -417,6 +596,7 @@ export default function App() {
     return (
       <SetupScreen
         onStart={start}
+        onMultiplayerStart={startMultiplayer}
         onContinue={saveMeta ? continueSaved : undefined}
         savedGame={saveMeta}
       />
@@ -430,12 +610,37 @@ export default function App() {
     ? Math.max(0, state.players.findIndex((p) => p.id === throwerId))
     : 0
   const seatCount = state.players.length
+  const actorId = actingPlayerId(state)
+  const actor = state.players.find((p) => p.id === actorId)
+  const engagement = state.activeEngagement && state.phase === 'Fight' ? state.activeEngagement : null
+  const engagementLabel =
+    engagement === null
+      ? null
+      : (() => {
+          const a = state.legions.find((l) => l.id === engagement.attackerId)
+          const d = state.legions.find((l) => l.id === engagement.defenderId)
+          return `Engagement ${a?.markerId ?? '?'} vs ${d?.markerId ?? '?'}`
+        })()
+  const turnLabel = engagementLabel ?? `${actor?.name ?? '?'}'s turn`
 
   return (
     <div className="app-shell">
       <header className="topbar">
         <span className="brand-inline">Colossus</span>
-        <span className="muted">Default · local</span>
+        <span className="muted">
+          {state.variant.data.name} · {multiplayer === null ? 'local' : 'multiplayer'}
+        </span>
+        {multiplayer !== null && (
+          <MultiplayerStatus
+            seat={multiplayer.seat}
+            seatCount={multiplayer.seatCount}
+            turnLabel={turnLabel}
+            myTurn={myTurn}
+            gameOver={gameOver}
+            status={syncStatus}
+            failure={syncFailure}
+          />
+        )}
         {state.winnerId && (
           <span className="winner">
             {state.players.find((p) => p.id === state.winnerId)?.name} wins!
@@ -445,7 +650,7 @@ export default function App() {
         <span className="topbar-spacer" />
         {saveFlash && <span className="save-flash">{saveFlash}</span>}
         <BackgroundAtmosphereSelect className="ai-speed bg-atmosphere-select" />
-        {!gameOver && (
+        {!gameOver && multiplayer === null && (
           <label className="ai-speed">
             <span className="muted">AI speed</span>
             <select
@@ -469,7 +674,15 @@ export default function App() {
         <button type="button" className="ghost" onClick={save}>
           Save
         </button>
-        <button type="button" className="ghost" onClick={() => setState(null)}>
+        <button
+          type="button"
+          className="ghost"
+          onClick={() => {
+            stopSession()
+            forgetActiveGame()
+            putState(null)
+          }}
+        >
           New game
         </button>
       </header>

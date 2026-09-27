@@ -33,6 +33,7 @@
 import { describeFailure, type FailureDescription } from './failure'
 import {
   GAME_RECORD_VERSION,
+  MIN_SEATS,
   PLAYER_RECORD_VERSION,
   assertGameId,
   assertGameObjectName,
@@ -43,6 +44,7 @@ import {
   parsePlayerObjectName,
   parsePlayerRecord,
   playerTagFor,
+  seatOrderFor,
   serializeGameRecord,
   serializePlayerRecord,
   type GameRecord,
@@ -59,10 +61,11 @@ import {
 
 /**
  * At least two seats, because the hand-off (`createGame` in the engine) requires
- * two players. Enforcing it HERE turns a crash in the game flow into a lobby
- * refusal; it is a decision taken in this slice, not one the brief spelled out.
+ * two players. The NUMBER lives in `gameRecord.ts` as {@link MIN_SEATS} so the
+ * strict record parser and the lobby rule cannot drift apart; this name is kept
+ * because it is what the lobby's own callers and tests read.
  */
-export const MIN_PLAYERS_TO_START = 2
+export const MIN_PLAYERS_TO_START = MIN_SEATS
 
 export interface LobbyContext {
   readonly transport: ServerStoreTransport
@@ -195,6 +198,20 @@ function playerObjectsFor(objects: readonly StoreObject[], gameId: string): Stor
   return objects.filter((object) => parsePlayerObjectName(object.name)?.gameId === gameId)
 }
 
+/**
+ * Read every joined player's record for a game. This is the ONE place `p.` bodies
+ * are read, so `readLobby` (what the UI shows) and `startGame` (which must derive
+ * the seat order from exactly these records) can never disagree about who is in
+ * the game.
+ */
+async function readPlayerRecords(ctx: LobbyContext, gameId: string): Promise<PlayerRecord[]> {
+  const players: PlayerRecord[] = []
+  for (const object of playerObjectsFor(await ctx.transport.list(ctx.store), gameId)) {
+    players.push(parsePlayerRecord((await ctx.transport.get(ctx.store, object.name)).value))
+  }
+  return players
+}
+
 // ---------------------------------------------------------------------------
 // Create
 // ---------------------------------------------------------------------------
@@ -234,6 +251,9 @@ export async function createGame(
     creator: { id: ctx.identity.id, label: ctx.identity.label },
     status: 'lobby',
     maxPlayers: request.maxPlayers,
+    // No seats before Start: the seat order is derived from who has JOINED, and
+    // at Create that is nobody. `startGame` writes it.
+    seatOrder: [],
     createdAt: new Date().toISOString(),
   }
   await ctx.transport.put(
@@ -291,11 +311,7 @@ export async function readLobby(ctx: LobbyContext, gameId: string): Promise<Acti
     gameName,
     (await ctx.transport.get(ctx.store, gameName)).value,
   )
-  const players: PlayerRecord[] = []
-  for (const object of playerObjectsFor(await ctx.transport.list(ctx.store), gameId)) {
-    players.push(parsePlayerRecord((await ctx.transport.get(ctx.store, object.name)).value))
-  }
-  return { record, players }
+  return { record, players: await readPlayerRecords(ctx, gameId) }
 }
 
 // ---------------------------------------------------------------------------
@@ -375,8 +391,15 @@ export async function leaveGame(ctx: LobbyContext, gameId: string): Promise<void
 // ---------------------------------------------------------------------------
 
 /**
- * Start a game: flip `status` to `'started'` in the SAME object, exactly once.
- * Only the creator's client may do it, and a refusal writes nothing.
+ * Start a game: flip `status` to `'started'` AND write the explicit seat order,
+ * in the SAME object, exactly once. Only the creator's client may do it, and a
+ * refusal writes nothing.
+ *
+ * The seat order is derived from the player records that are actually in the
+ * store at this moment ({@link seatOrderFor}: creator first, everyone else by
+ * tag). Deriving it here — rather than at each client — is what makes every
+ * client agree on which `GameState.players` index is whose, with no extra
+ * round trip and no second source of truth.
  */
 export async function startGame(ctx: LobbyContext, gameId: string): Promise<GameRecord> {
   assertGameId(gameId)
@@ -385,10 +408,15 @@ export async function startGame(ctx: LobbyContext, gameId: string): Promise<Game
     gameName,
     (await ctx.transport.get(ctx.store, gameName)).value,
   )
-  const refusal = startRefusal(record, ctx.identity, countPlayers(await ctx.transport.list(ctx.store), gameId))
+  const players = await readPlayerRecords(ctx, gameId)
+  const refusal = startRefusal(record, ctx.identity, players.length)
   if (refusal) throw refusal
 
-  const started: GameRecord = { ...record, status: 'started' }
+  const started: GameRecord = {
+    ...record,
+    status: 'started',
+    seatOrder: seatOrderFor(record.creator.id, players),
+  }
   await ctx.transport.put(ctx.store, gameName, serializeGameRecord(started))
   return started
 }

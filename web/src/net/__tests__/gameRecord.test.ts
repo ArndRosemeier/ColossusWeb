@@ -23,10 +23,13 @@ import {
   parsePlayerRecord,
   playerObjectName,
   playerTagFor,
+  seatIndexOf,
+  seatOrderFor,
   serializeGameRecord,
   serializePlayerRecord,
   slugifyDisplayName,
   type GameRecord,
+  type PlayerRecord,
 } from '../gameRecord'
 import { OBJECT_NAME_PATTERN, assertObjectName } from '../transport'
 
@@ -125,6 +128,16 @@ describe('game ids and object names', () => {
 })
 
 describe('game records', () => {
+  function player(playerId: string, label: string): PlayerRecord {
+    return {
+      version: PLAYER_RECORD_VERSION,
+      gameId: 'twin-1234abcd',
+      playerId,
+      label,
+      joinedAt: '2026-09-28T10:01:00.000Z',
+    }
+  }
+
   const record: GameRecord = {
     version: GAME_RECORD_VERSION,
     gameId: 'twin-1234abcd',
@@ -133,6 +146,7 @@ describe('game records', () => {
     creator: { id: 'key_5e1a1d3f', label: 'tom' },
     status: 'lobby',
     maxPlayers: 6,
+    seatOrder: [],
     createdAt: '2026-09-28T10:00:00.000Z',
   }
 
@@ -155,6 +169,16 @@ describe('game records', () => {
       [JSON.stringify({ ...record, displayName: '' }), /displayName must be a non-empty string/],
       [JSON.stringify({ ...record, creator: { id: 'x' } }), /creator\.label must be a non-empty/],
       [JSON.stringify({ ...record, creator: [] }), /creator must be an object/],
+      // `seatOrder` is written at Start. A v2 record without it, or one that
+      // seats a player twice, is refused rather than guessed at.
+      [JSON.stringify({ ...record, seatOrder: undefined }), /seatOrder must be an array/],
+      [JSON.stringify({ ...record, seatOrder: ['a', 'a'] }), /same player in two seats/],
+      [JSON.stringify({ ...record, seatOrder: [''] }), /non-string or empty seat/],
+      [JSON.stringify({ ...record, seatOrder: ['key_5e1a1d3f'] }), /must have no seats/],
+      [
+        JSON.stringify({ ...record, status: 'started' }),
+        /is started with 0 seat\(s\); a playable game needs at least 2/,
+      ],
     ]
     for (const [body, message] of cases) {
       expect(() => parseGameRecord(body), body).toThrow(message)
@@ -193,5 +217,41 @@ describe('game records', () => {
     expect(() => parsePlayerRecord(JSON.stringify({ ...player, playerId: '' }))).toThrow(
       /playerId must be a non-empty string/,
     )
+  })
+
+  it('a version-1 record is refused as unsupported, never guessed into seats', () => {
+    const { seatOrder: _seats, ...v1 } = record
+    expect(() => parseGameRecord(JSON.stringify({ ...v1, version: 1 }))).toThrow(
+      /schema version 1/,
+    )
+  })
+
+  it('seatOrderFor puts the creator first, then everyone else by tag, deterministically', () => {
+    const players = [
+      player('AAAAbbbb1111', 'bob'),
+      player('key_5e1a1d3f', 'tom'),
+      player('CCCCdddd2222', 'carol'),
+    ]
+    // Tags: aaaabbbb, key_5e1a, ccccdddd → bob, tom, carol; creator tom moves to seat 0.
+    expect(seatOrderFor('key_5e1a1d3f', players)).toEqual([
+      'key_5e1a1d3f',
+      'AAAAbbbb1111',
+      'CCCCdddd2222',
+    ])
+    // Order of the input must not matter — the same store yields the same seats.
+    expect(seatOrderFor('key_5e1a1d3f', [...players].reverse())).toEqual(
+      seatOrderFor('key_5e1a1d3f', players),
+    )
+  })
+
+  it('seatIndexOf reports a spectator as -1, never as seat 0', () => {
+    const started: GameRecord = {
+      ...record,
+      status: 'started',
+      seatOrder: ['key_5e1a1d3f', 'AAAAbbbb1111'],
+    }
+    expect(seatIndexOf(started, 'AAAAbbbb1111')).toBe(1)
+    expect(seatIndexOf(started, 'key_5e1a1d3f')).toBe(0)
+    expect(seatIndexOf(started, 'ZZZZ9999watching')).toBe(-1)
   })
 })
