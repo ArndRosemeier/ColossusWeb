@@ -145,6 +145,15 @@ Discovery is then a read of the store's object list, filtered client-side by pre
 nothing else is needed, and the list route already exists. A player joins by writing their
 own `p.` object; the creator's client sees it on its next poll.
 
+**Name budget — it is tighter than it looks.** Object names are capped at **64 characters**,
+so `g.<gameid>.p.<playerid>` must fit with room to spare, and S3's snapshot names have to fit
+too. A ServerStore key id is UUID-shaped (~36 chars), which leaves almost no headroom.
+Therefore: the **name uses a short, stable player tag — the first 8 characters of the
+lowercased key id, the same public handle the service renders itself — while identity
+comparisons keep using the full `whoami().id`.** `gameid` is a capped slug plus a short
+random suffix, and a pin asserts that the longest legal display name still produces a legal
+name for **both** object kinds. Nothing may rely on a long name happening to fit.
+
 `gameid` is a lowercase slug plus a short random suffix (`g.tonights-game-7f3a`), because
 names are lowercase, flat and capped at 64 characters — the *display* name lives inside the
 object and can be anything.
