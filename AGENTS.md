@@ -40,6 +40,33 @@ These are measured properties of the machine, not preferences.
 5. `Colossus/` is the only place a JDK would be needed, and installing one is out of
    scope until an owner request actually needs it.
 
+## Publishing to the app host (`apps.futuremagic.de`)
+
+The app is served from a **static root on this box** (`~/apps`). The folder `~/apps/ColossusWeb`
+is a **symlink into the Migration tree** —
+`/home/administrator/projects/Migration/apps/ColossusWeb`, a real directory, as are all 12 sibling
+apps. `Migration/tools/publish.mjs` owns that root: **do not repoint the symlink**, write through it.
+The full procedure is the `apps-publish` skill; this is the binding summary.
+
+1. **Build for the subpath** — `cd web && npx tsc -b && COLOSSUS_BASE=/ColossusWeb/ npx vite build`.
+   `web/vite.config.ts:33` defaults the base to `/`, and a default-base build served under the
+   subpath renders a **BLANK page**. The gate does not cover this (see `docs/ARCHITECTURE.md`).
+2. **Prove the base is baked in before publishing** —
+   `grep -o '/ColossusWeb/assets/[^"]*' web/dist/index.html` must return the subpath.
+3. **Publish** — `rsync -ai --exclude='.htaccess' web/dist/ ~/apps/ColossusWeb/`.
+   **No `--delete`**: the root is shared and its other files are not ours. `.htaccess` is
+   deliberately not published (Apache-only, no effect on the static host).
+4. **Verify by CONTENT, never by `200`** — compare sha256 manifests of the target against
+   `web/dist`, and fetch the entry plus its hashed asset from `http://127.0.0.1:8082/ColossusWeb/`
+   (which bypasses the CDN). A stale copy also answers `200`.
+5. **Refresh the hub, or the publish is not finished** —
+   `bash ~/projects/futuremagic/scripts/publish-apps-root.sh` (it never deletes).
+6. **`deploy-sync.ps1` / `deploy-clean.ps1` are dead** — they FTP to the retired
+   `www.futuremagic.de` host. Do not use them, and do not treat them as the publish path.
+7. **The CDN caches each URL for ~4 h.** Vite's content-hashed asset names change per build, so
+   assets are safe; the *page* URL is not. Check `cf-cache-status` (`DYNAMIC`/`MISS` = new bytes)
+   before declaring a publish live.
+
 ## Binding engineering rules
 
 1. **No silent fallbacks.** When data, parsing or a step fails, propagate a LOUD

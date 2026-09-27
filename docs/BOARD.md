@@ -34,6 +34,7 @@ answer is a line, not a paragraph.
 | `PROBE` | a read-only agent in flight and the question it answers |
 | `IN-FLIGHT` | a writer: row, session, worktree, branch, base, **state**, and the full scope |
 | `LANDED` | a verified landing: row, sha, **the dispatcher's own verification numbers**, what was retired, the docs amended |
+| `PUBLISH` | a deploy to the static app host: slug, build command, target, **what was verified by CONTENT**, and the CDN state |
 | `retired_branch=<name>` | a CLAIM that `<name>` is retired — the **only** form the reconciler parses, read literally, one line per branch. Prose about a retirement (especially one still OWED) must not use this key |
 | `QUEUE` | owner requests and known debt not yet dispatched, with the row number reserved |
 | `QUEUE-CLOSED` | a queue line whose scope is consumed |
@@ -53,10 +54,12 @@ independently names the verified base. See decision-ledger row 4.
 ```
 reconciled: 48be1070d11b6d0edfc7f5a24610734573ac40be · 2026-09-27T22:12Z
 
-SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=ready — no work order in hand
+SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=ready — published ColossusWeb to the new apps root; no work order in hand
 
 QUEUE | row=1 | owner: "be my chief of staff" — a designation, not yet a work order; awaiting the first task
 QUEUE | row=5 | known debt: docs/ARCHITECTURE.md §2 (the seam index) is NOT surveyed — a read-only probe could fill it
+QUEUE | row=6 | known debt: deploy-sync.ps1 / deploy-clean.ps1 still target the RETIRED FTP host (Migration README item 6) — now pointless; repoint at the apps root or delete
+QUEUE | row=7 | known debt: the gate builds base `/` but the DEPLOYED artifact needs COLOSSUS_BASE=/ColossusWeb/ — no pin covers the subpath build, and a base regression renders a BLANK page
 
 LANDED | row=0 | lands=this commit (`git log -1 --format=%H -- docs/BOARD.md`) | base=48be1070d11b6d0edfc7f5a24610734573ac40be
   | verify=DISPATCHER'S OWN, on the base tree: cheap tier GREEN (tsc -b + vite build, 61 modules,
@@ -66,6 +69,21 @@ LANDED | row=0 | lands=this commit (`git log -1 --format=%H -- docs/BOARD.md`) |
   | retired=nothing (no writer was dispatched; this was dispatcher-side setup)
   | docs=this file, docs/TESTING.md (baseline), docs/DECISION-LEDGER.md rows 1-4, AGENTS.md, scripts/*
 
+PUBLISH | slug=ColossusWeb | target=/home/administrator/apps/ColossusWeb -> /home/administrator/projects/Migration/apps/ColossusWeb
+  (a SYMLINK into the Migration tree; the target is a real directory, as are all 12 sibling apps)
+  | build=(cd web && npx tsc -b && COLOSSUS_BASE=/ColossusWeb/ npx vite build) -> asset index-BOtDb2SA.js
+  | method=rsync -ai --exclude='.htaccess' web/dist/ ~/apps/ColossusWeb/ (NO --delete) | exit 0
+  | verify=BY CONTENT, not by 200: served mtime 2026-09-26T19:07 -> 2026-09-27T22:32; sha256 manifests equal,
+  all 1374 files byte-identical to the build; `.htaccess` correctly NOT published; over http://127.0.0.1:8082/ColossusWeb/
+  the entry references /ColossusWeb/assets/index-BOtDb2SA.js, that asset hashes f0d6765a2e6c125f… == dist, and
+  variants/Default/variant.json is 200
+  | cdn=public URL cf-cache-status: DYNAMIC — new bytes already served, no stale HIT
+  | hub=bash ~/projects/futuremagic/scripts/publish-apps-root.sh exit 0; 13 cards written, ColossusWeb card present
+  | note=the served bytes ALREADY matched HEAD before this publish (same asset hash), so it was a content-IDENTICAL
+  republish; the proof it landed is the mtime change plus byte-equality, NOT a changed hash. Do not expect a hash
+  change to be the evidence next time either — compare manifests.
+
+RECOVERY | publish=(cd web && npx tsc -b && COLOSSUS_BASE=/ColossusWeb/ npx vite build) · rsync -ai --exclude='.htaccess' web/dist/ ~/apps/ColossusWeb/ · bash ~/projects/futuremagic/scripts/publish-apps-root.sh
 RECOVERY | repo=/home/administrator/projects/ColossusWeb | remote=origin=https://github.com/ArndRosemeier/ColossusWeb.git
 RECOVERY | branch=master | base=48be1070d11b6d0edfc7f5a24610734573ac40be | gate=bash scripts/gate.sh (from the tree ROOT)
 RECOVERY | product=web/ (TypeScript, verifiable) | reference=Colossus/ (Java, NOT buildable on this host)

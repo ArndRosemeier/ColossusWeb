@@ -62,6 +62,13 @@ verified by import analysis. Verify before relying on it.
   is build output that lives in git, produced by `web/scripts/convert-variant.mjs` from
   `Colossus/variants/*.xml`. It looks like source; it is not. Editing it by hand creates
   a change the next `convert` silently reverts.
+- **The build the gate makes is NOT the build that gets deployed.** `web/vite.config.ts:33` is
+  `base: process.env.COLOSSUS_BASE ?? '/'`. The gate's cheap tier builds with the default `/`,
+  but the app is served under the subpath `/ColossusWeb/`, so publishing requires
+  `COLOSSUS_BASE=/ColossusWeb/`. A root-absolute base-`/` build served under a subpath renders a
+  **BLANK page**, and **the gate would not catch it** — the two artifacts differ only in this env
+  var. Always verify with `grep -o '/ColossusWeb/assets/[^"]*' web/dist/index.html` before
+  publishing.
 - **The rules test suite is organised by rule family, not by module.**
   `web/src/engine/__tests__/rules-*.test.ts` and `docs/rules/COMPLIANCE.md` are the
   project's own coverage map — check it before writing a new rules test, so a second
@@ -74,3 +81,10 @@ verified by import analysis. Verify before relying on it.
   `web/src/**` producing rows.
 - **The Java reference has no compile check on this host.** Cost: a "port matches Java"
   claim rests on reading source, not on execution. See `AGENTS.md §Host facts`.
+- **No pin covers the deployed subpath build.** Cost: a change that breaks
+  `COLOSSUS_BASE=/ColossusWeb/` (or a base regression) passes the gate and ships a blank page;
+  only the pre-publish `grep` above catches it. A fix would run the subpath build in the gate.
+- **`deploy-sync.ps1` / `deploy-clean.ps1` are dead and misleading.** They still FTP to the
+  retired `www.futuremagic.de` host (Migration README retirement item 6), and `BUILD.md` / `README.md`
+  still describe `ant` builds that cannot run here. Cost: a new contributor follows them into a
+  dead target.
