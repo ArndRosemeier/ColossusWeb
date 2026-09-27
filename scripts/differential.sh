@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
 #
-# differential.sh — S1's OWN differential probe (the writer's, not the gate's).
+# differential.sh — the project's OWN differential probe (the writers', not the gate's).
 #
-# ONE ARM PER PIN. Each arm injects a REAL behaviour change by mocking ONE module
+# ONE ARM PER PIN. S1's arms inject a REAL behaviour change by mocking ONE module
 # boundary from a scratch vitest setup file — no source file is edited, so the
 # tree cannot be left dirty and the arm is repeatable. Each arm PRINTS the sha256
 # of the module it replaces before and after, so two arms can never be confused.
+#
+# S2's arms (appended below, one per lobby rule) inject into the REAL source line,
+# because the rule under test lives INSIDE a module rather than at a boundary:
+# `run_source_arm` edits the file, prints its sha256 before and after, and
+# restores it from HEAD immediately — and again in `cleanup`, so an interrupted
+# run cannot leave an injected tree behind. Run after the landing is committed:
+# HEAD is then the exact tree under test.
 #
 # The shared suite lock (the same atomic mkdir the gate uses) is held for the
 # whole run, because each arm runs real vitest. Scratch files are removed in a
@@ -35,11 +42,20 @@ fi
 printf 'pid=%s\nstarted=%s\ntier=differential\ntree=%s\n' "$$" "$(date -u +%FT%TZ)" "$ROOT" \
   > "$LOCK_DIR/owner"
 
+# S2's arms inject a REAL rule break into a source file, so the target list is
+# held here and restored from HEAD by the ONE cleanup trap: an interrupted run
+# cannot leave an injected tree behind. (HEAD is the committed landing, so the
+# restore target IS the tree under test, byte-for-byte.)
+S2_TARGETS="web/src/net/lobby.ts web/src/net/gameRecord.ts"
+
 cleanup() {
   rm -rf "$SETUPS" "$WEB/.differential.vitest.config.ts" "$LOCK_DIR"
   # The redirecting test files live beside the real ones so the suite's
   # `include` matches them; they must never outlive the run.
   rm -f "$WEB"/src/net/__tests__/*.redirect.test.ts
+  for target in $S2_TARGETS; do
+    git -C "$ROOT" checkout -- "$target" 2>/dev/null || true
+  done
 }
 trap cleanup EXIT INT TERM
 
@@ -105,6 +121,72 @@ run_arm() {
   fi
   if [ -z "$failed" ]; then
     echo "  VERDICT        : VOID — vitest failed without naming a failing test."
+    return 1
+  fi
+  echo "  VERDICT        : RED as intended."
+  return 0
+}
+
+# run_source_arm <arm> <suite> <target-file> <sed-expression> <pin>
+#
+# The S2 rules live INSIDE a module (a guard in `lobby.ts`, a cap in
+# `gameRecord.ts`), so breaking them at a module boundary would prove the wrong
+# thing. This arm edits the REAL line, prints the target's sha256 before and
+# after, and restores it from HEAD immediately — and again in `cleanup`.
+run_source_arm() {
+  local arm="$1" suite="$2" target="$3" sed_expr="$4" pin="$5"
+  # `target` is REPO-relative (that is what `git checkout --` needs); the file is
+  # edited at its absolute path under the worktree.
+  local file="$ROOT/$target"
+  local before after rc passed failed
+
+  echo
+  echo "=================================================================="
+  echo "ARM $arm"
+  echo "  pin under test : $pin"
+  echo "  target module  : $target"
+  before="$(hash_of "$file")"
+  echo "  target BEFORE  : $before"
+
+  # The shared differential config points at this file, so it must exist; this
+  # arm needs no module mock because it edits the source itself.
+  printf '// no mock: this arm edits %s itself\n' "$target" > "$SETUPS/active.setup.ts"
+  if ! sed -i "$sed_expr" "$file"; then
+    echo "  VERDICT        : VOID — sed did not apply."
+    git -C "$ROOT" checkout -- "$target"
+    return 1
+  fi
+  echo "  injected hash  : $(hash_of "$file")"
+
+  ( cd "$WEB" && npx vitest run --config "$WEB/.differential.vitest.config.ts" $suite ) \
+    > "$LOG_DIR/$arm.log" 2>&1
+  rc=$?
+  git -C "$ROOT" checkout -- "$target"
+
+  passed="$(grep -m1 -E '^ +Tests +' "$LOG_DIR/$arm.log" | sed 's/^ *//' || true)"
+  failed="$(grep -E '^ *× ' "$LOG_DIR/$arm.log" | sed 's/^ *× //' | head -8 || true)"
+  echo "  vitest exit    : $rc"
+  echo "  tests          : ${passed:-<none — the suite did not run>}"
+  if [ -n "$failed" ]; then
+    printf '  RED            : %s\n' "$failed"
+  fi
+  after="$(hash_of "$file")"
+  echo "  target AFTER   : $after $([ "$before" = "$after" ] && echo '(restored from HEAD — correct)' || echo '(CHANGED — BUG IN THE PROBE)')"
+
+  if grep -qE "Startup Error|failed to load config|No test files found" "$LOG_DIR/$arm.log"; then
+    echo "  VERDICT        : VOID — vitest never ran the suite (config/selection failure)."
+    return 1
+  fi
+  if [ "$rc" = "0" ]; then
+    echo "  VERDICT        : VOID — the suite stayed GREEN, so this arm proves nothing."
+    return 1
+  fi
+  if [ -z "$failed" ]; then
+    echo "  VERDICT        : VOID — vitest failed without naming a failing test."
+    return 1
+  fi
+  if [ "$after" != "$before" ]; then
+    echo "  VERDICT        : VOID — the target was not restored; the tree is dirty."
     return 1
   fi
   echo "  VERDICT        : RED as intended."
@@ -398,6 +480,39 @@ run_arm "J-empty-body-accepted" "src/net/__tests__/memoryTransport.test.ts" \
   "src/net/memoryTransport.ts" \
   "an empty body is refused, as the service refuses it" \
   "$SETUPS/J.setup.ts" || FAILED=1
+
+# ---------------------------------------------------------------------------
+# S2 · the lobby lifecycle — five rules, each broken at the line that enforces it.
+
+# L · Start is NOT the creator's alone.
+run_source_arm "L-start-not-creator" "src/net/__tests__/lobby.test.ts" \
+  "web/src/net/lobby.ts" \
+  "s/if (record.creator.id !== identity.id) {/if (identity.id === '__nobody__') {/" \
+  "Start is refused for a non-creator, and writes NOTHING" || FAILED=1
+
+# M · Joining twice is no longer idempotent: the second join writes again.
+run_source_arm "M-join-not-idempotent" "src/net/__tests__/lobby.test.ts" \
+  "web/src/net/lobby.ts" \
+  "s/if (mine) {/if (mine \&\& false) {/" \
+  "joining twice is idempotent: one object, unchanged body, no second write" || FAILED=1
+
+# N · Discovery SILENTLY DROPS a game it cannot read.
+run_source_arm "N-unreadable-dropped" "src/net/__tests__/lobby.test.ts" \
+  "web/src/net/lobby.ts" \
+  "s/unreadable.push({ objectName: object.name, gameId, failure: describeFailure(error) })/void error/" \
+  "Discovery ignores non-game objects and surfaces an unreadable game record" || FAILED=1
+
+# O · The slug is not capped, so a long display name overflows the name budget.
+run_source_arm "O-slug-not-capped" "src/net/__tests__/gameRecord.test.ts" \
+  "web/src/net/gameRecord.ts" \
+  "s/\.slice(0, MAX_GAME_SLUG_LENGTH)/.slice(0, 5000)/" \
+  "the LONGEST legal display name still names both objects legally" || FAILED=1
+
+# P · The caller's KEY is smuggled into the game body.
+run_source_arm "P-key-in-body" "src/net/__tests__/lobby.test.ts" \
+  "web/src/net/lobby.ts" \
+  "s|creator: { id: ctx.identity.id, label: ctx.identity.label },|creator: { id: ctx.identity.id, label: ctx.identity.label, secret: (await import('./keyStore')).getKey() },|" \
+  "no object body and no request body ever contains key material" || FAILED=1
 
 echo
 echo "=================================================================="

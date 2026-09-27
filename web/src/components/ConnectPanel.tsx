@@ -6,15 +6,24 @@
  * `connect.ts` for the ordering and `keyStorage.ts` for the one place it is
  * written down. This component renders the outcome and nothing else; it changes
  * no game behaviour.
+ *
+ * The connection state is a PROP, not a hook call of its own: the lobby must see
+ * the same identity as this panel, and two `useConnection()` calls would be two
+ * identities (and two stored-key re-validations). `SetupScreen` calls the hook
+ * once and hands the one state to both panels.
  */
 
 import { useCallback, useState } from 'react'
 import { isConnected } from '../net/keyStore'
-import { useConnection } from '../net/useConnection'
+import type { ConnectionState } from '../net/useConnection'
 import { serverStoreBaseUrl } from '../net/serverStore'
 
-export function ConnectPanel() {
-  const { identity, failure, busy, loaded, submit, clear } = useConnection()
+interface Props {
+  connection: ConnectionState
+}
+
+export function ConnectPanel({ connection }: Props) {
+  const { identity, failure, busy, loaded, submit, clear } = connection
   const [entry, setEntry] = useState('')
 
   const onConnect = useCallback(async () => {

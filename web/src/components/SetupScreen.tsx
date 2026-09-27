@@ -1,12 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import type { AiProfileId } from '../ai/profiles'
 import { AI_PROFILE_CHOICES } from '../ai/profiles'
 import type { NewGameOptions, PlayerKind } from '../engine/types'
 import { PLAYER_COLORS } from '../engine/types'
+import type { GameRecord, PlayerRecord } from '../net/gameRecord'
+import { useConnection } from '../net/useConnection'
 import type { SavedGameMeta } from '../persistence/saveGame'
 import { KNOWN_VARIANTS } from '../variant/loadVariant'
 import { BackgroundAtmosphereSelect } from './BackgroundAtmosphere'
 import { ConnectPanel } from './ConnectPanel'
+import { LobbyPanel } from './LobbyPanel'
 import { MarkerChit } from './MarkerChit'
 
 interface Props {
@@ -58,11 +61,35 @@ export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
   const meta = VARIANT_META[variantName] ?? VARIANT_META.Default!
   const maxPlayers = meta.maxPlayers
 
+  // ONE connection state for the whole screen: the connect panel and the lobby
+  // must agree on who `whoami` says we are (two hook calls would be two
+  // identities and two stored-key re-validations).
+  const connection = useConnection()
+
   const [rows, setRows] = useState<Row[]>([
     { name: 'Player 1', kind: 'human', colorId: 'Red', aiProfileId: 'random' },
     { name: 'CPU 1', kind: 'ai', colorId: 'Blue', aiProfileId: 'random' },
     { name: 'CPU 2', kind: 'ai', colorId: 'Green', aiProfileId: 'random' },
   ])
+
+  /**
+   * Hand-off (S2's last step): a started lobby becomes a LOCAL game exactly as
+   * the existing flow builds one — the joined players, in join order, as human
+   * seats. Publishing or adopting game state is S3 and is not done here.
+   */
+  const onMultiplayerStarted = useCallback(
+    (record: GameRecord, players: PlayerRecord[]) => {
+      void onStart({
+        variantName: record.variant,
+        players: players.map((player, index) => ({
+          name: player.label,
+          kind: 'human' as PlayerKind,
+          colorId: PLAYER_COLORS[index % PLAYER_COLORS.length]!.id,
+        })),
+      })
+    },
+    [onStart],
+  )
 
   const cappedRows = useMemo(() => rows.slice(0, maxPlayers), [rows, maxPlayers])
 
@@ -145,7 +172,14 @@ export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
         <BackgroundAtmosphereSelect showBlurb className="bg-atmosphere-select setup-bg" />
       </section>
 
-      <ConnectPanel />
+      <ConnectPanel connection={connection} />
+
+      <LobbyPanel
+        connection={connection}
+        variantName={variantName}
+        maxPlayers={maxPlayers}
+        onStarted={onMultiplayerStarted}
+      />
 
       <section className="setup-panel" aria-label="Game setup">
         <h2>Variant</h2>

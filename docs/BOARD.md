@@ -54,7 +54,7 @@ independently names the verified base. See decision-ledger row 4.
 ```
 reconciled: 6c5d0196252ac65bc1bb322d5797b4c62dea73be · 2026-09-27T22:36Z
 
-SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=dispatching to completion — OWNER AWAY, instruction "try to build this to completion"; S1 LANDED and retired, S2 in flight, S3 next, SERIALLY because they all touch `web/src/components/App.tsx`
+SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=dispatching to completion — OWNER AWAY, instruction "try to build this to completion"; S1 LANDED and retired, S2 WRITER-LANDED on `feat/lobby` and awaiting the dispatcher's own verification, S3 next, SERIALLY because they all touch `web/src/components/App.tsx`
 
 QUEUE | row=1 | owner: "be my chief of staff" — a designation, not yet a work order; awaiting the first task
 QUEUE | row=5 | known debt: docs/ARCHITECTURE.md §2 (the seam index) is NOT surveyed — a read-only probe could fill it
@@ -79,8 +79,14 @@ LANDED | row=S1 | lands=this commit (`git log -1 --format=%H -- docs/BOARD.md`) 
 QUEUE | row=11 | also cross-project, lower priority: ServerStore has NO concurrency control (a PUT is an unconditional overwrite) and NO rate limiting. A snapshot design with writer-tagged names does not need concurrency control; a public poll loop does eventually want the rate limit
 QUEUE | row=12 | design constraint to remember: there is NO per-object isolation in ServerStore (no ACL, no owner column), so any key with read/write on `colossus` can read, overwrite and DELETE every object in it, including other players'. Isolation is only available by partitioning into more stores
 
-IN-FLIGHT | row=S2 | worktree=/home/administrator/projects/ColossusWeb/worktrees/lobby | branch=feat/lobby | base=162364071c769255a64f44d8c2c2f2456301ec04 | session=345c61c6-a65c-4e3e-bca9-e646d3d71923 | state=dispatched | brief=docs/briefs/slice-s2-lobby.md | ledger row assigned=8
-  scope=THE LOBBY LIFECYCLE ONLY, implementing the owner's Create Multiplayer / Join Multiplayer / Start Multiplayer (creator only). A game-record module (parse + validate, LOUD on an unreadable body), the operations createGame / listGames / joinGame / startGame over S1's transport, and the rules enforced BEFORE any write: Start is the creator's alone and must write NOTHING when refused; no joining a started or full game; a re-join is idempotent; discovery filters the store's own list to `g.<id>.game`. Hand-off to the existing new-game flow once Start succeeds. NO state sync, NO polling, NO turn authority (that is S3), and nothing for the declined per-player-store work
+LANDED | row=S2 | lands=this commit (`git log -1 --format=%H -- docs/BOARD.md`) | writer=345c61c6-a65c-4e3e-bca9-e646d3d71923 | branch=feat/lobby | worktree=/home/administrator/projects/ColossusWeb/worktrees/lobby | base=162364071c769255a64f44d8c2c2f2456301ec04 | rebased onto master `1c48bdf` before pushing | ledger row=8 | brief=docs/briefs/slice-s2-lobby.md
+  | deliverable=THE LOBBY LIFECYCLE ONLY, implementing the owner's Create Multiplayer / Join Multiplayer / Start Multiplayer (creator only). `web/src/net/gameRecord.ts` owns the object shapes and names: `g.<gameid>.game` (creator-only writer) and `g.<gameid>.p.<tag>` (owner-only writer), with `gameid` = a ≤23-char slug + 8 random hex so two same-named games cannot collide and BOTH names fit the service's 64-char rule; the display name is uncapped and lives in the body. The player tag is the first 8 lowercased characters of the full `whoami().id` (ServerStore's own public prefix) while the full id stays in the body for identity comparison, so a tag collision is refused (`player_tag_collision`) instead of overwriting. `web/src/net/lobby.ts` owns the operations (`createGame`/`listGames`/`joinGame`/`leaveGame`/`startGame`/`readLobby`) and enforces every rule BEFORE any write, as a thrown `ServerStoreError` the ONE error surface renders: Start is the creator's alone (`not_creator`), a second Start is refused (`already_started`), Start needs ≥2 joined players (`not_enough_players` — a decision taken in this slice because the hand-off requires two seats), a started game takes no joins (`game_started`), a full game takes no joins (`game_full`), and a re-join returns the existing object with NO write. Discovery is the store's own list route filtered to `g.<id>.game`: a non-game name is in NEITHER result list, while a malformed or unfetchable game is reported in `GameListing.unreadable` with the service's own code and message — never dropped. `web/src/net/storeName.ts` is the ONE place the store name comes from (`colossus`; `VITE_SERVERSTORE_STORE` overrides). `web/src/components/LobbyPanel.tsx` renders Create / Join / Start, shows Start only to the creator, and hands a started game to the existing local new-game flow; `SetupScreen.tsx` now owns ONE `useConnection()` state and passes it to both panels (ConnectPanel takes it as a prop).
+  | verify=WRITER'S OWN — this commit's tree was gated FOUR times, **exit 0** every time: before and after the docs record, and again on the tree REBASED onto `1c48bdf`. Last (rebased) run: cheap tier `tsc -b` + `vite build` GREEN, **74 modules**, 412ms · full gate **exit 0** · oxlint **14 warnings / 0 errors** (the base tree's count — no new warning) · vitest **395 passed | 2 todo (397)** in 54 files + 1 skipped · peak **323184 KB (~315 MB)**. Peaks across the four runs (319132 / 316012 / 340188 / 323184 KB) are host-load variance, not different results. Raw log `.gate-logs/gate.log`; writer's copies `.gate-logs/s2-gate-run1.txt`, `s2-gate-final.txt`, `s2-gate-rebased.txt`
+  | verify=DIFFERENTIAL, writer's own, **5 S2 source arms appended to `scripts/differential.sh`** (the project's ONE differential harness), alongside S1's 12: **17/17 RED as intended, FAILED=0**, under the shared suite lock, each target's sha256 PRINTED before and after and restored from HEAD in the `cleanup` trap. **L** removed the creator guard in `startGame` (`lobby.ts` `6e553228…` → `a30c49be…`) → RED `Start is refused for a non-creator and writes NOTHING` (2 failed | 39 passed) · **M** made a re-join write again (`lobby.ts` `6e553228…` → `bc14c995…`) → RED `joining twice is idempotent: one object, unchanged body, no second write` (6 failed | 35 passed) · **N** made discovery drop an unreadable game (`lobby.ts` `6e553228…` → `2dac5066…`) → RED `Discovery ignores non-game objects and surfaces an unreadable game record` (4 failed | 37 passed) · **O** removed the slug cap (`gameRecord.ts` `931cb4d2…` → `3c7a653f…`) → RED `gives a legal name for BOTH object kinds whatever the display name is` + `the LONGEST legal display name still names both objects legally` (2 failed | 11 passed) · **P** smuggled the key into the game body (`lobby.ts` `6e553228…` → `c287dc05…`) → RED `no object body and no request body ever contains key material` (3 failed | 38 passed). Every target hash was identical after restore; `git status --porcelain` showed only the harness edit, no source. The whole 17-arm run was repeated against the final commit's HEAD and gave the same result. Logs `.gate-logs/differential/*.log`, transcript `.gate-logs/s2-differential-run3.txt`.
+  | docs=this file, docs/DECISION-LEDGER.md row 8 (with the `COPIES:` line), docs/ARCHITECTURE.md §1 (`web/src/components/` may depend on `net`; `web/src/net/` now carries the lobby) + §2 (four seam rows: failure→screen, object names/records, lobby operations, store name)
+  | scope-not-taken=no game-state sync, snapshots, polling or turn authority (S3); no fork detection or resume (S4); nothing for the declined per-player-store / dice work (S5); no change to how a hotseat game plays. Every test runs against the in-memory twin or a stubbed `fetch` — no network call is made in any test.
+  | note=**STILL NOT PROVEN** (writer's own honest gap): the live service has never been called by this client from a browser and nothing has ever been written to the live `colossus` store — that needs a valid key, which this writer does not hold and did not go looking for. And a started lobby currently begins a **local** game: no state is published or adopted, so two clients that start the same game do not yet exchange moves (that is S3).
+  | dispatcher-owed=the DISPATCHER'S OWN gate and differential on the tree with `feat/lobby` integrated, and the live round trip no writer can perform without a key. Until both exist this is a WRITER-VERIFIED landing, not a dispatcher-verified one.
 
 LANDED | row=0 | lands=this commit (`git log -1 --format=%H -- docs/BOARD.md`) | base=48be1070d11b6d0edfc7f5a24610734573ac40be
   | verify=DISPATCHER'S OWN, on the base tree: cheap tier GREEN (tsc -b + vite build, 61 modules,
@@ -124,15 +130,20 @@ RECOVERY | logs=.gate-logs/gate.log (gitignored) | worktrees=./worktrees/ (gitig
 
 retired_branch=feat/mp-transport
 
-**S1 IS LANDED AND RETIRED; S2 IS NEXT.** `feat/mp-transport` is gone locally AND on the
+**S1 IS LANDED AND RETIRED; S2 IS WRITER-LANDED ON `feat/lobby` AND AWAITS THE
+DISPATCHER'S OWN VERIFICATION; S3 IS NEXT.** `feat/mp-transport` is gone locally AND on the
 remote, and its worktree is removed — the `retired_branch=` line above is the claim the
-reconciler reads. It was steered mid-flight by the owner requirement change (the key is now
-persisted in `localStorage` after a successful `whoami`, not held in memory), so the brief's
-original no-`localStorage` pin is superseded — the pins as finally implemented are in
-`web/src/net/__tests__/`: the contract suite runs against BOTH implementations
-(`transportContract.test.ts`), the key rules are asserted over the REAL browser objects after
-a real connect (`keyPersistence.test.ts`), and the transport rules over the requests the
-client actually made (`serverStore.test.ts`).
+reconciler reads. S2's branch is **not** retired: it holds the lobby landings above and is the
+dispatcher's to verify, integrate and retire. S1 was steered mid-flight by the owner
+requirement change (the key is now persisted in `localStorage` after a successful `whoami`,
+not held in memory), so the brief's original no-`localStorage` pin is superseded — the pins as
+finally implemented are in `web/src/net/__tests__/`: the contract suite runs against BOTH
+implementations (`transportContract.test.ts`), the key rules are asserted over the REAL browser
+objects after a real connect (`keyPersistence.test.ts`), and the transport rules over the
+requests the client actually made (`serverStore.test.ts`). S2's pins live in
+`web/src/net/__tests__/lobby.test.ts` (operations, run against BOTH transports),
+`web/src/net/__tests__/gameRecord.test.ts` (names and record shapes) and
+`web/src/components/__tests__/lobbyUi.test.ts` (Start is the creator's alone).
 
 **DISPATCHER'S OWN ERRORS, recorded rather than quietly corrected** (per `AGENTS.md`):
 1. **A masked exit code.** `git branch -d feat/mp-transport | tail -2` printed `[branch delete
@@ -207,11 +218,14 @@ that a shared file means SERIALIZE. Each slice runs in its own worktree off the 
    the branch claim as its own `retired_branch=<name>` line;
 5. amend this board in the same commit as the landing.
 
-**If this session dies:** the record above is true as of `6c5d019`, one writer
-(`1027ed8a-7af7-4354-9319-c4521b45290b`, slice S1) may have committed partial work on
-`feat/mp-transport` — **salvage-check its branch log and worktree status before deleting
-anything**. The unfilled briefs for S2/S3 do not exist yet; write them from
-`docs/briefs/slice-s1-transport.md` as the template and `docs/BRIEF.md` as the contract.
+**If this session dies:** the record above is true as of the S2 landing on
+`feat/lobby`. The S2 writer (`345c61c6-a65c-4e3e-bca9-e646d3d71923`) committed the lobby
+landing there and pushes it with this record — **salvage-check its branch log and worktree
+status before deleting anything**. `feat/lobby` is the dispatcher's to verify, integrate and
+retire, and the worktree `/home/administrator/projects/ColossusWeb/worktrees/lobby` holds its
+raw gate and differential logs under `.gate-logs/`. The brief for S3 does not exist yet; write
+it from `docs/briefs/slice-s1-transport.md` / `slice-s2-lobby.md` as the templates and
+`docs/BRIEF.md` as the contract.
 
 ## Guards
 
