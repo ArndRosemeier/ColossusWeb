@@ -54,7 +54,8 @@ verified by import analysis. Verify before relying on it.
 
 | Seam | The ONE way | Where | Notes |
 | --- | --- | --- | --- |
-| *(not yet surveyed)* | | | |
+| Master-hex gate shapes | `archGeometry` / `blockOutline` / `arrowTriple` / `gateLen` / `pts` | `web/src/components/gateGeometry.ts` | Pure maths, **no React**, so it is directly testable and the component file exports components only. Ported from `GUIMasterHex.drawGate()`. **ARCH must stay a rounded cap + stem, never the BLOCK rectangle** — `masterHexGates.test.ts` pins both the geometry and the renderer's dispatch; see decision-ledger row 5. |
+| *(rest not yet surveyed)* | | | |
 
 ## 3 · Gotchas
 

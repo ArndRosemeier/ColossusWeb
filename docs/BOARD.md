@@ -54,12 +54,13 @@ independently names the verified base. See decision-ledger row 4.
 ```
 reconciled: 48be1070d11b6d0edfc7f5a24610734573ac40be · 2026-09-27T22:12Z
 
-SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=ready — published ColossusWeb to the new apps root; no work order in hand
+SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=ready — published the ARCH gate fix; no new work order in hand
 
 QUEUE | row=1 | owner: "be my chief of staff" — a designation, not yet a work order; awaiting the first task
 QUEUE | row=5 | known debt: docs/ARCHITECTURE.md §2 (the seam index) is NOT surveyed — a read-only probe could fill it
 QUEUE | row=6 | known debt: deploy-sync.ps1 / deploy-clean.ps1 still target the RETIRED FTP host (Migration README item 6) — now pointless; repoint at the apps root or delete
 QUEUE | row=7 | known debt: the gate builds base `/` but the DEPLOYED artifact needs COLOSSUS_BASE=/ColossusWeb/ — no pin covers the subpath build, and a base regression renders a BLANK page
+QUEUE | row=8 | follow-up: the superseded asset /ColossusWeb/assets/index-BOtDb2SA.js is retained only to survive the 4h CDN window on the unchanged index.html — prunable after that
 
 LANDED | row=0 | lands=this commit (`git log -1 --format=%H -- docs/BOARD.md`) | base=48be1070d11b6d0edfc7f5a24610734573ac40be
   | verify=DISPATCHER'S OWN, on the base tree: cheap tier GREEN (tsc -b + vite build, 61 modules,
@@ -82,6 +83,17 @@ PUBLISH | slug=ColossusWeb | target=/home/administrator/apps/ColossusWeb -> /hom
   | note=the served bytes ALREADY matched HEAD before this publish (same asset hash), so it was a content-IDENTICAL
   republish; the proof it landed is the mtime change plus byte-equality, NOT a changed hash. Do not expect a hash
   change to be the evidence next time either — compare manifests.
+
+PUBLISH | slug=ColossusWeb | delivers=the ARCH gate fix (lands=0b1fa3d)
+  | build=(cd web && npx tsc -b && COLOSSUS_BASE=/ColossusWeb/ npx vite build) -> asset index-tJplBtH_.js
+  | method=rsync -ai --exclude='.htaccess' web/dist/ ~/apps/ColossusWeb/ (NO --delete) | exit 0
+  | verify=BY CONTENT: the served entry references /ColossusWeb/assets/index-tJplBtH_.js; 1374 files byte-identical
+  to web/dist apart from the ONE deliberately retained superseded asset; `.htaccess` not published; over
+  http://127.0.0.1:8082/ColossusWeb/ the new asset is 200 and hashes dd24aa29… == dist; the published URL was loaded
+  in headless Chrome (tree reaped to 0)
+  | cdn=the superseded asset index-BOtDb2SA.js is KEPT on purpose, so a client holding the 4h-cached index.html can
+  still resolve the old hash in the entry it was served
+  | hub=bash ~/projects/futuremagic/scripts/publish-apps-root.sh exit 0; 13 cards written
 
 RECOVERY | publish=(cd web && npx tsc -b && COLOSSUS_BASE=/ColossusWeb/ npx vite build) · rsync -ai --exclude='.htaccess' web/dist/ ~/apps/ColossusWeb/ · bash ~/projects/futuremagic/scripts/publish-apps-root.sh
 RECOVERY | repo=/home/administrator/projects/ColossusWeb | remote=origin=https://github.com/ArndRosemeier/ColossusWeb.git

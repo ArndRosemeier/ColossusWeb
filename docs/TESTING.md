@@ -125,7 +125,15 @@ arm proves the pins hold the property. Both are needed.
 
 | Behaviour | Pin (test) | Where | How it is watched red |
 | --- | --- | --- | --- |
-| *(no landings yet — the first landing fills this in)* | | | |
+| An ARCH gate renders as a rounded gate, not a BLOCK rectangle | `emits a semicircular arc for ARCH and no arc at all for BLOCK` | `web/src/components/__tests__/masterHexGates.test.ts` | Re-collapse the renderer's branch: `if (gate === 'BLOCK' \|\| gate === 'ARCH')` → RED (verified) |
+| An ARCH gate's round cap is on the **opposite** side of the hexside from its square stem | `puts the round side opposite the square stem — {horizontal,slanted,reversed slanted} hexside` | same file | Move `bulge` to the stem side (`cx + len*nx`) → 3 RED (verified) |
+| The ARCH cap is an SVG arc and its stem is 4 points | `draws the ARCH cap as an arc, not a polygon — {…} hexside` | same file | Return a rectangle instead of the arc path → RED |
+| ARCH is not the BLOCK outline | `no longer collapses ARCH into the BLOCK rectangle` | same file | Make `archGeometry().stem` equal `blockOutline()` → RED |
+
+Note the two layers on purpose: the geometry pins hold `gateGeometry.ts`, and the
+component pin holds the **wiring** — the original bug lived in the renderer's branch
+condition, so a geometry-only pin would have stayed green while the UI drew squares
+again. Both layers were watched red separately (see the landing below).
 
 Coverage that already exists and should be extended rather than duplicated: the
 `rules-*.test.ts` family (rules mechanics), `web/src/ai/__tests__/` (AI decisions),
@@ -134,7 +142,32 @@ Coverage that already exists and should be extended rather than duplicated: the
 
 ## Per landing
 
-*(no landings yet; the baseline above is not a landing)*
+### `0b1fa3d` — ARCH master-hex gates drawn as rounded gates
+
+- **Gate:** exit `0` (cheap tier + full) · **278 passed | 2 todo (280)** in 46 files +
+  1 skipped · oxlint **14 warnings / 0 errors** (the project's baseline, unchanged) ·
+  peak **318300 KB** · raw log `.gate-logs/gate.log`
+- **Differential 1 — the original bug** (collapse ARCH into BLOCK):
+  arm A `sha256:MasterHexGates.tsx d21857ea…` (baseline) → **8 passed, exit 0**;
+  arm B `22b8624e…` (branch condition re-collapsed) → **1 failed | 7 passed, exit 1**,
+  RED on `emits a semicircular arc for ARCH and no arc at all for BLOCK`;
+  arm C = restore from HEAD → `d21857ea…` (**identical to arm A**) → 8 passed.
+  Raw logs `.gate-logs/injection-arm{A,B,C}.log`.
+  Only the *wiring* pin reddened here, not the geometry pins — which is exactly the
+  coverage gap that pin was added to close (see the pin matrix note above).
+- **Differential 2 — the core property** (bulge on the stem's side):
+  arm A2 `sha256:gateGeometry.ts 6179ab46…` → arm B2 `ee54e6e0…` → **3 failed | 5
+  passed**, RED on **all three** `puts the round side opposite the square stem — …`
+  cases; arm C2 restored → `6179ab46…` (identical) → 8 passed.
+  Raw logs `.gate-logs/injection-arm{B2,C2}.log`.
+- **Visual:** the built artifact was rendered in headless Chrome and inspected at 3×
+  (`.gate-logs/board-zoom.png`). On the Plains(124)/Woods(25) edge a white **square**
+  and a distinct **rounded gate** now sit side by side where both were previously
+  squares; the same rounded/square pair appears at Marsh(122)/Tower(400). Chrome's
+  process tree was killed in a `trap` and the count verified back to **0**.
+- **Publish:** `PUBLISH` row on the board — the same bytes verified above are live at
+  `/ColossusWeb/` (served asset `sha256:dd24aa29…` == `web/dist`).
+- **VOID:** none. No arm pair produced identical output.
 
 ### <sha> — <row>
 
