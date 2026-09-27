@@ -54,7 +54,7 @@ independently names the verified base. See decision-ledger row 4.
 ```
 reconciled: 6c5d0196252ac65bc1bb322d5797b4c62dea73be · 2026-09-27T22:36Z
 
-SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=dispatching to completion — OWNER AWAY, instruction "try to build this to completion"; S1 in flight, then S2, then S3, SERIALLY because they all touch `web/src/components/App.tsx`
+SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=dispatching to completion — OWNER AWAY, instruction "try to build this to completion"; S1 LANDED and retired, S2 in flight, S3 next, SERIALLY because they all touch `web/src/components/App.tsx`
 
 QUEUE | row=1 | owner: "be my chief of staff" — a designation, not yet a work order; awaiting the first task
 QUEUE | row=5 | known debt: docs/ARCHITECTURE.md §2 (the seam index) is NOT surveyed — a read-only probe could fill it
@@ -79,7 +79,7 @@ LANDED | row=S1 | lands=this commit (`git log -1 --format=%H -- docs/BOARD.md`) 
 QUEUE | row=11 | also cross-project, lower priority: ServerStore has NO concurrency control (a PUT is an unconditional overwrite) and NO rate limiting. A snapshot design with writer-tagged names does not need concurrency control; a public poll loop does eventually want the rate limit
 QUEUE | row=12 | design constraint to remember: there is NO per-object isolation in ServerStore (no ACL, no owner column), so any key with read/write on `colossus` can read, overwrite and DELETE every object in it, including other players'. Isolation is only available by partitioning into more stores
 
-IN-FLIGHT | row=S2 | worktree=/home/administrator/projects/ColossusWeb/worktrees/lobby | branch=feat/lobby | base=PENDING (filled at dispatch) | session=PENDING | state=queued | brief=docs/briefs/slice-s2-lobby.md | ledger row assigned=8
+IN-FLIGHT | row=S2 | worktree=/home/administrator/projects/ColossusWeb/worktrees/lobby | branch=feat/lobby | base=162364071c769255a64f44d8c2c2f2456301ec04 | session=345c61c6-a65c-4e3e-bca9-e646d3d71923 | state=dispatched | brief=docs/briefs/slice-s2-lobby.md | ledger row assigned=8
   scope=THE LOBBY LIFECYCLE ONLY, implementing the owner's Create Multiplayer / Join Multiplayer / Start Multiplayer (creator only). A game-record module (parse + validate, LOUD on an unreadable body), the operations createGame / listGames / joinGame / startGame over S1's transport, and the rules enforced BEFORE any write: Start is the creator's alone and must write NOTHING when refused; no joining a started or full game; a re-join is idempotent; discovery filters the store's own list to `g.<id>.game`. Hand-off to the existing new-game flow once Start succeeds. NO state sync, NO polling, NO turn authority (that is S3), and nothing for the declined per-player-store work
 
 LANDED | row=0 | lands=this commit (`git log -1 --format=%H -- docs/BOARD.md`) | base=48be1070d11b6d0edfc7f5a24610734573ac40be
