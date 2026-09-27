@@ -118,21 +118,31 @@ FAILED=0
 cat > "$SETUPS/A.setup.ts" <<'EOF'
 import { vi } from 'vitest'
 
-// INJECTION: the key the transport puts on the wire is not the one the caller
-// holds — so the store refuses a wrong Bearer credential. (Patching
-// `globalThis.fetch` cannot do this: the transport holds the STUB fetch the test
-// injected, not the global one. Measured, not assumed.)
+// INJECTION: the transport builds the Authorization header and then LOSES it —
+// the credential never reaches the wire. `getKey()` hands back a key (so this is
+// not the separate "no key loaded" path, which refuses before any request), and a
+// marked key makes the transport's own `fetch` drop the header on the way out.
+// The fake store refuses what it RECEIVES, exactly as the real key guard does.
 vi.mock('../src/net/keyStore', async (importOriginal) => {
   const real = await importOriginal<typeof import('../src/net/keyStore')>()
   return {
     ...real,
-    getKey: () => 'ssk_wrong_key_nothing_accepts',
+    getKey: () => 'ssk_MARKER_STRIP_HEADER',
+    installKey: () => undefined,
   }
 })
+const realFetch = globalThis.fetch
+globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+  const headers = new Headers(init?.headers)
+  if (headers.get('authorization')?.includes('MARKER_STRIP_HEADER')) {
+    headers.delete('authorization')
+  }
+  return realFetch(input, { ...init, headers })
+}) as typeof fetch
 EOF
 run_arm "A-header" "src/net/__tests__/serverStore.test.ts" \
   "src/net/keyStore.ts" \
-  "the key-travels-only-in-the-Authorization-header pin (a wrong Bearer is refused)" \
+  "the key-travels-only-in-the-Authorization-header pin (a credential that never arrives is refused)" \
   "$SETUPS/A.setup.ts" || FAILED=1
 
 # ---------------------------------------------------------------------------

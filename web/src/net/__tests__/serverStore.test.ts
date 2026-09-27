@@ -143,4 +143,16 @@ describe('serverStore HTTP transport', () => {
     await expect(transport.list(TEST_STORE)).rejects.toThrow(/no ServerStore key is loaded/)
     expect(fake.calls).toHaveLength(0)
   })
+
+  it('an authenticated call WITHOUT the Bearer header is refused by the store', async () => {
+    // The other half of the pin: not only "is the header there?" but "does the
+    // credential have to be in it?". The fake checks what it RECEIVED, so it
+    // stands in for the service's key guard.
+    const transport = createServerStoreTransport('https://store.example.test', (input, init) => {
+      const headers = new Headers(init?.headers)
+      headers.delete('authorization')
+      return fake.fetch(input as RequestInfo, { ...init, headers })
+    })
+    await expect(transport.list(TEST_STORE)).rejects.toThrow(/no key presented/)
+  })
 })
