@@ -61,7 +61,20 @@ question before; its own words are *"D/E gate the game on a public browser."*
 
 ## 3 · The blocking prerequisite — **FORK 1**
 
-**The browser cannot talk to the store at all today.** The app is served from
+> **RESOLVED 2026-09-28 — option (a) was chosen and is LIVE.** ServerStore landed CORS
+> (`bd55b7e`, "answer a browser on another origin, BEFORE the key guard"; its ledger rows
+> 57/58) and restarted the service. Verified on the wire from this box: an unauthenticated
+> `OPTIONS` carrying `Origin: https://apps.futuremagic.de` and
+> `Access-Control-Request-Method: PUT` answers **204** with `allow-headers: authorization,
+> x-api-key, content-type`, `allow-methods: GET, POST, PUT, PATCH, DELETE, OPTIONS`,
+> `expose-headers: x-serverstore-sha256`, `max-age: 600`; and a 401 on an authenticated
+> route also carries `access-control-allow-origin`, so error envelopes are readable. The
+> allowed origin is the **wildcard** (their default; `SERVERSTORE_CORS_ORIGINS` narrows it)
+> — acceptable here because a key is still required and their pin O4 forbids
+> `Access-Control-Allow-Credentials`. The analysis below is kept as the reasoning that
+> produced the request.
+
+**The browser could not talk to the store at all** before that. The app is served from
 `apps.futuremagic.de → 127.0.0.1:8082` (a plain static file server); the store is
 `store.futuremagic.de → 127.0.0.1:8477`. Different origins, and the store sends no
 `Access-Control-Allow-*` headers and does not answer `OPTIONS` — in fact its key guard
@@ -206,7 +219,7 @@ stores as a named follow-up slice. Rejected: (c) per-player encryption — same 
 
 | # | Where | Slice | Blocks |
 | --- | --- | --- | --- |
-| **S0** | ServerStore | **CORS + `OPTIONS` preflight before the auth guard**, exact origin, `Vary: Origin`; restart and re-run `probe-live.sh` (GUARD g5) | **everything** |
+| **S0** | ServerStore | ~~**CORS + `OPTIONS` preflight before the auth guard**~~ — **DONE 2026-09-28**, landed by ServerStore (`bd55b7e`) and verified live from here (§3). No ColossusWeb work needed | — |
 | S1 | ColossusWeb | Store client behind a transport interface (list/get/put/delete), key entry in memory, `whoami` → identity. A fake in-memory transport so the lobby and sync are testable **without the network** | S2+ |
 | S2 | ColossusWeb | Lobby: create a named game, list joinable games, join (own `p.` object), leave | S3 |
 | S3 | ColossusWeb | Turn sync: publish a snapshot after each local command; poll and adopt; input disabled unless the state says it is your turn | S4 |
