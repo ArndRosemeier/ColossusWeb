@@ -4,8 +4,10 @@
  *
  * The store is a flat namespace of opaque byte objects, addressed by
  * `(store, name)`. The store name is deliberately a PARAMETER and never a
- * constant here: whether multiplayer uses one shared store or per-player stores
- * is still an open fork (`docs/design/multiplayer.md` §4.4).
+ * constant here: it keeps this seam honest and leaves room to partition into
+ * more stores later without re-plumbing callers. (Per-player stores were
+ * considered and DECLINED by the owner as unnecessary security — see
+ * `docs/design/multiplayer.md` §4.4 and §6; this is not an open fork.)
  *
  * Plain data in, plain data out. A failure is always a thrown
  * {@link ServerStoreError} carrying the service's own `code` and `message`.

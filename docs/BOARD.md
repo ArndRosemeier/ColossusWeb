@@ -71,7 +71,11 @@ LANDED | row=S1 | lands=this commit (`git log -1 --format=%H -- docs/BOARD.md`) 
   | verify=DIFFERENTIAL, writer's own, 12 arms, lock held, no source edited (`scripts/differential.sh`, logs `.gate-logs/differential/*.log`). EVERY arm made a NAMED pin go RED on an otherwise-green tree, and every arm's target hash was printed before AND after and was unchanged: **A** a built-then-lost `Authorization` header → `sends the key in the Authorization header and NOWHERE else` + `an authenticated call WITHOUT the Bearer header is refused by the store` (keyStore `b534dab3…`, setup `279f974b…`) · **B** key in the query string → same pin +3 (serverStore `5189619e…`, setup `2938a6c5…`) · **C** plain `Error` instead of `ServerStoreError` → `surfaces a failure envelope with its code AND its message, never silently` +8 (transport `c744f210…`, setup `11dac9ef…`) · **D** local name guard removed → `refuses an illegal object name locally, before any request is made` (transport `c744f210…`, setup `383ec04f…`) · **E1** key also written to `sessionStorage` → `writes the key to localStorage under the ONE named entry and nowhere else` +4 (keyStore `b534dab3…`, setup `813641ae…`) · **E2** persistence moved BEFORE validation → `persists NOTHING when the service refuses the key` +2 (keyStore `b534dab3…`, setup `9ee70e71…`) · **E3** `clearStoredKey` neutered → `REMOVES a stored key that no longer validates and surfaces the refusal` +2 (keyStorage `10e063cb…`, setup `a9fe4034…`) · **F** `whoami` carries the raw key → `reports the identity whoami returns, and never any key material` (serverStore `5189619e…`, setup `a65b728c…`) · **G** sha header dropped → `surfaces the x-serverstore-sha256 response header on a GET` +1 (serverStore `5189619e…`, setup `69e4e063…`) · **H** fake's `list` returns nothing → `lists the objects in a store as plain data` (memoryTransport `44b1856f…`, setup `6bba5f58…`) · **I** base URL hard-coded → `defaults to the documented base URL when nothing overrides it` (serverStore `5189619e…`, setup `2bffee8c…`) · **J** empty body accepted → `refuses an empty body, exactly as the service does` (memoryTransport `44b1856f…`, setup `05a1d6c2…`). Three probe bugs were found and fixed rather than reported: a `vi.mock` path resolved from the wrong directory, a scratch config outside `web/` (every arm "failed" at config load — VOID), and two arms whose injections could not affect the code under test.
   | docs=this file, docs/DECISION-LEDGER.md row 7, docs/ARCHITECTURE.md §2 (two seam rows + the `web/src/net/` layer row)
   | scope-not-taken=no lobby and no named games (S2), no snapshots/polling/turn authority (S3), no fork detection or resume (S4), no per-player stores or dice work (S5). No network call is made in any test.
-  | note=**the live service has still never been called from a browser.** Every test stubs `fetch` or uses the in-memory twin, so the first real round trip is S2's first act — and it is the one thing this landing does NOT prove.
+  | verify=DISPATCHER'S OWN, independent of the writer's, on the tree with the branch integrated into `master` (`git merge --ff-only`): the gate re-run by the dispatcher → **exit 0**, **329 passed | 2 todo (331)** in 51 files + 1 skipped, oxlint **14 warnings / 0 errors** (baseline unchanged), peak **311092 KB (~303 MB)** — reached independently, not restated.
+  | verify=DISPATCHER'S ARM A — a property NO writer arm covered: the ROLLBACK. Broke the previous-key restore in `connect.ts` so a refused key WIPES the previous good one (`sha256 6c1c5371204779cd` → `245a9595c792ff78`) → **RED on the named pin** `keeps the previous good key when a newly entered one is refused` (1 failed | 12 passed); restored to `6c1c5371204779cd` — byte-identical — → 13 passed. Lock held, restore in a `trap`. Log `.gate-logs/dispatcher-armA.log`.
+  | verify=DISPATCHER'S LIVE PROBE — closes part of the writer's own honest gap. Drove the REAL client (`createServerStoreTransport`, reading the key from `keyStore`) at the LIVE `store.futuremagic.de` with a bogus key: it parsed the service's own refusal into `{code:"unauthorized", status:401, message:"access key is unknown, revoked or expired"}`. So the owner's *"immediately reject it if it does not work"* path is proven against the real service, not a stub. The temporary probe test was DELETED (it would have made the suite network-dependent) and the tree is clean; the one `store.futuremagic.de` mention left in the suite (`serverStore.test.ts:136`) is a string assertion on the default, not a request.
+  | note=**STILL NOT PROVEN: a SUCCESSFUL round trip against the live store** — that needs a real key, which the dispatcher does not hold and will not go looking for. A valid-key round trip is S2's first act.
+  | dispatcher-amendment=one stale comment corrected in the landing commit: `transport.ts` described the per-player-store option as "still an open fork", which stopped being true when the owner settled Fork 2 (commit `6c5d019`). The writer's tree predated that closure by one commit, so its own docs pass could not catch it.
 QUEUE | row=11 | also cross-project, lower priority: ServerStore has NO concurrency control (a PUT is an unconditional overwrite) and NO rate limiting. A snapshot design with writer-tagged names does not need concurrency control; a public poll loop does eventually want the rate limit
 QUEUE | row=12 | design constraint to remember: there is NO per-object isolation in ServerStore (no ACL, no owner column), so any key with read/write on `colossus` can read, overwrite and DELETE every object in it, including other players'. Isolation is only available by partitioning into more stores
 
@@ -115,14 +119,29 @@ RECOVERY | product=web/ (TypeScript, verifiable) | reference=Colossus/ (Java, NO
 RECOVERY | logs=.gate-logs/gate.log (gitignored) | worktrees=./worktrees/ (gitignored)
 ```
 
-**NOTHING is in flight.** `feat/mp-transport` (S1) landed (see the `LANDED | row=S1` line) and
-is the only branch besides `master`. It was steered mid-flight by the owner requirement change
-(the key is now persisted in `localStorage` after a successful `whoami`, not held in memory),
-so the brief's original no-`localStorage` pin is superseded — the six pins as finally
-implemented are in `web/src/net/__tests__/`: the contract suite runs against BOTH
-implementations (`transportContract.test.ts`), the key rules are asserted over the REAL
-browser objects after a real connect (`keyPersistence.test.ts`), and the transport rules over
-the requests the client actually made (`serverStore.test.ts`).
+retired_branch=feat/mp-transport
+
+**S1 IS LANDED AND RETIRED; S2 IS NEXT.** `feat/mp-transport` is gone locally AND on the
+remote, and its worktree is removed — the `retired_branch=` line above is the claim the
+reconciler reads. It was steered mid-flight by the owner requirement change (the key is now
+persisted in `localStorage` after a successful `whoami`, not held in memory), so the brief's
+original no-`localStorage` pin is superseded — the pins as finally implemented are in
+`web/src/net/__tests__/`: the contract suite runs against BOTH implementations
+(`transportContract.test.ts`), the key rules are asserted over the REAL browser objects after
+a real connect (`keyPersistence.test.ts`), and the transport rules over the requests the
+client actually made (`serverStore.test.ts`).
+
+**DISPATCHER'S OWN ERRORS, recorded rather than quietly corrected** (per `AGENTS.md`):
+1. **A masked exit code.** `git branch -d feat/mp-transport | tail -2` printed `[branch delete
+   exit: 0]` — the exit status of `tail`, not of `git`. The delete had in fact FAILED. The
+   rule this project already has ("never pipe a check") applies to *any* command whose status
+   you intend to quote, including git housekeeping. Caught only because the branch was still
+   listed afterwards.
+2. **`-D` was then used deliberately, and why it was safe:** `-d` refused because the branch's
+   upstream `origin/master` had not yet received the landing, not because the work was
+   unmerged. `git merge-base --is-ancestor feat/mp-transport master` returned **0** first, so
+   every commit was provably in the tree being pushed; `-D` removed a branch whose content was
+   already integrated. The true exit code (`0`) was taken without a pipe.
 
 **This worktree has no `web/node_modules` until `(cd web && npm ci)` is run once** — a fresh
 worktree fails the gate's preflight with exit 1 (not a test failure) until then. `jsdom` is
