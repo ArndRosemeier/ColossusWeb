@@ -79,6 +79,9 @@ LANDED | row=S1 | lands=this commit (`git log -1 --format=%H -- docs/BOARD.md`) 
 QUEUE | row=11 | also cross-project, lower priority: ServerStore has NO concurrency control (a PUT is an unconditional overwrite) and NO rate limiting. A snapshot design with writer-tagged names does not need concurrency control; a public poll loop does eventually want the rate limit
 QUEUE | row=12 | design constraint to remember: there is NO per-object isolation in ServerStore (no ACL, no owner column), so any key with read/write on `colossus` can read, overwrite and DELETE every object in it, including other players'. Isolation is only available by partitioning into more stores
 
+IN-FLIGHT | row=S2 | worktree=/home/administrator/projects/ColossusWeb/worktrees/lobby | branch=feat/lobby | base=PENDING (filled at dispatch) | session=PENDING | state=queued | brief=docs/briefs/slice-s2-lobby.md | ledger row assigned=8
+  scope=THE LOBBY LIFECYCLE ONLY, implementing the owner's Create Multiplayer / Join Multiplayer / Start Multiplayer (creator only). A game-record module (parse + validate, LOUD on an unreadable body), the operations createGame / listGames / joinGame / startGame over S1's transport, and the rules enforced BEFORE any write: Start is the creator's alone and must write NOTHING when refused; no joining a started or full game; a re-join is idempotent; discovery filters the store's own list to `g.<id>.game`. Hand-off to the existing new-game flow once Start succeeds. NO state sync, NO polling, NO turn authority (that is S3), and nothing for the declined per-player-store work
+
 LANDED | row=0 | lands=this commit (`git log -1 --format=%H -- docs/BOARD.md`) | base=48be1070d11b6d0edfc7f5a24610734573ac40be
   | verify=DISPATCHER'S OWN, on the base tree: cheap tier GREEN (tsc -b + vite build, 61 modules,
   387ms) · full gate exit 0 · oxlint 14 warnings / 0 errors · vitest 271 passed | 2 todo (273)
