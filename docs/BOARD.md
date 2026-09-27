@@ -54,7 +54,7 @@ independently names the verified base. See decision-ledger row 4.
 ```
 reconciled: 6ff7115638d26f3b31d1de625ba17b7e0088d028 · 2026-09-27T23:10Z
 
-SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=dispatching to completion — OWNER AWAY, instruction "try to build this to completion"; S1 and S2 VERIFIED and RETIRED by the dispatcher, S3 (turn sync) LANDED on `feat/sync` by its writer and awaiting the dispatcher's own verification, SERIALLY because all three touch `web/src/components/App.tsx`
+SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=COMPLETION REACHED bar one gap — OWNER AWAY, instruction "try to build this to completion"; S1 (transport), S2 (lobby: Create/Join/Start) and S3 (turn sync) are all DISPATCHER-VERIFIED and RETIRED. Nothing is in flight. The ONE remaining gap is the live authenticated round trip, which needs a key the owner holds
 
 QUEUE | row=1 | owner: "be my chief of staff" — a designation, not yet a work order; awaiting the first task
 QUEUE | row=5 | known debt: docs/ARCHITECTURE.md §2 (the seam index) is NOT surveyed — a read-only probe could fill it
@@ -148,15 +148,17 @@ RECOVERY | logs=.gate-logs/gate.log (gitignored) | worktrees=./worktrees/ (gitig
 
 retired_branch=feat/mp-transport
 retired_branch=feat/lobby
+retired_branch=feat/sync
 
-**S1 AND S2 ARE VERIFIED AND RETIRED; S3 IS LANDED ON `feat/sync` AND AWAITS THE
-DISPATCHER'S OWN VERIFICATION.** (This paragraph previously said S2 awaited the
-DISPATCHER'S OWN VERIFICATION; S3 IS NEXT.** `feat/mp-transport` is gone locally AND on the
-remote, and its worktree is removed — the `retired_branch=` line above is the claim the
-reconciler reads. S2's branch is **not** retired: it holds the lobby landings above and is the
-dispatcher's to verify, integrate and retire. S1 was steered mid-flight by the owner
-requirement change (the key is now persisted in `localStorage` after a successful `whoami`,
-not held in memory), so the brief's original no-`localStorage` pin is superseded — the pins as
+**ALL THREE SLICES ARE DISPATCHER-VERIFIED AND RETIRED — THE FEATURE IS BUILT.** Nothing is in
+flight. `feat/mp-transport`, `feat/lobby` and `feat/sync` are gone locally AND on the remote,
+and every worktree is removed — the `retired_branch=` lines above are the claims the reconciler
+reads (and it reports each one gone). The paragraph below this one was mangled by a rebase union
+into statements that were no longer true; it has been rewritten rather than left to mislead.
+
+S1 was steered mid-flight by the owner requirement change (the key is now persisted in
+`localStorage` after a successful `whoami`, not held in memory), so the brief's original
+no-`localStorage` pin is superseded — the pins as
 finally implemented are in `web/src/net/__tests__/`: the contract suite runs against BOTH
 implementations (`transportContract.test.ts`), the key rules are asserted over the REAL browser
 objects after a real connect (`keyPersistence.test.ts`), and the transport rules over the
