@@ -106,17 +106,38 @@ re-run `scripts/probe-live.sh`.
 
 ### 4.1 Identity
 Each player holds **their own** ServerStore key, scoped to the stores they may touch,
-minted by the owner in the admin UI he already has ("key for tom"). The app asks for it
-once per session, keeps it **in memory**, and calls `GET /whoami` to learn `{id, label}`.
-That id is the player's identity and the writer tag in object names. **No key is ever
-shipped in the app** and none is written to `localStorage`, `sessionStorage`, the URL or a
-log — the same rule the store's own console follows (`API.md:65-70`).
+minted by the owner in the admin UI he already has ("key for tom"). The app calls
+`GET /whoami` to learn `{id, label}`; that id is the player's identity and the writer tag
+in object names. **No key is ever shipped in the app.**
+
+**The owner has settled where the key lives, verbatim:**
+
+> "Players need to provide their key. With that key the app needs to try to connect to the
+> colossus store and immediately reject it if it does not work. Otherwise store it in local
+> storage."
+
+So the flow is: **paste → validate immediately via `whoami` → reject loudly and persist
+nothing if it fails → otherwise store it in `localStorage` → re-validate on load and drop it
+if it no longer works.** A "Forget key" control removes it.
+
+**The risk, stated once, because it is larger here than it looks.** A key in `localStorage`
+is readable by any script on this origin, by a browser extension, and by anyone using the
+same browser profile. That would be a contained problem if a key were confined to one
+player — but **`colossus` has no per-object isolation** (§2.1), so a leaked key is not "one
+player's key": it can read, overwrite and DELETE *every object in the store*, every game
+included. The mitigations that actually reduce the blast radius are on the operator's side
+and already exist: mint **one key per person/device**, **labelled**, with an **`expiresAt`**,
+and **revoke** the single affected key in the admin UI if a device is lost. That is the
+recommended posture — not a change to what the app does. A "do not remember on this device"
+escape hatch (session-only) is cheap and worth having for shared machines, but it is an
+addition to the owner's requirement, not a substitute for it.
 
 ### 4.2 The lobby — named games you can find
 A game is two kinds of object in the `colossus` store:
 
-- **`g.<gameid>.game`** — written **once** by the creator: display name, variant, host,
-  max players, status, `createdAt`. Never rewritten, so it can never be clobbered.
+- **`g.<gameid>.game`** — written **only by the creator**: first at *Create*, then again at
+  *Start* to flip the status. Exactly one writer, so it can never be clobbered — the store's
+  "serialise on one writer" rule satisfied by construction rather than by luck.
 - **`g.<gameid>.p.<keyid>`** — one object **per player**, written by that player when they
   join. Written by its owner, so two joins never race.
 
@@ -221,7 +242,7 @@ stores as a named follow-up slice. Rejected: (c) per-player encryption — same 
 | --- | --- | --- | --- |
 | **S0** | ServerStore | ~~**CORS + `OPTIONS` preflight before the auth guard**~~ — **DONE 2026-09-28**, landed by ServerStore (`bd55b7e`) and verified live from here (§3). No ColossusWeb work needed | — |
 | S1 | ColossusWeb | Store client behind a transport interface (list/get/put/delete), key entry in memory, `whoami` → identity. A fake in-memory transport so the lobby and sync are testable **without the network** | S2+ |
-| S2 | ColossusWeb | Lobby: create a named game, list joinable games, join (own `p.` object), leave | S3 |
+| S2 | ColossusWeb | **The owner's three lobby actions: Create Multiplayer, Join Multiplayer, and Start Multiplayer (creator only).** Create writes `g.<id>.game`; Join writes the caller's OWN `g.<id>.p.<keyid>`; Start flips the game to started and only the creator's client performs it. Discovery is the prefix-filtered object list | S3 |
 | S3 | ColossusWeb | Turn sync: publish a snapshot after each local command; poll and adopt; input disabled unless the state says it is your turn | S4 |
 | S4 | ColossusWeb | Robustness: writer-tagged fork detection and resolution, reconnect/resume, cleanup of finished games | — |
 | S5 | both | Hardening: per-player stores (FORK 2b), commit–reveal dice, polite polling / ServerStore rate limiting | — |

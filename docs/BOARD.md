@@ -110,8 +110,40 @@ RECOVERY | product=web/ (TypeScript, verifiable) | reference=Colossus/ (Java, NO
 RECOVERY | logs=.gate-logs/gate.log (gitignored) | worktrees=./worktrees/ (gitignored)
 ```
 
-Nothing is in flight. No writer branches, no worktrees:
-`git worktree list` → only the main tree. `git branch -a` → `master`, `origin/master`.
+**ONE writer is in flight** — `mp-transport` (S1) on branch `feat/mp-transport` in
+`worktrees/mp-transport`, session `1027ed8a-7af7-4354-9319-c4521b45290b`. It was steered
+mid-flight by an owner requirement change (the key is now persisted in `localStorage` after
+a successful `whoami`, not held in memory), so its brief's original no-`localStorage` pin is
+superseded — see the acceptance criteria below. No other branches or worktrees:
+`git worktree list` → the main tree plus that one.
+
+## The owner's multiplayer acceptance criteria
+
+The feature is done when all four of these are true. Verbatim, because they are the
+acceptance test and not a summary of one:
+
+> * Create Multiplayer
+> * Join Multiplayer
+> * Start Multiplayer (only available to the creator)
+> * Players need to provide their key. With that key the app needs to try to connect to the
+>   colossus store and immediately reject it if it does not work. Otherwise store it in
+>   local storage.
+
+Consequences already folded into the design:
+
+- **Create / Join / Start are lobby actions**, so they belong to slice **S2**, not to S1
+  (the transport foundation the panel sits on). "Start" is the transition from lobby to a
+  live game, and only the creator's client may perform it.
+- **"Only the creator" is a client-side rule.** There is no server authority anywhere in
+  this design — the store is a shared bucket and any key on `colossus` can write any object
+  — so it is enforced by the apps and said so plainly: a player who edits their own client
+  can ignore it. It is a rule of the game, not a security boundary.
+- **The key persists in `localStorage`** after a successful `whoami` (the owner's explicit
+  choice), and the flow is paste → validate → reject loudly and store nothing on failure →
+  otherwise store → re-validate on load and drop it if it stops working. The blast radius of
+  a leaked key is the WHOLE store, because there is no per-object isolation; the mitigation
+  is operator-side (per-device, labelled, expiring, revocable keys). See
+  `docs/design/multiplayer.md` §4.1 for the one-time risk note.
 
 ## Guards
 
