@@ -54,13 +54,17 @@ independently names the verified base. See decision-ledger row 4.
 ```
 reconciled: 48be1070d11b6d0edfc7f5a24610734573ac40be · 2026-09-27T22:12Z
 
-SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=ready — published the ARCH gate fix; no new work order in hand
+SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=designing multiplayer; proposal on disk, nothing dispatched, two forks with the owner
 
 QUEUE | row=1 | owner: "be my chief of staff" — a designation, not yet a work order; awaiting the first task
 QUEUE | row=5 | known debt: docs/ARCHITECTURE.md §2 (the seam index) is NOT surveyed — a read-only probe could fill it
 QUEUE | row=6 | known debt: deploy-sync.ps1 / deploy-clean.ps1 still target the RETIRED FTP host (Migration README item 6) — now pointless; repoint at the apps root or delete
 QUEUE | row=7 | known debt: the gate builds base `/` but the DEPLOYED artifact needs COLOSSUS_BASE=/ColossusWeb/ — no pin covers the subpath build, and a base regression renders a BLANK page
 QUEUE | row=8 | follow-up: the superseded asset /ColossusWeb/assets/index-BOtDb2SA.js is retained only to survive the 4h CDN window on the unchanged index.html — prunable after that
+QUEUE | row=9 | DESIGN ONLY, nothing dispatched: multiplayer over ServerStore. Proposal on disk at `docs/design/multiplayer.md` (constraints measured, architecture, slice plan S0-S5, pins). Two FORKS are with the owner: the CORS prerequisite and the secrets model
+QUEUE | row=10 | BLOCKING, CROSS-PROJECT: ServerStore sends no CORS headers and answers no preflight, so a browser at apps.futuremagic.de CANNOT call the store at all — measured 2026-09-27 (`src/` grep: cors/etag/if-match/412/since/rate all 0 hits; unauthenticated OPTIONS -> 401 via the guard at `src/server/app.ts:304`). Its own ledger row 28 queues this as step E and its own words are "D/E gate the game on a public browser". Needs a ServerStore landing + `systemctl --user restart serverstore` (their GUARD g5)
+QUEUE | row=11 | also cross-project, lower priority: ServerStore has NO concurrency control (a PUT is an unconditional overwrite) and NO rate limiting. A snapshot design with writer-tagged names does not need concurrency control; a public poll loop does eventually want the rate limit
+QUEUE | row=12 | design constraint to remember: there is NO per-object isolation in ServerStore (no ACL, no owner column), so any key with read/write on `colossus` can read, overwrite and DELETE every object in it, including other players'. Isolation is only available by partitioning into more stores
 
 LANDED | row=0 | lands=this commit (`git log -1 --format=%H -- docs/BOARD.md`) | base=48be1070d11b6d0edfc7f5a24610734573ac40be
   | verify=DISPATCHER'S OWN, on the base tree: cheap tier GREEN (tsc -b + vite build, 61 modules,
