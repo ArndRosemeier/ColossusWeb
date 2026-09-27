@@ -54,7 +54,7 @@ independently names the verified base. See decision-ledger row 4.
 ```
 reconciled: 48be1070d11b6d0edfc7f5a24610734573ac40be · 2026-09-27T22:12Z
 
-SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=dispatching — CORS verified live, S1 (transport foundation) going out to a writer
+SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=dispatching to completion — OWNER AWAY, instruction "try to build this to completion"; S1 in flight, then S2, then S3, SERIALLY because they all touch `web/src/components/App.tsx`
 
 QUEUE | row=1 | owner: "be my chief of staff" — a designation, not yet a work order; awaiting the first task
 QUEUE | row=5 | known debt: docs/ARCHITECTURE.md §2 (the seam index) is NOT surveyed — a read-only probe could fill it
@@ -148,6 +148,36 @@ Consequences already folded into the design:
   the isolation and it is checkable — a key's scope is enforced per store, so a `colossus` key
   is refused `403` everywhere else (`ServerStore/docs/API.md:119-124`) — hence the worst case
   is broken game data and nothing more. See `docs/design/multiplayer.md` §4.1.
+
+## How "completion" is being driven (read this first if you are a successor)
+
+The owner is away and said: *"try to build this to completion."* A successor must be able to
+take over from this file alone.
+
+**Completion means:** all four acceptance criteria above work end to end, AND a started game
+is actually **playable** — moves made by one player reach the others. A lobby that creates
+and starts a game whose moves never sync is not multiplayer, so **S3 is in scope**; that is
+the dispatcher's reading of "completion", recorded here so the owner can correct it.
+
+**Execution order and why it is serial.** S1 → S2 → S3, one writer at a time. They are not
+parallelisable in practice: all three touch `web/src/components/App.tsx`, and the rule is
+that a shared file means SERIALIZE. Each slice runs in its own worktree off the then-current
+`origin/master`, and each landing is verified by the dispatcher before the next is dispatched.
+
+**Per landing, the dispatcher (not the writer) must:**
+1. read the writer's diff before dispatching the next slice (sequencing is proven, not predicted);
+2. run the gate itself on the integrated tree and quote the raw exit code and counts;
+3. run its OWN differential — an injection with a PRINTED file hash, lock held, restore in a
+   `trap` — and watch a NAMED pin go red;
+4. retire the writer's worktree AND branch (`git worktree remove`, `git branch -d`), and mark
+   the branch claim as its own `retired_branch=<name>` line;
+5. amend this board in the same commit as the landing.
+
+**If this session dies:** the record above is true as of `6c5d019`, one writer
+(`1027ed8a-7af7-4354-9319-c4521b45290b`, slice S1) may have committed partial work on
+`feat/mp-transport` — **salvage-check its branch log and worktree status before deleting
+anything**. The unfilled briefs for S2/S3 do not exist yet; write them from
+`docs/briefs/slice-s1-transport.md` as the template and `docs/BRIEF.md` as the contract.
 
 ## Guards
 
