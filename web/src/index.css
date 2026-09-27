@@ -1646,3 +1646,94 @@ button:disabled {
     animation: none;
   }
 }
+
+/* —— ServerStore connection panel (transport slice S1) —— */
+.connect-panel {
+  margin: 0;
+  padding: 1.5rem 1.4rem 1.35rem;
+  background:
+    linear-gradient(165deg, color-mix(in srgb, var(--stone-2) 90%, #2a4050) 0%, var(--panel) 100%);
+  color: var(--bone);
+  border: 1px solid var(--panel-edge);
+  border-radius: 2px;
+  max-width: 42rem;
+  position: relative;
+}
+
+.connect-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--copper), var(--ember), var(--copper), transparent);
+}
+
+.connect-panel h2 {
+  margin: 0 0 1rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--copper);
+}
+
+.connect-hint,
+.connect-identity,
+.connect-endpoint {
+  margin: 0 0 0.7rem;
+  font-size: 0.85rem;
+}
+
+.connect-identity strong {
+  color: var(--copper);
+}
+
+.connect-row {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.connect-row input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  padding: 0.45rem 0.65rem;
+  border-radius: 2px;
+  border: 1px solid var(--panel-edge);
+  background: var(--stone);
+  color: var(--bone);
+}
+
+.connect-row input:focus {
+  outline: 2px solid var(--copper);
+  outline-offset: 1px;
+}
+
+.connect-endpoint {
+  margin-top: 0.55rem;
+  font-size: 0.75rem;
+}
+
+.connect-actions {
+  margin-top: 0.5rem;
+}
+
+.connect-failure {
+  margin: 0.8rem 0 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--blood) 65%, var(--panel-edge));
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--blood) 18%, transparent);
+  color: #ffb4ae;
+  font-size: 0.85rem;
+}
+
+.connect-code {
+  font-family: monospace;
+  color: #ffd7c2;
+  padding: 0 0.15rem;
+}

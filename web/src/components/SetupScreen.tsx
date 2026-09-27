@@ -6,6 +6,7 @@ import { PLAYER_COLORS } from '../engine/types'
 import type { SavedGameMeta } from '../persistence/saveGame'
 import { KNOWN_VARIANTS } from '../variant/loadVariant'
 import { BackgroundAtmosphereSelect } from './BackgroundAtmosphere'
+import { ConnectPanel } from './ConnectPanel'
 import { MarkerChit } from './MarkerChit'
 
 interface Props {
@@ -143,6 +144,8 @@ export function SetupScreen({ onStart, onContinue, savedGame }: Props) {
         <h2>Background</h2>
         <BackgroundAtmosphereSelect showBlurb className="bg-atmosphere-select setup-bg" />
       </section>
+
+      <ConnectPanel />
 
       <section className="setup-panel" aria-label="Game setup">
         <h2>Variant</h2>
