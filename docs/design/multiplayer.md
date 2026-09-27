@@ -120,17 +120,17 @@ So the flow is: **paste → validate immediately via `whoami` → reject loudly 
 nothing if it fails → otherwise store it in `localStorage` → re-validate on load and drop it
 if it no longer works.** A "Forget key" control removes it.
 
-**The risk, stated once, because it is larger here than it looks.** A key in `localStorage`
-is readable by any script on this origin, by a browser extension, and by anyone using the
-same browser profile. That would be a contained problem if a key were confined to one
-player — but **`colossus` has no per-object isolation** (§2.1), so a leaked key is not "one
-player's key": it can read, overwrite and DELETE *every object in the store*, every game
-included. The mitigations that actually reduce the blast radius are on the operator's side
-and already exist: mint **one key per person/device**, **labelled**, with an **`expiresAt`**,
-and **revoke** the single affected key in the admin UI if a device is lost. That is the
-recommended posture — not a change to what the app does. A "do not remember on this device"
-escape hatch (session-only) is cheap and worth having for shared machines, but it is an
-addition to the owner's requirement, not a substitute for it.
+**The risk call is the owner's, and he has made it — CLOSED, not to be relitigated.** His
+words: *"The risk for that key getting misused is minimal and the store is isolated anyways,
+so there is no need for complicated security, ease of use is way more important here. Worst
+case is that some game data is broken... which is not critical at all."* He is right about
+the isolation, and it is checkable: a key's scope is enforced **per store** — a key scoped to
+`colossus` is refused `403` on every other store (`API.md:119-124`, `app.ts:121-138`) — so the
+worst case is broken game data and nothing else. **Therefore nothing is built for key
+management: no expiry policy, no per-device ceremony, no session-only escape hatch.** A
+"Forget key" control stays because it is one button and pure ease of use. The only thing
+retained is mandatory `whoami` validation on entry, and that is the owner's own requirement
+rather than a security measure.
 
 ### 4.2 The lobby — named games you can find
 A game is two kinds of object in the `colossus` store:
@@ -232,9 +232,12 @@ their queued step E, it is the smallest change, and it is the only option that d
 grow infrastructure. Rejected: (b) same-origin via the store service, (c) new hostname +
 proxy, (d) Cloudflare Transform Rule (cannot answer a preflight).
 
-**FORK 2 — secrets (§4.4).** Recommend **(a) honour system for v1**, with (b) per-player
-stores as a named follow-up slice. Rejected: (c) per-player encryption — same guarantee as
-(b) at strictly more cost.
+**FORK 2 — secrets (§4.4): SETTLED by the owner's risk call — the HONOUR SYSTEM (a).** He
+prioritised ease of use over protection and accepted that the worst case is broken game
+data, which is precisely the trade the honour system makes. Per-player stores (b) are
+therefore **not planned and not queued**; they would only come back if the owner ever wants
+cheating to be *hard*, and that would be a new decision rather than a slice waiting in line.
+Rejected as before: (c) per-player encryption.
 
 ## 7 · Slice plan (nothing dispatched yet)
 
@@ -245,7 +248,7 @@ stores as a named follow-up slice. Rejected: (c) per-player encryption — same 
 | S2 | ColossusWeb | **The owner's three lobby actions: Create Multiplayer, Join Multiplayer, and Start Multiplayer (creator only).** Create writes `g.<id>.game`; Join writes the caller's OWN `g.<id>.p.<keyid>`; Start flips the game to started and only the creator's client performs it. Discovery is the prefix-filtered object list | S3 |
 | S3 | ColossusWeb | Turn sync: publish a snapshot after each local command; poll and adopt; input disabled unless the state says it is your turn | S4 |
 | S4 | ColossusWeb | Robustness: writer-tagged fork detection and resolution, reconnect/resume, cleanup of finished games | — |
-| S5 | both | Hardening: per-player stores (FORK 2b), commit–reveal dice, polite polling / ServerStore rate limiting | — |
+| S5 | both | ~~per-player stores, commit–reveal dice~~ — **DROPPED by the owner's risk call** (a shared snapshot may hold the plain truth; no crypto, no partitioning). What remains, and only if it ever actually bites: polite polling and ServerStore rate limiting | — |
 
 Pins I would require from S1–S3, phrased as statements: *no key is ever written to
 storage, a URL or a log*; *a snapshot written by a seat that may not act is rejected*;

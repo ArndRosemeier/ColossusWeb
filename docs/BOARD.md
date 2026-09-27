@@ -63,7 +63,7 @@ QUEUE | row=7 | known debt: the gate builds base `/` but the DEPLOYED artifact n
 QUEUE | row=8 | follow-up: the superseded asset /ColossusWeb/assets/index-BOtDb2SA.js is retained only to survive the 4h CDN window on the unchanged index.html — prunable after that
 QUEUE | row=9 | DESIGN ONLY, nothing dispatched: multiplayer over ServerStore. Proposal on disk at `docs/design/multiplayer.md` (constraints measured, architecture, slice plan S0-S5, pins). Two FORKS are with the owner: the CORS prerequisite and the secrets model
 QUEUE-CLOSED | row=10 | **CORS RESOLVED AND VERIFIED LIVE 2026-09-28.** ServerStore landed it (`bd55b7e` "answer a browser on another origin, BEFORE the key guard"; its ledger rows 57/58) and restarted the service at 00:10:39 (their GUARD g5). Verified ON THE WIRE, not taken on trust: unauthenticated `OPTIONS` with `Origin: https://apps.futuremagic.de`, `Access-Control-Request-Method: PUT`, `Access-Control-Request-Headers: authorization,content-type` → **HTTP/2 204** carrying `allow-headers: authorization, x-api-key, content-type`, `allow-methods: GET, POST, PUT, PATCH, DELETE, OPTIONS`, `expose-headers: x-serverstore-sha256`, `max-age: 600`; and an authenticated-route 401 also carries `access-control-allow-origin: *`, so a client can read error envelopes. The origin is the **wildcard** (their default; `SERVERSTORE_CORS_ORIGINS` can narrow it) — acceptable, because a key is still required and their pin O4 forbids `Allow-Credentials`
-QUEUE | row=13 | **FORK 2 IS STILL OPEN with the owner**: the secrets model (honour system vs per-player stores). It does not gate S1/S2; it gates what a snapshot may contain (S3) and the hardening slice (S5)
+QUEUE-CLOSED | row=13 | **FORK 2 SETTLED BY THE OWNER — the HONOUR SYSTEM.** A shared snapshot may hold the plain truth; the UI redacts opponents' legions as it already does for hotseat. His risk call (*"no need for complicated security, ease of use is way more important here"*) is exactly the trade the honour system makes, so per-player stores and commit-reveal dice are **not planned and not queued**. S3 no longer waits on anything
 
 IN-FLIGHT | row=S1 | worktree=/home/administrator/projects/ColossusWeb/worktrees/mp-transport | branch=feat/mp-transport | base=470cd9a593431b6b8dcaccad925ca466f75ba3bb | session=1027ed8a-7af7-4354-9319-c4521b45290b | state=dispatched | brief=docs/briefs/slice-s1-transport.md | ledger row assigned=7
   scope=THE TRANSPORT FOUNDATION ONLY: a store client behind an interface (list/get/put/remove/whoami), an in-memory fake implementing the same contract, the caller's key held IN MEMORY ONLY with a `whoami` identity, and a minimal paste-a-key panel. No lobby (S2), no snapshots/polling/turn authority (S3), no fork detection or resume (S4), no per-player stores or dice work (S5). The store name stays a PARAMETER because FORK 2 is open
@@ -139,11 +139,15 @@ Consequences already folded into the design:
   — so it is enforced by the apps and said so plainly: a player who edits their own client
   can ignore it. It is a rule of the game, not a security boundary.
 - **The key persists in `localStorage`** after a successful `whoami` (the owner's explicit
-  choice), and the flow is paste → validate → reject loudly and store nothing on failure →
-  otherwise store → re-validate on load and drop it if it stops working. The blast radius of
-  a leaked key is the WHOLE store, because there is no per-object isolation; the mitigation
-  is operator-side (per-device, labelled, expiring, revocable keys). See
-  `docs/design/multiplayer.md` §4.1 for the one-time risk note.
+  choice): paste → validate → reject loudly and store nothing on failure → otherwise store →
+  re-validate on load and drop it if it stops working, plus a "Forget key" button.
+  **The risk is ACCEPTED AND CLOSED — do not build key-management scaffolding.** The owner's
+  words: *"The risk for that key getting misused is minimal and the store is isolated anyways,
+  so there is no need for complicated security, ease of use is way more important here. Worst
+  case is that some game data is broken... which is not critical at all."* He is right about
+  the isolation and it is checkable — a key's scope is enforced per store, so a `colossus` key
+  is refused `403` everywhere else (`ServerStore/docs/API.md:119-124`) — hence the worst case
+  is broken game data and nothing more. See `docs/design/multiplayer.md` §4.1.
 
 ## Guards
 
