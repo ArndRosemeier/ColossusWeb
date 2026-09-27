@@ -54,7 +54,7 @@ independently names the verified base. See decision-ledger row 4.
 ```
 reconciled: 6c5d0196252ac65bc1bb322d5797b4c62dea73be · 2026-09-27T22:36Z
 
-SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=dispatching to completion — OWNER AWAY, instruction "try to build this to completion"; S1 and S2 both VERIFIED and RETIRED by the dispatcher, S3 next, SERIALLY because they all touch `web/src/components/App.tsx`
+SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=dispatching to completion — OWNER AWAY, instruction "try to build this to completion"; S1 and S2 both VERIFIED and RETIRED by the dispatcher, S3 (turn sync) IN FLIGHT, SERIALLY because they all touch `web/src/components/App.tsx`
 
 QUEUE | row=1 | owner: "be my chief of staff" — a designation, not yet a work order; awaiting the first task
 QUEUE | row=5 | known debt: docs/ARCHITECTURE.md §2 (the seam index) is NOT surveyed — a read-only probe could fill it
@@ -79,7 +79,7 @@ LANDED | row=S1 | lands=this commit (`git log -1 --format=%H -- docs/BOARD.md`) 
 QUEUE | row=11 | also cross-project, lower priority: ServerStore has NO concurrency control (a PUT is an unconditional overwrite) and NO rate limiting. A snapshot design with writer-tagged names does not need concurrency control; a public poll loop does eventually want the rate limit
 QUEUE | row=12 | design constraint to remember: there is NO per-object isolation in ServerStore (no ACL, no owner column), so any key with read/write on `colossus` can read, overwrite and DELETE every object in it, including other players'. Isolation is only available by partitioning into more stores
 
-IN-FLIGHT | row=S3 | worktree=/home/administrator/projects/ColossusWeb/worktrees/sync | branch=feat/sync | base=PENDING | session=PENDING | state=queued | brief=docs/briefs/slice-s3-sync.md | ledger row assigned=9
+IN-FLIGHT | row=S3 | worktree=/home/administrator/projects/ColossusWeb/worktrees/sync | branch=feat/sync | base=5326bd3f5e1c9c703cf2c0478047c40e773bcb36 | session=11f10bc0-3587-47f0-a4d4-6b569e35127e | state=dispatched | brief=docs/briefs/slice-s3-sync.md | ledger row assigned=9
   scope=TURN SYNC, the slice that makes a started game PLAYABLE. The snapshot protocol (`g.<gameid>.s.<tttt>.<sss>.<tag>`, body = header + `serializeGame`'s state, `parent`-linked so a race is a visible FORK rather than a lost update); publish after every local command; poll ~2s only while the tab is visible, with backoff; adopt the GREATEST name with deterministic, fork-SURFACING handling; an explicit seat order written by the creator at Start; input enabled only for the seat whose turn it is; and resume-by-adoption instead of starting a fresh local game. Every local state change must funnel through ONE commit path so nothing can change state without publishing. OUT OF SCOPE: automatic fork resolution, AI seats, any push transport, and the declined per-player-store / encryption work
 
 LANDED | row=S2 | lands=this commit (`git log -1 --format=%H -- docs/BOARD.md`) | writer=345c61c6-a65c-4e3e-bca9-e646d3d71923 | branch=feat/lobby | worktree=/home/administrator/projects/ColossusWeb/worktrees/lobby | base=162364071c769255a64f44d8c2c2f2456301ec04 | rebased onto master `1c48bdf` before pushing | ledger row=8 | brief=docs/briefs/slice-s2-lobby.md
