@@ -1,56 +1,5 @@
 import type { GateType } from '../types/variant'
-
-/** Colossus GUIHex.len = scale / 3 */
-function gateLen(scale: number): number {
-  return scale / 3
-}
-
-function pts(points: [number, number][]): string {
-  return points.map(([x, y]) => `${x},${y}`).join(' ')
-}
-
-function wallOrSlope(
-  j: number,
-  vx1: number,
-  vy1: number,
-  vx2: number,
-  vy2: number,
-  theta: number,
-  len: number,
-  size: number,
-): [number, number][] {
-  const x0 = vx1 + ((vx2 - vx1) * (2 + 3 * j)) / 12
-  const x1 = vx1 + ((vx2 - vx1) * (4 + 3 * j)) / 12
-  const y0 = vy1 + ((vy2 - vy1) * (2 + 3 * j)) / 12
-  const y1 = vy1 + ((vy2 - vy1) * (4 + 3 * j)) / 12
-  const s = len / size
-  return [
-    [x0 - s * Math.sin(theta), y0 + s * Math.cos(theta)],
-    [x0 + s * Math.sin(theta), y0 - s * Math.cos(theta)],
-    [x1 + s * Math.sin(theta), y1 - s * Math.cos(theta)],
-    [x1 - s * Math.sin(theta), y1 + s * Math.cos(theta)],
-  ]
-}
-
-function arrowTriple(
-  j: number,
-  vx1: number,
-  vy1: number,
-  vx2: number,
-  vy2: number,
-  theta: number,
-  len: number,
-): [number, number][] {
-  const x0 = vx1 + ((vx2 - vx1) * (2 + 3 * j)) / 12
-  const x1 = vx1 + ((vx2 - vx1) * (4 + 3 * j)) / 12
-  const y0 = vy1 + ((vy2 - vy1) * (2 + 3 * j)) / 12
-  const y1 = vy1 + ((vy2 - vy1) * (4 + 3 * j)) / 12
-  return [
-    [x0 - len * Math.sin(theta), y0 + len * Math.cos(theta)],
-    [(x0 + x1) / 2 + len * Math.sin(theta), (y0 + y1) / 2 - len * Math.cos(theta)],
-    [x1 - len * Math.sin(theta), y1 + len * Math.cos(theta)],
-  ]
-}
+import { archGeometry, arrowTriple, blockOutline, gateLen, pts } from './gateGeometry'
 
 function GateShape({
   vx1,
@@ -75,11 +24,26 @@ function GateShape({
   const x1 = vx1 + (vx2 - vx1) / 3
   const y1 = vy1 + (vy2 - vy1) / 3
 
-  // BLOCK and ARCH are both white bars on the AH masterboard (tower exits vs
-  // ring connectors). Colossus paints ARCH as a semicircle; that reads as a
-  // round hole here, so both use the same rectangle.
-  if (gate === 'BLOCK' || gate === 'ARCH') {
-    return <polygon className="master-gate" points={pts(wallOrSlope(0, vx1, vy1, vx2, vy2, theta, len, 1))} />
+  if (gate === 'BLOCK') {
+    return (
+      <polygon className="master-gate" points={pts(blockOutline(vx1, vy1, vx2, vy2, scale))} />
+    )
+  }
+
+  // ARCH is ROUND on one side and square on the other. Drawn as Colossus draws it: a
+  // filled half-disc cap plus a later-filled stem, with only the two perpendicular stem
+  // sides stroked, so the flat far end and the hexside stay unlined. See gateGeometry.ts.
+  if (gate === 'ARCH') {
+    const arch = archGeometry(vx1, vy1, vx2, vy2, scale)
+    return (
+      <g className="master-gate">
+        <path d={arch.cap} />
+        <polygon points={pts(arch.stem)} stroke="none" />
+        {arch.sides.map(([from, to], i) => (
+          <line key={i} x1={from[0]} y1={from[1]} x2={to[0]} y2={to[1]} />
+        ))}
+      </g>
+    )
   }
 
   if (gate === 'ARROW') {
