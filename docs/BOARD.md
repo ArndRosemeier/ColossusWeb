@@ -52,7 +52,7 @@ independently names the verified base. See decision-ledger row 4.
 ## Board
 
 ```
-reconciled: 48be1070d11b6d0edfc7f5a24610734573ac40be · 2026-09-27T22:12Z
+reconciled: 6c5d0196252ac65bc1bb322d5797b4c62dea73be · 2026-09-27T22:36Z
 
 SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=dispatching to completion — OWNER AWAY, instruction "try to build this to completion"; S1 in flight, then S2, then S3, SERIALLY because they all touch `web/src/components/App.tsx`
 
@@ -65,8 +65,13 @@ QUEUE | row=9 | DESIGN ONLY, nothing dispatched: multiplayer over ServerStore. P
 QUEUE-CLOSED | row=10 | **CORS RESOLVED AND VERIFIED LIVE 2026-09-28.** ServerStore landed it (`bd55b7e` "answer a browser on another origin, BEFORE the key guard"; its ledger rows 57/58) and restarted the service at 00:10:39 (their GUARD g5). Verified ON THE WIRE, not taken on trust: unauthenticated `OPTIONS` with `Origin: https://apps.futuremagic.de`, `Access-Control-Request-Method: PUT`, `Access-Control-Request-Headers: authorization,content-type` → **HTTP/2 204** carrying `allow-headers: authorization, x-api-key, content-type`, `allow-methods: GET, POST, PUT, PATCH, DELETE, OPTIONS`, `expose-headers: x-serverstore-sha256`, `max-age: 600`; and an authenticated-route 401 also carries `access-control-allow-origin: *`, so a client can read error envelopes. The origin is the **wildcard** (their default; `SERVERSTORE_CORS_ORIGINS` can narrow it) — acceptable, because a key is still required and their pin O4 forbids `Allow-Credentials`
 QUEUE-CLOSED | row=13 | **FORK 2 SETTLED BY THE OWNER — the HONOUR SYSTEM.** A shared snapshot may hold the plain truth; the UI redacts opponents' legions as it already does for hotseat. His risk call (*"no need for complicated security, ease of use is way more important here"*) is exactly the trade the honour system makes, so per-player stores and commit-reveal dice are **not planned and not queued**. S3 no longer waits on anything
 
-IN-FLIGHT | row=S1 | worktree=/home/administrator/projects/ColossusWeb/worktrees/mp-transport | branch=feat/mp-transport | base=470cd9a593431b6b8dcaccad925ca466f75ba3bb | session=1027ed8a-7af7-4354-9319-c4521b45290b | state=dispatched | brief=docs/briefs/slice-s1-transport.md | ledger row assigned=7
-  scope=THE TRANSPORT FOUNDATION ONLY: a store client behind an interface (list/get/put/remove/whoami), an in-memory fake implementing the same contract, the caller's key held IN MEMORY ONLY with a `whoami` identity, and a minimal paste-a-key panel. No lobby (S2), no snapshots/polling/turn authority (S3), no fork detection or resume (S4), no per-player stores or dice work (S5). The store name stays a PARAMETER because FORK 2 is open
+LANDED | row=S1 | lands=this commit (`git log -1 --format=%H -- docs/BOARD.md`) | writer=1027ed8a-7af7-4354-9319-c4521b45290b | branch=feat/mp-transport | worktree=/home/administrator/projects/ColossusWeb/worktrees/mp-transport | base=470cd9a593431b6b8dcaccad925ca466f75ba3bb | rebased onto master `6c5d019` before pushing | ledger row=7 | brief=docs/briefs/slice-s1-transport.md
+  | deliverable=THE TRANSPORT FOUNDATION ONLY. `web/src/net/transport.ts` is the ONE interface every later slice depends on (`list/get/put/remove/whoami` over a `(store, name)` pair, with the store READ from a parameter — never a constant). `serverStore.ts` is the HTTP client: the key travels in `Authorization: Bearer` and nowhere else, a non-2xx body is parsed as the service's `{error:{code,message}}` envelope into a thrown `ServerStoreError` carrying BOTH, `x-serverstore-sha256` is surfaced, and the object-name rule is enforced LOCALLY before any request. `memoryTransport.ts` obeys the same contract with no wire. `keyStorage.ts` owns the ONE `localStorage` entry (`colossusweb.key.v1`); `connect.ts` owns the ordering — paste → `whoami` → reject loudly and write NOTHING on failure, otherwise persist; a stored key is re-validated at start-up and REMOVED from storage if it fails; "Forget key" clears both. `ConnectPanel.tsx` renders identity or refusal on the setup screen.
+  | verify=WRITER'S OWN, on the rebased tree: cheap tier GREEN (`tsc -b` + `vite build`, 70 modules, 366ms) · full gate **exit 0** · oxlint **14 warnings / 0 errors** (the base tree's count — no new warning) · vitest **328 passed | 2 todo (330)** in 51 files + 1 skipped · peak **314536 KB (~307 MB)** · raw log `.gate-logs/gate.log`
+  | verify=DIFFERENTIAL, writer's own, 12 arms, lock held, no source edited (`scripts/differential.sh`, logs `.gate-logs/differential/*.log`). EVERY arm made a NAMED pin go RED on an otherwise-green tree, and every arm's target hash was printed before AND after and was unchanged: **A** wrong Bearer → `sends the key in the Authorization header and NOWHERE else` (keyStore `b534dab3…`, setup `31114aa4…`) · **B** key in the query string → same pin +3 (serverStore `5189619e…`, setup `2938a6c5…`) · **C** plain `Error` instead of `ServerStoreError` → `surfaces a failure envelope with its code AND its message, never silently` +8 (transport `c744f210…`, setup `11dac9ef…`) · **D** local name guard removed → `refuses an illegal object name locally, before any request is made` (transport `c744f210…`, setup `383ec04f…`) · **E1** key also written to `sessionStorage` → `writes the key to localStorage under the ONE named entry and nowhere else` +4 (keyStore `b534dab3…`, setup `813641ae…`) · **E2** persistence moved BEFORE validation → `persists NOTHING when the service refuses the key` +2 (keyStore `b534dab3…`, setup `9ee70e71…`) · **E3** `clearStoredKey` neutered → `REMOVES a stored key that no longer validates and surfaces the refusal` +2 (keyStorage `10e063cb…`, setup `a9fe4034…`) · **F** `whoami` carries the raw key → `reports the identity whoami returns, and never any key material` (serverStore `5189619e…`, setup `a65b728c…`) · **G** sha header dropped → `surfaces the x-serverstore-sha256 response header on a GET` +1 (serverStore `5189619e…`, setup `69e4e063…`) · **H** fake's `list` returns nothing → `lists the objects in a store as plain data` (memoryTransport `44b1856f…`, setup `6bba5f58…`) · **I** base URL hard-coded → `defaults to the documented base URL when nothing overrides it` (serverStore `5189619e…`, setup `2bffee8c…`) · **J** empty body accepted → `refuses an empty body, exactly as the service does` (memoryTransport `44b1856f…`, setup `05a1d6c2…`). Three probe bugs were found and fixed rather than reported: a `vi.mock` path resolved from the wrong directory, a scratch config outside `web/` (every arm "failed" at config load — VOID), and two arms whose injections could not affect the code under test.
+  | docs=this file, docs/DECISION-LEDGER.md row 7, docs/ARCHITECTURE.md §2 (two seam rows + the `web/src/net/` layer row)
+  | scope-not-taken=no lobby and no named games (S2), no snapshots/polling/turn authority (S3), no fork detection or resume (S4), no per-player stores or dice work (S5). No network call is made in any test.
+  | note=**the live service has still never been called from a browser.** Every test stubs `fetch` or uses the in-memory twin, so the first real round trip is S2's first act — and it is the one thing this landing does NOT prove.
 QUEUE | row=11 | also cross-project, lower priority: ServerStore has NO concurrency control (a PUT is an unconditional overwrite) and NO rate limiting. A snapshot design with writer-tagged names does not need concurrency control; a public poll loop does eventually want the rate limit
 QUEUE | row=12 | design constraint to remember: there is NO per-object isolation in ServerStore (no ACL, no owner column), so any key with read/write on `colossus` can read, overwrite and DELETE every object in it, including other players'. Isolation is only available by partitioning into more stores
 
@@ -105,17 +110,24 @@ PUBLISH | slug=ColossusWeb | delivers=the ARCH gate fix (lands=0b1fa3d)
 
 RECOVERY | publish=(cd web && npx tsc -b && COLOSSUS_BASE=/ColossusWeb/ npx vite build) · rsync -ai --exclude='.htaccess' web/dist/ ~/apps/ColossusWeb/ · bash ~/projects/futuremagic/scripts/publish-apps-root.sh
 RECOVERY | repo=/home/administrator/projects/ColossusWeb | remote=origin=https://github.com/ArndRosemeier/ColossusWeb.git
-RECOVERY | branch=master | base=48be1070d11b6d0edfc7f5a24610734573ac40be | gate=bash scripts/gate.sh (from the tree ROOT)
+RECOVERY | branch=master | base=6c5d0196252ac65bc1bb322d5797b4c62dea73be (S1's base was 470cd9a5) | gate=bash scripts/gate.sh (from the tree ROOT)
 RECOVERY | product=web/ (TypeScript, verifiable) | reference=Colossus/ (Java, NOT buildable on this host)
 RECOVERY | logs=.gate-logs/gate.log (gitignored) | worktrees=./worktrees/ (gitignored)
 ```
 
-**ONE writer is in flight** — `mp-transport` (S1) on branch `feat/mp-transport` in
-`worktrees/mp-transport`, session `1027ed8a-7af7-4354-9319-c4521b45290b`. It was steered
-mid-flight by an owner requirement change (the key is now persisted in `localStorage` after
-a successful `whoami`, not held in memory), so its brief's original no-`localStorage` pin is
-superseded — see the acceptance criteria below. No other branches or worktrees:
-`git worktree list` → the main tree plus that one.
+**NOTHING is in flight.** `feat/mp-transport` (S1) landed (see the `LANDED | row=S1` line) and
+is the only branch besides `master`. It was steered mid-flight by the owner requirement change
+(the key is now persisted in `localStorage` after a successful `whoami`, not held in memory),
+so the brief's original no-`localStorage` pin is superseded — the six pins as finally
+implemented are in `web/src/net/__tests__/`: the contract suite runs against BOTH
+implementations (`transportContract.test.ts`), the key rules are asserted over the REAL
+browser objects after a real connect (`keyPersistence.test.ts`), and the transport rules over
+the requests the client actually made (`serverStore.test.ts`).
+
+**This worktree has no `web/node_modules` until `(cd web && npm ci)` is run once** — a fresh
+worktree fails the gate's preflight with exit 1 (not a test failure) until then. `jsdom` is
+now a devDependency for the one pin that must see real `localStorage`; it is added to
+`web/package.json`/`package-lock.json` in this landing.
 
 ## The owner's multiplayer acceptance criteria
 

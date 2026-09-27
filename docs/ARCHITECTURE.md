@@ -42,6 +42,7 @@ Two trees, one product. **`Colossus/` is not built here** — see `AGENTS.md §H
 | `web/src/ui/` | non-React UI logic (dice physics, animation, path tween, speed) | `engine` |
 | `web/src/components/` | React views (master board SVG, battle, controls) | `engine`, `ai`, `ui` |
 | `web/src/persistence/` | save/load | `engine`, `types` |
+| `web/src/net/` | ServerStore transport (the multiplayer seam) — **no React, no game import** | `types` (nothing else) |
 | `web/src/sim/` | headless simulations + tournaments (`npm run simulate`, `tourney`) | `engine`, `ai`, `variant` |
 | `web/public/variants/**` | **generated + tracked** variant JSON (see `AGENTS.md` fact 3) | — |
 | `Colossus/**` | original Java implementation — **reference only, not buildable here** | — |
@@ -55,6 +56,8 @@ verified by import analysis. Verify before relying on it.
 | Seam | The ONE way | Where | Notes |
 | --- | --- | --- | --- |
 | Master-hex gate shapes | `archGeometry` / `blockOutline` / `arrowTriple` / `gateLen` / `pts` | `web/src/components/gateGeometry.ts` | Pure maths, **no React**, so it is directly testable and the component file exports components only. Ported from `GUIMasterHex.drawGate()`. **ARCH must stay a rounded cap + stem, never the BLOCK rectangle** — `masterHexGates.test.ts` pins both the geometry and the renderer's dispatch; see decision-ledger row 5. |
+| Store transport | `ServerStoreTransport` (`list` / `get` / `put` / `remove` / `whoami`) over one `(store, name)` pair | `web/src/net/transport.ts` | **Nothing above `web/src/net/` may import `fetch`.** The store name is a PARAMETER, never a constant (FORK 2 is settled as the honour system but the seam keeps the choice open). Object names are validated HERE, once, for both implementations. A failure is a thrown `ServerStoreError` carrying the service's `code` **and** `message`. Two implementations behind it: `serverStore.ts` (HTTP) and `memoryTransport.ts` (no wire). The shared contract suite runs against both — `transportContract.test.ts`. |
+| Where the player's key lives | `localStorage` entry `colossusweb.key.v1`, written ONLY by `writeStoredKey` | `web/src/net/keyStorage.ts` | The owner's rule (`docs/design/multiplayer.md` §4.1): the key is validated by `whoami` **before** it is persisted, re-validated on load and removed if it fails. "Forget key" clears it. Never `sessionStorage`, a cookie, the URL, `history` or a log — `keyPersistence.test.ts` asserts that over the REAL browser objects (`// @vitest-environment jsdom`). The ordering lives in `connect.ts`; the memory copy in `keyStore.ts`. |
 | *(rest not yet surveyed)* | | | |
 
 ## 3 · Gotchas

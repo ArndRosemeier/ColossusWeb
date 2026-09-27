@@ -250,10 +250,13 @@ Rejected as before: (c) per-player encryption.
 | S4 | ColossusWeb | Robustness: writer-tagged fork detection and resolution, reconnect/resume, cleanup of finished games | — |
 | S5 | both | ~~per-player stores, commit–reveal dice~~ — **DROPPED by the owner's risk call** (a shared snapshot may hold the plain truth; no crypto, no partitioning). What remains, and only if it ever actually bites: polite polling and ServerStore rate limiting | — |
 
-Pins I would require from S1–S3, phrased as statements: *no key is ever written to
-storage, a URL or a log*; *a snapshot written by a seat that may not act is rejected*;
-*two clients fed the same snapshot sequence converge on the same state*; *a lobby lists
-only games that are joinable*; *a join by player B cannot overwrite player A's join*.
+Pins I would require from S1–S3, phrased as statements: *the key reaches `localStorage`
+only after `whoami` accepted it, is re-validated on load and removed when it fails, and
+travels only in the `Authorization` header* (S1 — this supersedes the earlier "no key is ever
+written to storage" wording, which §4.1 has since settled); *a snapshot written by a seat that
+may not act is rejected*; *two clients fed the same snapshot sequence converge on the same
+state*; *a lobby lists only games that are joinable*; *a join by player B cannot overwrite
+player A's join*.
 
 ## 8 · Honest unknowns
 

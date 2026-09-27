@@ -1,5 +1,16 @@
 # Slice S1 — the transport foundation
 
+> **SUPERSEDED IN ONE POINT, MID-FLIGHT (2026-09-28).** The owner changed the key rule
+> after this brief was dispatched: *"Players need to provide their key. With that key the
+> app needs to try to connect to the colossus store and immediately reject it if it does
+> not work. Otherwise store it in local storage."* So the key **is** persisted in
+> `localStorage` (one entry, `colossusweb.key.v1`), and only **after** `whoami` accepted it;
+> a stored key is re-validated on load and removed if it fails. Everything in §What to build
+> item 4 and the pin "the key is never persisted" below is superseded accordingly; the
+> design of record is `docs/design/multiplayer.md` §4.1 and the landing is recorded on
+> `docs/BOARD.md`. The rest of this brief stands as written, and it is kept unedited below
+> as the dispatch record.
+
 **Ledger row: 7.** Board line: the `IN-FLIGHT` row for `mp-transport`.
 
 ## The owner's request (verbatim) and the intent
