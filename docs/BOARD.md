@@ -54,7 +54,7 @@ independently names the verified base. See decision-ledger row 4.
 ```
 reconciled: 6c5d0196252ac65bc1bb322d5797b4c62dea73be · 2026-09-27T22:36Z
 
-SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=dispatching to completion — OWNER AWAY, instruction "try to build this to completion"; S1 LANDED and retired, S2 WRITER-LANDED on `feat/lobby` and awaiting the dispatcher's own verification, S3 next, SERIALLY because they all touch `web/src/components/App.tsx`
+SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=dispatching to completion — OWNER AWAY, instruction "try to build this to completion"; S1 and S2 both VERIFIED and RETIRED by the dispatcher, S3 next, SERIALLY because they all touch `web/src/components/App.tsx`
 
 QUEUE | row=1 | owner: "be my chief of staff" — a designation, not yet a work order; awaiting the first task
 QUEUE | row=5 | known debt: docs/ARCHITECTURE.md §2 (the seam index) is NOT surveyed — a read-only probe could fill it
@@ -132,8 +132,9 @@ RECOVERY | logs=.gate-logs/gate.log (gitignored) | worktrees=./worktrees/ (gitig
 ```
 
 retired_branch=feat/mp-transport
+retired_branch=feat/lobby
 
-**S1 IS LANDED AND RETIRED; S2 IS WRITER-LANDED ON `feat/lobby` AND AWAITS THE
+**S1 AND S2 ARE VERIFIED AND RETIRED; S3 IS NEXT.** (This paragraph previously said S2 awaited the
 DISPATCHER'S OWN VERIFICATION; S3 IS NEXT.** `feat/mp-transport` is gone locally AND on the
 remote, and its worktree is removed — the `retired_branch=` line above is the claim the
 reconciler reads. S2's branch is **not** retired: it holds the lobby landings above and is the
