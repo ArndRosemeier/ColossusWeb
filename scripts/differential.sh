@@ -54,7 +54,8 @@ printf 'pid=%s\nstarted=%s\ntier=differential\ntree=%s\n' "$$" "$(date -u +%FT%T
 # files, so their targets are in the SAME list.
 S2_TARGETS="web/src/net/lobby.ts web/src/net/gameRecord.ts"
 S3_TARGETS="web/src/net/snapshot.ts web/src/net/sync.ts web/src/net/lobby.ts"
-SOURCE_TARGETS="$S2_TARGETS $S3_TARGETS"
+S4_TARGETS="web/src/net/lobbyWatcher.ts web/src/net/contentCache.ts"
+SOURCE_TARGETS="$S2_TARGETS $S3_TARGETS $S4_TARGETS"
 
 cleanup() {
   rm -rf "$SETUPS" "$WEB/.differential.vitest.config.ts" "$LOCK_DIR"
@@ -581,6 +582,58 @@ run_source_arm "Y-seats-in-join-order" "src/net/__tests__/lobby.test.ts" \
   "web/src/net/lobby.ts" \
   "s|seatOrder: seatOrderFor(record.creator.id, players),|seatOrder: players.map((player) => player.playerId),|" \
   "Start writes the explicit seat order: creator first, then the joined by tag" || FAILED=1
+
+# ---------------------------------------------------------------------------
+# S4 · the lobby is LIVE — one arm per pin, each breaking a REAL rule at its line.
+
+# Z · The poll tick SWALLOWS its failure: the loop counts a failed read as a
+#     healthy one, so the backoff never engages and the panel's error state is
+#     never the loop's.
+run_source_arm "Z-poll-swallows-error" "src/net/__tests__/lobbyWatcher.test.ts" \
+  "web/src/net/lobbyWatcher.ts" \
+  "s|^        throw error$|        // INJECTION: the failure is swallowed|" \
+  "backs off on a failed poll, says so, and recovers on the next success" || FAILED=1
+
+# Z2 · The lobby takes the list TWICE per tick (its own, plus the one the games
+#      read takes), so a tick is two requests instead of one.
+run_source_arm "Z2-two-lists-a-tick" "src/net/__tests__/lobbyWatcher.test.ts" \
+  "web/src/net/lobbyWatcher.ts" \
+  "s|const listing = await listGamesFrom(this.context, objects, this.cache)|const listing = await listGames(this.context, this.cache)|" \
+  "makes exactly ONE list request per tick, while the tab is visible" || FAILED=1
+
+# Z3 · The body cache never reports a change, so a tick that changed nothing
+#      reads the body anyway — the steady state costs a read again.
+run_source_arm "Z3-cache-always-changed" "src/net/__tests__/bodyReadCache.test.ts" \
+  "web/src/net/contentCache.ts" \
+  "s|if (!this.holds(name, sha256)) changed.push(name)|if (true) changed.push(name)|" \
+  "a tick that finds nothing changed makes ONE request and reads NO body" || FAILED=1
+
+# Z4 · A name whose content CHANGED is kept in the cache (the hash is ignored),
+#      so an overwritten body could be served from an older address.
+run_source_arm "Z4-stale-cache-entry" "src/net/__tests__/bodyReadCache.test.ts" \
+  "web/src/net/contentCache.ts" \
+  "s|if (sha256 === undefined \\|\\| sha256 !== held.sha256) this.entries.delete(name)|if (sha256 === undefined) this.entries.delete(name)|" \
+  "a name whose content changed is re-read, never served from the old hash" || FAILED=1
+
+# Z5 · The snapshot job stops using the cache, so it re-reads the newest body on
+#      every tick even when it holds exactly those bytes.
+run_source_arm "Z5-snapshot-cache-bypassed" "src/net/__tests__/bodyReadCache.test.ts" \
+  "web/src/net/sync.ts" \
+  "s|          cache: session.cache,|          cache: undefined,|" \
+  "a poll tick whose newest snapshot is unchanged reads NO body" || FAILED=1
+
+# Z6 · The lobby ignores the visibility rule and polls a hidden tab.
+run_source_arm "Z6-lobby-polls-hidden" "src/net/__tests__/lobbyWatcher.test.ts" \
+  "web/src/net/sync.ts" \
+  "s|    if (!visibility.visible()) {|    if (false) {|" \
+  "makes NO request while the tab is hidden, and one immediately on return" || FAILED=1
+
+# Z7 · A listed body is read by a GUESSED name instead of the name the listing
+#      gave, which is exactly how the list route becomes a content read.
+run_source_arm "Z7-body-read-by-guess" "src/net/__tests__/bodyReadCache.test.ts" \
+  "web/src/net/lobby.ts" \
+  "s|        ? await cache.adopt(object.name, object.sha256)|        ? await cache.adopt(object.name + '.guess', object.sha256)|" \
+  "reads ONLY the body that changed, and every read is by a name the listing gave" || FAILED=1
 
 echo
 echo "=================================================================="
