@@ -619,7 +619,7 @@ run_source_arm "Z4-stale-cache-entry" "src/net/__tests__/bodyReadCache.test.ts" 
 #      every tick even when it holds exactly those bytes.
 run_source_arm "Z5-snapshot-cache-bypassed" "src/net/__tests__/bodyReadCache.test.ts" \
   "web/src/net/sync.ts" \
-  "s|          cache: session.cache,|          cache: undefined,|" \
+  "s|        cache: session.cache,|        cache: undefined,|" \
   "a poll tick whose newest snapshot is unchanged reads NO body" || FAILED=1
 
 # Z6 · The lobby ignores the visibility rule and polls a hidden tab.
