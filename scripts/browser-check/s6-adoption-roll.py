@@ -222,8 +222,12 @@ def send(ws, method, params=None):
     return call_id
 
 
-def call(ws, check, method, params=None, timeout=90.0):
-    """One CDP call, serving any store requests that arrive while it runs."""
+def call(ws, check, method, params=None, timeout=90.0, quiet=False):
+    """One CDP call, serving any store requests that arrive while it runs.
+
+    `quiet` is for a PROBE whose silence is expected (the renderer-not-ready
+    wait): it must not be recorded as a failed statement.
+    """
     call_id = send(ws, method, params)
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -236,7 +240,8 @@ def call(ws, check, method, params=None, timeout=90.0):
             continue
         if msg.get("id") == call_id:
             return msg
-    check.fail(f"CDP call {method} never answered")
+    if not quiet:
+        check.fail(f"CDP call {method} never answered")
     return None
 
 
@@ -385,6 +390,28 @@ def pump(ws, check, seconds):
             handle_paused(ws, check, msg["params"])
 
 
+def js_raw(ws, check, expression, timeout=30.0):
+    """Evaluate JS and return the value, or None when the call did not answer."""
+    result = call(
+        ws,
+        check,
+        "Runtime.evaluate",
+        {"expression": expression, "returnByValue": True},
+        timeout=timeout,
+        quiet=True,
+    )
+    if result is None:
+        return None
+    body = result.get("result", {})
+    if "exceptionDetails" in body:
+        check.fail(
+            "page evaluation threw: "
+            + str(body["exceptionDetails"].get("exception", {}).get("description"))
+        )
+        return None
+    return body.get("result", {}).get("value")
+
+
 def js(ws, check, expression, await_promise=False, attempts=2):
     """Evaluate JS in the page. A transiently unanswered eval is retried ONCE —
     the app's poll loop bombards the socket, and a lost answer must not be read
@@ -396,7 +423,9 @@ def js(ws, check, expression, await_promise=False, attempts=2):
         "userGesture": True,
     }
     for attempt in range(attempts):
-        result = call(ws, check, "Runtime.evaluate", payload, timeout=30.0)
+        result = call(
+            ws, check, "Runtime.evaluate", payload, timeout=30.0, quiet=True
+        )
         if result is not None:
             body = result.get("result", {})
             if "exceptionDetails" in body:
@@ -407,6 +436,8 @@ def js(ws, check, expression, await_promise=False, attempts=2):
                 return None
             return body.get("result", {}).get("value")
         if attempt + 1 < attempts:
+            # A retried eval is not a failed statement: only silence after every
+            # attempt is. (The app's poll loop bombards the same socket.)
             print("  -- re-issuing an unanswered Runtime.evaluate")
     check.fail(f"a page evaluation never answered: {expression[:60]!r}")
     return None
@@ -551,6 +582,20 @@ def main():
         ws.connect()
         for method in ("Runtime.enable", "Page.enable", "Network.enable"):
             call(ws, check, method)
+
+        # The renderer may still be starting when the target appears, and an eval
+        # that hangs against a not-yet-live execution context is a STARTUP race,
+        # not a failed statement. Wait for a trivial evaluation to answer before
+        # any statement is judged.
+        ready = False
+        for _ in range(30):
+            if js_raw(ws, check, "1 + 1", timeout=5.0) == 2:
+                ready = True
+                break
+            time.sleep(0.5)
+        if not ready:
+            check.fail("the page never answered a trivial evaluation (renderer not ready)")
+            return report(check)
 
         # Intercept the store BEFORE the first navigation: the app validates the
         # stored key the moment it mounts.
