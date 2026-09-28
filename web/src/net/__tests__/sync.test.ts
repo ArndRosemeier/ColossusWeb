@@ -736,6 +736,7 @@ describe('turn authority is the state, not a claim', () => {
         revealed: true,
         proposal: null,
         proposedBy: null,
+        fleeDeclined: false,
       },
     } as unknown as GameState
     expect(actingPlayerIds(engagement).sort()).toEqual([first!.id, second!.id].sort())

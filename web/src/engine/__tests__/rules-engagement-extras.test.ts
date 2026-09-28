@@ -65,7 +65,9 @@ describe('E engagement + T3 + Q8', () => {
     expect(state.activeEngagement).toBeTruthy()
     expect(state.activeEngagement!.attackerId).toBe(second.attackerId)
 
-    // Fight → battle, then concede to finish quickly
+    // The defender answers their own flee window first, then the battle is
+    // demanded and conceded to finish quickly (S8: no unilateral battle start).
+    state = dispatch(state, { type: 'standFight' })
     state = dispatch(state, { type: 'proposeAgreement', kind: 'fight' })
     expect(state.phase).toBe('Battle')
     const loserId = state.battle!.defenderLegionId
@@ -97,7 +99,7 @@ describe('E engagement + T3 + Q8', () => {
     expect(d.knownPublic.length).toBe(d.creatures.length)
   })
 
-  it('E4: after Fight is chosen, engagement flee path is closed (battle started)', () => {
+  it('E4: the defender answers flee/stand BEFORE any battle; after that, flee is closed', () => {
     const state = twoPlayerGame(53)
     const attacker = state.legions[0]!
     const defender = state.legions[1]!
@@ -113,6 +115,14 @@ describe('E engagement + T3 + Q8', () => {
       attackerId: attacker.id,
       defenderId: defender.id,
     })
+    // S8: the attacker cannot start the battle while the defender's window is open
+    expect(g.activeEngagement?.fleeDeclined).toBe(false)
+    const refused = dispatch(g, { type: 'proposeAgreement', kind: 'fight' })
+    expect(refused.phase).toBe('Fight')
+    expect(refused.activeEngagement).not.toBeNull()
+    expect(refused.message).toMatch(/not answered flee or fight/i)
+    // The defender stands: now the battle may begin, and flee is closed with it
+    g = dispatch(g, { type: 'standFight' })
     g = dispatch(g, { type: 'proposeAgreement', kind: 'fight' })
     expect(g.phase).toBe('Battle')
     expect(g.activeEngagement).toBeNull()

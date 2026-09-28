@@ -43,7 +43,8 @@ Port modules: `engagement.ts`, `battleland.ts`, `battleMovement.ts`, `battleStri
 | E1 | Mover picks order | pass | `findEngagements` | `rules-engagement-extras` |
 | E2 | Reveal stacks | pass | auto on `openEngagement` | `rules-engagement-extras` |
 | E3 | Flee half points | pass | `resolveEngagementConcession(..., half)` | `rules-port` |
-| E4 | Fight forfeits flee path | pass | propose fight | `rules-engagement-extras` |
+| E4 | The defender may immediately flee; the attacker may not, and a Lord blocks it | pass | `canFlee` / `openEngagement` (`fleeDeclined`) / `flee` | `rules-engagement-choice`, `rules-engagement-extras` |
+| E4b | Either player may demand Battle — only once the defender's flee window is closed | pass | `startBattleFromEngagement` guard + `standFight` | `rules-engagement-choice`, `engagementChoice` (overlay) |
 | E5 | Agreement / mutual 0 | pass | `resolveAgreement` | `rules-port` |
 | E6 | Concede **full** points (≠ flee) | pass | `concedeEngagement` / `concededFullPoints` | `rules-port` |
 | E7 | Caretaker: immortals recycle; mobs removed | pass | `returnEliminatedCreature` | `rules-caretaker` |

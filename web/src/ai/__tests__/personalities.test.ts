@@ -55,6 +55,9 @@ describe('AI personalities', () => {
       revealed: true,
       proposal: null,
       proposedBy: null,
+      // The defender already answered their flee window (S8); this test is about
+      // what the ATTACKER then demands.
+      fleeDeclined: true,
     }
 
     // Attacker is aggressive — resolving engagement uses defender's cautious profile for flee

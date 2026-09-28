@@ -32,6 +32,7 @@ describe('aiDefenderShouldFlee', () => {
       revealed: true,
       proposal: null,
       proposedBy: null,
+      fleeDeclined: false,
     }
     return state
   }

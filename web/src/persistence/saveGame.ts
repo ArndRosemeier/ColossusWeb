@@ -1,5 +1,6 @@
 import type { LoadedVariant } from '../variant/loadVariant'
 import { allMarkersForColor, ensureUniqueLegionIds } from '../engine/GameEngine'
+import { canFlee } from '../engine/engagement'
 import type { GameState, PlayerState } from '../engine/types'
 
 export const SAVE_STORAGE_KEY = 'colossusweb.save.v1'
@@ -134,6 +135,15 @@ export function deserializeGame(blob: SavedGameBlob, variant: LoadedVariant): Ga
   }
   if (state.diceRoll && state.diceRoll.playerId === undefined) {
     state.diceRoll.playerId = state.players[state.activePlayerIndex]?.id ?? ''
+  }
+  if (state.activeEngagement && state.activeEngagement.fleeDeclined === undefined) {
+    // Legacy saves/snapshots written before S8: no defender window was recorded,
+    // because the attacker could start the battle immediately. Derive the one
+    // honest reading for a resumed pre-battle engagement — a legion that cannot
+    // flee has no window to wait on — rather than leaving the flag undefined
+    // (which would strand a resumed engagement with no way to start the battle).
+    const defender = state.legions.find((l) => l.id === state.activeEngagement!.defenderId)
+    state.activeEngagement.fleeDeclined = defender ? !canFlee(state, defender) : true
   }
   migrateMarkerPools(state)
   for (const leg of state.legions) {

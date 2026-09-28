@@ -22,6 +22,28 @@ interface Props {
   interactive?: boolean
   pendingStrike?: PendingStrikeAnnounce | null
   onCancelPendingStrike?: () => void
+  /**
+   * The seat this client holds in a multiplayer game; `null` in hotseat (where
+   * one person holds both sides). The engagement card uses it to show ONLY the
+   * decisions this client may take — the defender's flee/stand answer never
+   * renders in the attacker's client (Titan Engagements: it is the defender's
+   * option; Colossus `askFlee` goes to the defender alone).
+   */
+  myPlayerId?: string | null
+}
+
+/**
+ * May this client press a button belonging to `ownerId`? In hotseat (`myPlayerId`
+ * null) the one local human plays both sides, so every human-controlled side is
+ * theirs; in multiplayer only their own seat is.
+ */
+function localControls(
+  playerId: string | undefined,
+  myPlayerId: string | null,
+  humanControls: boolean,
+): boolean {
+  if (myPlayerId === null) return humanControls
+  return humanControls && playerId === myPlayerId
 }
 
 export function hasBoardDecision(
@@ -44,11 +66,12 @@ export function BoardDecisionOverlay({
   interactive = true,
   pendingStrike = null,
   onCancelPendingStrike,
+  myPlayerId = null,
 }: Props) {
   if (!interactive) return null
 
   const engagement = engagementNeedsHumanInput(state) ? (
-    <EngagementCard state={state} dispatch={dispatch} />
+    <EngagementCard state={state} dispatch={dispatch} myPlayerId={myPlayerId} />
   ) : null
 
   const postBattle =
@@ -351,9 +374,11 @@ function LegionContents({
 function EngagementCard({
   state,
   dispatch,
+  myPlayerId,
 }: {
   state: GameState
   dispatch: (cmd: GameCommand) => void
+  myPlayerId: string | null
 }) {
   const eng = state.activeEngagement!
   const attacker = state.legions.find((l) => l.id === eng.attackerId)
@@ -365,13 +390,27 @@ function EngagementCard({
   const humanControlsAttacker = humans.some((h) => h.id === attacker.playerId)
   const humanControlsDefender = humans.some((h) => h.id === defender.playerId)
   const bothHuman = atkP?.kind === 'human' && defP?.kind === 'human'
-  const canHumanFlee = humanControlsDefender && canFlee(state, defender)
   const waitingOnHuman = engagementNeedsHumanInput(state)
+  /**
+   * Whose client holds the flee/stand window (Titan Engagements: the defender's
+   * option, and Colossus asks the defender alone). In hotseat this is the same
+   * person as the attacker, which is why the window is invisible there.
+   */
+  const localControlsDefender = localControls(defender.playerId, myPlayerId, humanControlsDefender)
+  const atkIsMe = localControls(attacker.playerId, myPlayerId, humanControlsAttacker)
+  /**
+   * The defender's window is open and it is a HUMAN who must answer it: no
+   * battle may start until `standFight` (or `flee`). An AI defender has already
+   * answered in `openEngagement`, so this is `false` for one.
+   */
+  const waitingForDefender = defP?.kind === 'human' && !eng.fleeDeclined
+  /** The attacker's client is the one held up by the defender's answer. */
+  const attackerWaiting = waitingForDefender && atkIsMe
+  /** This client owns the defence and still owes the flee/stand answer. */
+  const defenderMustAnswer =
+    waitingForDefender && localControlsDefender && canFlee(state, defender)
 
-  const hints: string[] = []
-  if (canHumanFlee) hints.push('flee')
-  hints.push('fight')
-  if (bothHuman) hints.push('agree')
+  const defenderName = defP?.name ?? 'The defender'
 
   return (
     <>
@@ -379,7 +418,13 @@ function EngagementCard({
       <p className="hint">
         {waitingOnHuman && atkP?.kind === 'ai'
           ? `${atkP.name} attacks with ${attacker.markerId}`
-          : `Choose how to resolve — ${hints.join(' or ')}`}
+          : attackerWaiting
+            ? `Waiting for ${defenderName} to choose: stand and fight, or flee.`
+            : defenderMustAnswer
+              ? `${atkP?.name ?? 'The attacker'} attacks with ${attacker.markerId} — choose how your legion answers.`
+              : `Choose how to resolve — ${canFlee(state, defender) ? 'flee or ' : ''}fight${
+                  bothHuman ? ' or agree' : ''
+                }`}
         {defP?.kind === 'ai' && humanControlsAttacker ? ' AI declined to flee.' : ''}
       </p>
       <p className="hint muted">
@@ -391,10 +436,15 @@ function EngagementCard({
       </p>
       <LegionContents state={state} legion={defender} tone="defend" />
       <div className="engagement-actions">
-        {canHumanFlee && (
-          <button type="button" onClick={() => dispatch({ type: 'flee' })}>
-            Flee
-          </button>
+        {defenderMustAnswer && (
+          <>
+            <button type="button" className="primary" onClick={() => dispatch({ type: 'standFight' })}>
+              Stand and fight
+            </button>
+            <button type="button" onClick={() => dispatch({ type: 'flee' })}>
+              Flee
+            </button>
+          </>
         )}
         {bothHuman && (
           <button
@@ -414,7 +464,7 @@ function EngagementCard({
             </button>
           </>
         )}
-        {(humanControlsAttacker || humanControlsDefender) && (
+        {!waitingForDefender && atkIsMe && (
           <button
             type="button"
             className="primary"

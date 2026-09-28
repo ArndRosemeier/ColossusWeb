@@ -156,12 +156,19 @@ function pickMove(state: GameState, profile: AiProfile, rng: () => number): Game
 
 function pickFight(state: GameState, profile: AiProfile, rng: () => number): GameCommand | null {
   if (state.activeEngagement) {
+    const eng = state.activeEngagement
     if (aiDefenderShouldFlee(state)) {
       return { type: 'flee' }
     }
     // Human is attacker and/or defender — do not decide Fight/Flee for them
     if (engagementNeedsHumanInput(state)) {
       return null
+    }
+    // The defender's own pre-battle window: an AI that declined to flee must
+    // close it before ANY battle can begin (Titan Engagements; Colossus
+    // askFlee → doNotFlee, `GameServerSide.java:2719-2754`).
+    if (!eng.fleeDeclined) {
+      return { type: 'standFight' }
     }
     void profile
     void rng

@@ -519,6 +519,10 @@ function openEngagement(state: GameState, attackerId: string, defenderId: string
     revealed: true,
     proposal: null,
     proposedBy: null,
+    // The defender's own pre-battle window. A legion that CANNOT flee has no
+    // window to wait on, so it opens already closed (Titan: "a defending Legion
+    // containing a Lord cannot flee" — `canFlee`).
+    fleeDeclined: !canFlee(state, defender),
   }
   revealAll(attacker)
   revealAll(defender)
@@ -537,8 +541,21 @@ function openEngagement(state: GameState, attackerId: string, defenderId: string
   const defPlayer = state.players.find((p) => p.id === defender.playerId)
   state.message =
     defPlayer?.kind === 'human' && canFlee(state, defender)
-      ? `Engagement ${attacker.markerId} vs ${defender.markerId} — flee or fight`
+      ? `Engagement ${attacker.markerId} vs ${defender.markerId} — ${defPlayer.name} chooses: stand and fight, or flee`
       : `Engagement ${attacker.markerId} vs ${defender.markerId} — fight`
+}
+
+/**
+ * The ONE place a battle may begin from an engagement, and the rule it holds:
+ * the defender's Flee window must be closed first. "The defender may immediately
+ * opt to Flee ... Either player may demand that the Battle be played out" — only
+ * AFTER the defender declines the flee (Titan Engagements). Colossus encodes the
+ * same order: `askFlee(defender)` at `GameServerSide.java:2719-2728`, and
+ * negotiation — where a fight proposal calls `fight()` — is reached only through
+ * `doNotFlee` → `engage2` → `engage3` (`:2747-2754, :2792-2805, :2866`).
+ */
+function canStartBattleFromEngagement(state: GameState): boolean {
+  return state.activeEngagement?.fleeDeclined === true
 }
 
 function handleEngagementCommand(
@@ -560,10 +577,21 @@ function handleEngagementCommand(
       break
     }
     case 'flee': {
+      // "The attacker cannot flee" (Titan Engagements) — the option belongs to
+      // the defender's side alone. Which CLIENT may press it is the UI's seat
+      // question (`BoardDecisionOverlay` + `myPlayerId`); the engine can only
+      // see that the defender legion is the one that leaves the board.
       if (!canFlee(state, defender)) throw new Error('Defender cannot flee (has a Lord)')
       resolveEngagementConcession(state, defender, attacker, true)
       state.log.push(`${defender.markerId} flees — half points to attacker`)
       finishEngagementResolution(state, attacker.playerId)
+      break
+    }
+    case 'standFight': {
+      if (eng.fleeDeclined) throw new Error('The flee decision is already closed')
+      eng.fleeDeclined = true
+      state.message = `${defender.markerId} stands and fights — ${attacker.markerId} may begin the battle`
+      state.log.push(state.message)
       break
     }
     case 'concedeEngagement': {
@@ -576,12 +604,20 @@ function handleEngagementCommand(
       break
     }
     case 'proposeAgreement': {
-      eng.proposal = command.kind
-      eng.proposedBy = activePlayer(state).id
       if (command.kind === 'fight') {
+        // "Either player may demand that the Battle be played out" — but the
+        // defender's Flee window is decided FIRST, so a demand cannot start the
+        // battle while that window is open (Titan Engagements; Colossus order:
+        // askFlee → doNotFlee → negotiate → fight, `GameServerSide.java:2719-2754`).
+        // The refusal itself lives at the ONE place a battle begins,
+        // `startBattleFromEngagement`, so no path can bypass it.
+        eng.proposal = 'fight'
+        eng.proposedBy = activePlayer(state).id
         startBattleFromEngagement(state, rng)
         break
       }
+      eng.proposal = command.kind
+      eng.proposedBy = activePlayer(state).id
       state.message = `Agreement proposed: ${command.kind}`
       break
     }
@@ -624,6 +660,14 @@ function startBattleFromEngagement(state: GameState, rng: () => number): void {
   const eng = state.activeEngagement!
   const attacker = state.legions.find((l) => l.id === eng.attackerId)!
   const defender = state.legions.find((l) => l.id === eng.defenderId)!
+  // The rules' order as a hard backstop at the ONE place a battle can begin:
+  // the defender's flee window closes before any battle (see
+  // `canStartBattleFromEngagement`).
+  if (!canStartBattleFromEngagement(state)) {
+    const defenderName =
+      state.players.find((p) => p.id === defender.playerId)?.name ?? 'the defender'
+    throw new Error(`Battle cannot begin yet — ${defenderName} has not answered flee or fight`)
+  }
   revealAll(attacker)
   revealAll(defender)
   state.activeEngagement = null

@@ -166,6 +166,18 @@ export interface EngagementOffer {
   /** Pending agreement proposal from a player */
   proposal: 'attackerDies' | 'defenderDies' | 'mutual' | 'fight' | null
   proposedBy: string | null
+  /**
+   * Has the DEFENDER closed the one option the rules give only them — the
+   * immediate Flee? While this is `false` the pre-battle window is still the
+   * defender's and NO battle may begin ("The defender may immediately opt to
+   * Flee", Titan Engagements; Colossus asks only the defender `askFlee` and
+   * reaches negotiation — and `fight()` — solely after they decline:
+   * `Colossus/.../GameServerSide.java:2719-2728` then `:2747-2754`).
+   *
+   * Opening shape: `canFlee && false` — a legion that cannot flee (it holds a
+   * Lord) has no window to wait on, so it opens already declined.
+   */
+  fleeDeclined: boolean
 }
 
 /** Shown as 3D dice on the board until the roll stops mattering. */
@@ -276,6 +288,13 @@ export type GameCommand =
   | { type: 'startEngagement'; attackerId: string; defenderId: string }
   | { type: 'revealEngagement' }
   | { type: 'flee' }
+  /**
+   * The DEFENDER's "I stand and fight" answer to their own pre-battle window.
+   * It closes Flee for this engagement and is what lets a battle begin; it
+   * awards nothing by itself (Titan Engagements: the defender declines to
+   * flee, and Battle becomes the fallback).
+   */
+  | { type: 'standFight' }
   | { type: 'concedeEngagement'; loserId: string }
   | { type: 'proposeAgreement'; kind: 'attackerDies' | 'defenderDies' | 'mutual' | 'fight' }
   | { type: 'acceptAgreement' }

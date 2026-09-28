@@ -397,6 +397,24 @@ export default function App() {
     [aiSpeed, commitPath],
   )
 
+  /**
+   * The browser check's handle to the ONE commit path (`scripts/browser-check/
+   * s8-engagement-choice.py`). It exists so the check can FIRE a command that no
+   * button offers any more — the attacker's removed `proposeAgreement{fight}`
+   * shortcut — and observe that the engine refuses it and the app publishes
+   * nothing. Non-production bundles only (`vite build --mode test`), and it is
+   * `apply` itself, so it cannot bypass the commit path's publish decision.
+   */
+  const browserCheckHandle = useCallback((cmd: GameCommand) => apply(cmd), [apply])
+  useEffect(() => {
+    if (import.meta.env.MODE === 'production') return
+    const w = window as unknown as { __colossusDispatch?: (cmd: GameCommand) => void }
+    w.__colossusDispatch = browserCheckHandle
+    return () => {
+      delete w.__colossusDispatch
+    }
+  }, [browserCheckHandle])
+
   const busy = Boolean(moveAnim) || animatingRef.current || Boolean(state?.pendingDice)
   const aiActing = state ? isAiActing(state) : false
   const gameOver = Boolean(state?.winnerId || state?.draw)
@@ -806,6 +824,7 @@ export default function App() {
             interactive={interactive}
             pendingStrike={pendingStrike}
             onCancelPendingStrike={() => setPendingStrike(null)}
+            myPlayerId={myPlayerId}
           />
           <DiceOverlay
             pending={state.pendingDice}
