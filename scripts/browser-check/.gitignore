@@ -1,0 +1,8 @@
+# Scratch output from a check run: the DOM/screenshot/Chrome log and the
+# per-run Chrome profile. Regenerated on every run; never evidence to commit.
+*.log
+*.png
+dom.html
+network.log
+*-profile/
+profile/

@@ -55,7 +55,11 @@ printf 'pid=%s\nstarted=%s\ntier=differential\ntree=%s\n' "$$" "$(date -u +%FT%T
 S2_TARGETS="web/src/net/lobby.ts web/src/net/gameRecord.ts"
 S3_TARGETS="web/src/net/snapshot.ts web/src/net/sync.ts web/src/net/lobby.ts"
 S4_TARGETS="web/src/net/lobbyWatcher.ts web/src/net/contentCache.ts"
-SOURCE_TARGETS="$S2_TARGETS $S3_TARGETS $S4_TARGETS"
+# S5 edits the prefix guard, the two transports, the two name modules and the
+# retry rule. They are in the SAME list, so the ONE cleanup trap restores every
+# one of them from HEAD — which is the committed landing, byte-for-byte.
+S5_TARGETS="web/src/net/transport.ts web/src/net/serverStore.ts web/src/net/memoryTransport.ts web/src/net/gameRecord.ts web/src/net/snapshot.ts web/src/net/sync.ts"
+SOURCE_TARGETS="$S2_TARGETS $S3_TARGETS $S4_TARGETS $S5_TARGETS"
 
 cleanup() {
   rm -rf "$SETUPS" "$WEB/.differential.vitest.config.ts" "$LOCK_DIR"
@@ -648,6 +652,57 @@ run_source_arm "Z9-replaced-loop-orphaned" "src/net/__tests__/lobbyWatcher.test.
   "web/src/net/lobbyWatcher.ts" \
   "s|    this.clear()$|    this.detach?.()|" \
   "CLOSES a watcher it replaces, so no orphaned loop keeps polling" || FAILED=1
+
+# ---------------------------------------------------------------------------
+# S5 · the KIND-LED names, the `prefix=` filter and the rate limiter — one arm
+#      per pin, each breaking a REAL rule at its line wherever the rule lives
+#      inside a module (a name builder, the retry arithmetic).
+
+# AA · An illegal prefix is NOT refused locally: it travels to the wire, where
+#      the service answers `400 invalid_name` — and a client that could not tell
+#      that from "no matches" would show an empty lobby as a healthy one.
+run_source_arm "AA-prefix-not-guarded" "src/net/__tests__/transportContract.test.ts" \
+  "web/src/net/transport.ts" \
+  "s|  if (!OBJECT_PREFIX_PATTERN.test(prefix)) {|  if (false \&\& !OBJECT_PREFIX_PATTERN.test(prefix)) {|" \
+  "a prefix is validated LOCALLY and an illegal one is refused before any request" || FAILED=1
+
+# AB · The HTTP transport drops the prefix from the URL, so `?prefix=` never
+#      reaches the store and every listing is the whole store again.
+run_source_arm "AB-http-prefix-dropped" "src/net/__tests__/transportContract.test.ts" \
+  "web/src/net/serverStore.ts" \
+  "s|    const query = prefix === undefined ? '' : \`?prefix=\${encodeURIComponent(assertObjectPrefix(prefix))}\`|    const query = ''|" \
+  "the HTTP transport sends the prefix, so a listing returns only matching names" || FAILED=1
+
+# AC · The in-memory twin ignores the prefix, so the two implementations stop
+#      obeying one contract — the thin-stub failure the contract suite exists for.
+run_source_arm "AC-twin-ignores-prefix" "src/net/__tests__/transportContract.test.ts" \
+  "web/src/net/memoryTransport.ts" \
+  "s|        object.store === store && (prefix === undefined \\|\\| object.name.startsWith(prefix)),|        object.store === store,|" \
+  "one contract, two implementations: the fake filters by prefix too" || FAILED=1
+
+# AD · A game object name is parsed with the OLD scheme's leading segment, so an
+#      old-scheme `g.*` name looks like a game again (and the new `game.*` names
+#      stop being games at all). The anchor is the whole `= /^game\.` opening of
+#      the ONE pattern constant — a longer anchor did not apply, which the probe
+#      reports as VOID rather than red.
+run_source_arm "AD-old-scheme-parsed" "src/net/__tests__/gameRecord.test.ts" \
+  "web/src/net/gameRecord.ts" \
+  "s#= /\\^game\\\\.#= /^g\\\\.#" \
+  "an old-scheme g.* object is ignored: not a game, not parsed, not deleted" || FAILED=1
+
+# AE · The snapshot prefix forgets the game id, so a game's tick lists EVERY
+#      game's snapshots (and could adopt another game's state).
+run_source_arm "AE-snapshot-prefix-unscoped" "src/net/__tests__/snapshot.test.ts" \
+  "web/src/net/snapshot.ts" \
+  "s|  return \`\${SNAPSHOT_OBJECT_PREFIX}\${assertGameId(gameId)}.\`|  return SNAPSHOT_OBJECT_PREFIX|" \
+  "the snapshot prefix is exactly ONE game's sync, and nothing else" || FAILED=1
+
+# AF · A 429's Retry-After is ignored, so the loop schedules the doubling
+#      backoff — which retries INSIDE the 60-second window it was told to leave.
+run_source_arm "AF-retry-after-ignored" "src/net/__tests__/pollRateLimit.test.ts" \
+  "web/src/net/sync.ts" \
+  "s|    error.code === RATE_LIMITED_CODE \&\&|    false \&\&|" \
+  "the poll schedules the next tick no sooner than Retry-After" || FAILED=1
 
 echo
 echo "=================================================================="

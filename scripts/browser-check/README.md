@@ -24,3 +24,18 @@ gate. Treat it as a recipe to copy, not a command to trust.
 CDP, and then **change the store from OUTSIDE the app** and observe the UI react with
 no click, no refresh and no reload. That is how a two-browser scenario becomes one
 browser plus one `PUT`.
+
+**S5's check, and the second method (`s5-busy-wording.py`).** S4 answered the store
+with a fake HTTP server on the same origin. S5 answers it with the DevTools Protocol's
+`Fetch` domain instead: `Fetch.enable` on `https://store.futuremagic.de/*` and
+`Fetch.fulfillRequest` for every paused request, so the app's own transport, poll loop
+and React render are the code under test while the "store" is whatever this script
+says it is. Run it after a build: `python3 scripts/browser-check/s5-busy-wording.py`
+(it serves `web/dist` itself and exits non-zero, naming each failed statement). Exit 0
+means the real DOM said `the store is busy — slowing down, retrying in 60s` after a
+`429` that carried `Retry-After`, and that the FIRST listing on the wire was
+`?prefix=game.` with the key in `Authorization` and nowhere else. Two traps cost a run
+each and are already handled here: the store's CORS **preflight** must be answered by
+the script (it is a request to the same origin, it carries no key, and a real store
+never rate-limits one), and `Fetch.enable` must be armed BEFORE the first navigation
+(the app validates a stored key the moment it mounts).

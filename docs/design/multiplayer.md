@@ -135,33 +135,52 @@ rather than a security measure.
 ### 4.2 The lobby — named games you can find
 A game is two kinds of object in the `colossus` store:
 
-- **`g.<gameid>.game`** — written **only by the creator**: first at *Create*, then again at
+- **`game.<gameid>`** — written **only by the creator**: first at *Create*, then again at
   *Start* to flip the status. Exactly one writer, so it can never be clobbered — the store's
   "serialise on one writer" rule satisfied by construction rather than by luck.
-- **`g.<gameid>.p.<keyid>`** — one object **per player**, written by that player when they
+- **`player.<gameid>.<tag>`** — one object **per player**, written by that player when they
   join. Written by its owner, so two joins never race.
 
-Discovery is then a read of the store's object list, filtered client-side by prefix —
-nothing else is needed, and the list route already exists. A player joins by writing their
-own `p.` object; the creator's client sees it on its next poll.
+**The KIND leads the name (S5).** Before S5 the leading segment was the game id
+(`g.<gameid>.game`, `g.<gameid>.p.<tag>`, `g.<gameid>.s.<turn>.<seq>.<tag>`), so every
+prefix worth typing returned the whole store — which is why the store's `?prefix=` filter
+bought us nothing until the names changed. Now one prefix is exactly one access pattern:
+
+| Prefix | Exactly what it returns | Who asks |
+| --- | --- | --- |
+| `game.` | the lobby's records | the lobby list |
+| `player.<gameid>.` | ONE game's participants | joining, starting, and the open game's panel |
+| `snap.<gameid>.` | ONE game's sync | the game's poll tick |
+
+Discovery is then a read of the store's object list with `?prefix=game.` — nothing else is
+needed, and the list route already exists. A player joins by writing their own `player.`
+object; the creator's client sees it on its next poll. The prefix is validated **locally**
+against the same name rule the service uses, so an illegal one is a thrown `invalid_name`
+before any request rather than a service `400` a caller could mistake for "no matches"; a
+prefix matching nothing is an empty list, never an error (measured). The ORPHANED
+old-scheme objects in the live store (`g.*` from the owner's test game) are deliberately not
+migrated and not deleted: they match no prefix this client sends, are not parsed as games,
+and are left exactly where they are.
 
 **The list route is for LEARNING NAMES, never for reading content (S4).** The list returns
-`{name, sha256, size, createdAt}` for every object, and `sha256` is a content address, so a
-polling client remembers `{name -> sha256}` and **point-reads a body by name only when that
-name is new or its hash changed** (`web/src/net/contentCache.ts`). Before S4 a tick re-read
-the newest snapshot body and every listed game's body every time; now the steady state of a
-tick — nothing happened — is **one list request and zero body reads**, and a change costs
+`{name, sha256, size, createdAt}`, and `sha256` is a content address, so a polling client
+remembers `{name -> sha256}` and **point-reads a body by name only when that name is new or
+its hash changed** (`web/src/net/contentCache.ts`). Before S4 a tick re-read the newest
+snapshot body and every listed game's body every time; now the steady state of a tick —
+nothing happened — is **one narrow list request and zero body reads**, and a change costs
 exactly the bodies that changed. A name that disappears, or whose hash moves, is dropped, so
 the cache can never serve stale or resurrected content, and it changes nothing about which
 snapshot wins, fork detection or adoption.
 
-**Honest limit, measured rather than hidden:** this shrinks the BODY reads, not the list.
-The list still returns **every object in the store, unpaginated**, because that is all the
-service offers; a `since=`/prefix filter is queued on the ServerStore side and is out of
-scope here.
+**A tick now costs two or three NARROW lists, not one wide one.** The lobby lists `game.`
+plus `player.` (to count each row); with a game open it adds `player.<gameid>.` and the
+game's poll lists `snap.<gameid>.`. That is a deliberately chosen trade — a flat +1 or +2
+requests against a list whose size grows with every move ever made, in a store whose limiter
+allows 600 requests per client address per 60-second window (the lobby's ~5s cadence is ~36
+requests a minute). It is not a `since=` cursor, which the service does not offer.
 
 **Name budget — it is tighter than it looks.** Object names are capped at **64 characters**,
-so `g.<gameid>.p.<playerid>` must fit with room to spare, and S3's snapshot names have to fit
+so `player.<gameid>.<tag>` must fit with room to spare, and S3's snapshot names have to fit
 too. A ServerStore key id is UUID-shaped (~36 chars), which leaves almost no headroom.
 Therefore: the **name uses a short, stable player tag — the first 8 characters of the
 lowercased key id, the same public handle the service renders itself — while identity
@@ -169,14 +188,16 @@ comparisons keep using the full `whoami().id`.** `gameid` is a capped slug plus 
 random suffix, and a pin asserts that the longest legal display name still produces a legal
 name for **both** object kinds. Nothing may rely on a long name happening to fit.
 
-`gameid` is a lowercase slug plus a short random suffix (`g.tonights-game-7f3a`), because
+`gameid` is a lowercase slug plus a short random suffix (`tonights-game-7f3a`), because
 names are lowercase, flat and capped at 64 characters — the *display* name lives inside the
-object and can be anything.
+object and can be anything. At the cap the three names measure 37, 48 and 55 characters, and
+`nameBudget` (`web/src/net/gameRecord.ts`) refuses to let any of them grow past the rule.
 
 ### 4.3 Turn sync — one writer at a time, by the game's own rule
 The authoritative state is **the latest snapshot object**. After a local command the
-client writes a new one; everyone else polls the object list, notices a new/changed name
-(via `sha256`, which the list already returns), reads it and adopts it.
+client writes a new one; everyone else polls the object list — since S5 with
+`prefix=snap.<gameid>.`, so exactly ONE game's sync — notices a new/changed name (via
+`sha256`, which the list already returns), reads it and adopts it.
 
 **Why this cannot clobber:** Titan's rules give exactly one seat the right to act at any
 moment (`activePlayerIndex`, plus the battle step for engagements), and `applyCommand`
@@ -185,10 +206,12 @@ the state, not claimed by a client.** The client disables input unless the state
 its turn.
 
 I am *not* trusting that alone. Snapshot names carry the writer's id —
-`g.<gameid>.s.<turn>.<seq>.<writerid>` — so a race between two clients produces **two
+`snap.<gameid>.<turn>.<seq>.<writerid>` — so a race between two clients produces **two
 detectable objects** (a fork) instead of a silent lost update, which is precisely the
 failure `API.md:470-474` warns about. Fork resolution is a rule, not a hope: the
-turn-owner's snapshot wins and the other author re-issues.
+turn-owner's snapshot wins and the other author re-issues. The S5 rename changed the KIND
+segment and nothing else: the zero-padded `turn`/`seq`, the parent-seeded successor rule and
+the fork detection are exactly as S3 pinned them.
 
 **The trust model has to be stated plainly, because the store gives us no authority.**
 There is no per-object isolation (§2.1): a key with `read`/`write` on `colossus` can list,
@@ -204,6 +227,18 @@ buys isolation between players, not authority over a shared public object.
 
 Object names sort lexicographically, so zero-padded `turn`/`seq` make "newest" a simple
 max — no clock trust, no `since=` needed.
+
+**The store now polices request volume, and the client obeys it (S5).** ServerStore ships a
+rate limiter (on by default, `600` requests per CLIENT ADDRESS per fixed 60-second window)
+that answers `429 rate_limited` with a `Retry-After` in whole seconds. It runs BEFORE the key
+guard, so even a `401` counts, and it is per address rather than per key — which matters for
+testing, because two browsers behind one NAT share one bucket. A client that ignored the
+header would be wrong twice over: the poll's own backoff caps at `interval × 8` (16s in a
+game, 40s in the lobby), which is INSIDE the window it was just told to leave alone, and the
+retry would spend more of the bucket it had already exhausted. So a `429` is carried up as a
+`rate_limited` error WITH its `Retry-After`, and the poll schedules the next tick no sooner
+than that; anything else keeps the old doubling backoff. On screen it reads as pacing —
+*"the store is busy — slowing down, retrying in 60s"* — not as an unexplained failure.
 
 ### 4.4 Secrets — **FORK 2**
 `publicViewSlots` reveals a legion's full contents to *any* client when the owner is human,
@@ -245,10 +280,12 @@ snapshot-based transport does not replay and so is immune — another reason to 
    variant and every client loads the same one.
 4. **Poll every ~2s in a GAME and ~5s in the LOBBY, only while the tab is visible**, with
    backoff on error — ONE loop carrying two jobs (`web/src/net/sync.ts`'s `pollLoop`; the
-   lobby's job is `web/src/net/lobbyWatcher.ts`). There is no push channel and no rate limit,
-   so the interval is the only throttle we control; turn latency is what a player feels in a
-   game, while the lobby's event is the human-paced "somebody pressed Join", and 5s is under
-   the threshold where a person concludes a screen is dead.
+   lobby's job is `web/src/net/lobbyWatcher.ts`). There is no push channel, so the interval
+   is the throttle we control; turn latency is what a player feels in a game, while the
+   lobby's event is the human-paced "somebody pressed Join", and 5s is under the threshold
+   where a person concludes a screen is dead. **A rate limit is the ONE case where the
+   interval is not ours to choose**: a `429` carrying `Retry-After` is obeyed instead
+   (`nextPollDelayMs`), because the service's own instruction beats our backoff. See §4.3.
 5. **Dice ids are normalised or excluded from equality**, since they differ per client.
 6. **A game's objects are DELETEd when it finishes** — the store has no GC, and the lobby
    list is unpaginated, so finished games must be cleaned up by the host client.
@@ -267,16 +304,16 @@ therefore **not planned and not queued**; they would only come back if the owner
 cheating to be *hard*, and that would be a new decision rather than a slice waiting in line.
 Rejected as before: (c) per-player encryption.
 
-## 7 · Slice plan (nothing dispatched yet)
+## 7 · Slice plan (S0–S4 landed; S5 is the kind-led rename and the limiter)
 
 | # | Where | Slice | Blocks |
 | --- | --- | --- | --- |
 | **S0** | ServerStore | ~~**CORS + `OPTIONS` preflight before the auth guard**~~ — **DONE 2026-09-28**, landed by ServerStore (`bd55b7e`) and verified live from here (§3). No ColossusWeb work needed | — |
 | S1 | ColossusWeb | Store client behind a transport interface (list/get/put/delete), key entry in memory, `whoami` → identity. A fake in-memory transport so the lobby and sync are testable **without the network** | S2+ |
-| S2 | ColossusWeb | **The owner's three lobby actions: Create Multiplayer, Join Multiplayer, and Start Multiplayer (creator only).** Create writes `g.<id>.game`; Join writes the caller's OWN `g.<id>.p.<keyid>`; Start flips the game to started and only the creator's client performs it. Discovery is the prefix-filtered object list | S3 |
+| S2 | ColossusWeb | **The owner's three lobby actions: Create Multiplayer, Join Multiplayer, and Start Multiplayer (creator only).** Create writes the game object; Join writes the caller's OWN player object; Start flips the game to started and only the creator's client performs it. Discovery is the object list filtered by prefix | S3 |
 | S3 | ColossusWeb | Turn sync: publish a snapshot after each local command; poll and adopt; input disabled unless the state says it is your turn | S4 |
 | S4 | ColossusWeb | Robustness: writer-tagged fork detection and resolution, reconnect/resume, cleanup of finished games | — |
-| S5 | both | ~~per-player stores, commit–reveal dice~~ — **DROPPED by the owner's risk call** (a shared snapshot may hold the plain truth; no crypto, no partitioning). What remains, and only if it ever actually bites: polite polling and ServerStore rate limiting | — |
+| **S5** | ColossusWeb | **LANDED.** The store's `prefix=` filter and its rate limiter, used: kind-led object names (`game.` / `player.` / `snap.`), one narrow listing per access pattern, `Retry-After` obeyed by the poll, and "the store is busy — slowing down" on screen. The DROPPED part of the original S5 (per-player stores, commit–reveal dice) stays dropped by the owner's risk call — a shared snapshot may hold the plain truth | — |
 
 Pins I would require from S1–S3, phrased as statements: *the key reaches `localStorage`
 only after `whoami` accepted it, is re-validated on load and removed when it fails, and
