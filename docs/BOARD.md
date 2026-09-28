@@ -343,3 +343,27 @@ Each was **verified**, not assumed, on 2026-09-27 at the base commit.
   `docs/ARCHITECTURE.md`). **The rule:** before a brief quotes a field's MEANING, read
   the line that assigns it, and let a pin drive two writers through a real sequence
   rather than trusting the field name.
+- `TRAP` — **a receiver-insensitive stub cannot test a platform API that cares about its
+  receiver.** The transport held `window.fetch` on an instance and called it as
+  `this.fetchImpl(...)`; every browser refuses that with `Illegal invocation`, while every
+  `fake.fetch.bind(fake)` and every arrow in the suite passed happily. The whole
+  multiplayer feature was dead in a real browser with a fully green suite. **The rule:** a
+  pin for a platform API must ENFORCE that platform's own precondition — the receiver, the
+  required header, the fresh `Headers` instance — not merely accept whatever arrives. The
+  pin now throws `Illegal invocation` for any receiver that is neither the global nor
+  `undefined`.
+- `TRAP` — **`git checkout -- <file>` restores HEAD, so it WIPES an uncommitted fix.** The
+  dispatcher's first run of arm F injected the bug, then "restored" — and reverted the
+  uncommitted fix instead, silently reverting the tree to the broken committed bytes
+  (detected only because the restored sha did not match the pre-arm sha, and the pin stayed
+  red). `docs/TESTING.md` already documents exactly this. **The rule:** commit the slice
+  FIRST, or restore from an out-of-tree copy; and always compare the restored hash to the
+  pre-arm hash rather than assuming the restore worked.
+- `TRAP` — **a second `trap ... EXIT` REPLACES the first, so cleanup silently disappears.**
+  A probe script set `trap restore EXIT` and later `trap cleanup EXIT`; the exit path ran
+  only `cleanup`, so the gate lock was left held and a throwaway build dir survived. **The
+  rule:** one exit handler per script, or have the single handler call both; and verify the
+  lock is free and scratch is gone afterwards. Compounding it, `$!` after
+  `cmd && nohup … &` is the SUBSHELL's pid, so `kill $!` left an orphaned `http.server` —
+  the THIRD time this session that capturing `$!` for a compound command was wrong. Capture
+  the real pid (`ss -ltnp`) and kill it in a separate call.
