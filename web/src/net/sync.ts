@@ -43,6 +43,7 @@
  */
 
 import { useEffect, useState } from 'react'
+import { getMovesForSelected } from '../engine/GameEngine'
 import type { NewGameOptions, GameCommand, GameState, PlayerKind } from '../engine/types'
 import { PLAYER_COLORS } from '../engine/types'
 import { deserializeGame, serializeGame, type SavedGameBlob } from '../persistence/saveGame'
@@ -425,16 +426,26 @@ export async function fetchLatest(
  * must not deselect the legion I was inspecting. Everything else (including
  * `diceRoll` and `pendingDice`, which are engine flow, and `message`, which is
  * how the actor's move is announced) comes from the adopted state.
+ *
+ * **`legalHexes` deliberately is NOT on this list.** It is DERIVED — the answer
+ * to "where may the selected legion go, with the current roll, from here" — and
+ * preserving it across an adoption keeps a set computed for the PREVIOUS roll
+ * and the PREVIOUS board (the S6 regression: the board highlighted the old
+ * roll's destinations and the real ones were absent, so no move was accepted).
+ * It is recomputed below from the ADOPTED state through the engine's ONE rule.
  */
-export const LOCAL_UI_FIELDS = ['selectedLegionId', 'legalHexes'] as const
+export const LOCAL_UI_FIELDS = ['selectedLegionId'] as const
 
 function preserveLocalUi(next: GameState, local: GameState): void {
-  const selected =
-    local.selectedLegionId !== null && next.legions.some((legion) => legion.id === local.selectedLegionId)
+  next.selectedLegionId =
+    local.selectedLegionId !== null &&
+    next.legions.some((legion) => legion.id === local.selectedLegionId)
       ? local.selectedLegionId
       : null
-  next.selectedLegionId = selected
-  next.legalHexes = selected === null ? [] : [...local.legalHexes]
+  // The selection is a preference; its reachable set is DERIVED from the adopted
+  // state, never carried over. `getMovesForSelected` is the engine's own rule
+  // for it, so there is no second implementation of "where may this legion go".
+  next.legalHexes = [...getMovesForSelected(next).keys()]
 }
 
 /**

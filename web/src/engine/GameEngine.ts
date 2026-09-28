@@ -634,7 +634,9 @@ function selectLegion(state: GameState, legionId: string): void {
   state.selectedLegionId = legionId
 
   if (state.phase === 'Move' && isMine && state.movementRoll != null) {
-    const moves = listAllMoves(state, legion, state.movementRoll)
+    // The ONE rule for "where may this legion go" (see `getMovesForSelected`),
+    // so the engine's own selection and any re-derivation cannot drift.
+    const moves = getMovesForSelected(state)
     state.legalHexes = [...moves.keys()]
     const stacked =
       playerLegions(state, player.id).filter((l) => l.hexLabel === legion.hexLabel).length > 1
@@ -1548,6 +1550,19 @@ export function getLegalRecruits(state: GameState, legionId: string): string[] {
   return listRecruits(state, legion)
 }
 
+/**
+ * The legal destinations of the SELECTED legion — the ONE rule for "where may
+ * this legion go", derived from the state as it stands. It is deliberately PURE
+ * and exported: the engine's own `selectLegion` routes through it, and so does
+ * adoption, because `legalHexes` is a DERIVED cache (it answers "where may THIS
+ * legion go, with THIS roll, from HERE") and must never be copied across a state
+ * boundary. A renderer may call it too; every caller gets the same answer for
+ * the same state instead of a second implementation.
+ *
+ * Empty unless it is the Move phase, a legion is selected, it belongs to the
+ * ACTIVE player (an inspected enemy stack is a preview, never a destination) and
+ * the movement roll is settled.
+ */
 export function getMovesForSelected(state: GameState): Map<string, { side: string; teleport: boolean }> {
   if (state.phase !== 'Move' || !state.selectedLegionId || state.movementRoll == null) {
     return new Map()

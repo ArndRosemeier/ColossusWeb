@@ -378,7 +378,12 @@ export function MasterBoardView({
               : WALK_STROKE
           const verts = hexVertices(cx, cy, scale, hex.inverted)
           return (
-            <g key={hex.label} onClick={() => onHexClick(hex.label)} style={{ cursor: 'pointer' }}>
+            <g
+              key={hex.label}
+              data-hex={hex.label}
+              onClick={() => onHexClick(hex.label)}
+              style={{ cursor: 'pointer' }}
+            >
               <polygon
                 points={hexPoints(cx, cy, scale, hex.inverted)}
                 fill={fill}
@@ -534,6 +539,7 @@ export function MasterBoardView({
             return (
               <g
                 key={leg.id}
+                data-legion={leg.id}
                 onClick={(e) => {
                   e.stopPropagation()
                   onLegionClick(leg.id)

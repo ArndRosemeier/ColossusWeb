@@ -9,7 +9,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createGame, dispatch } from '../../engine/GameEngine'
+import { createGame, dispatch, getMovesForSelected } from '../../engine/GameEngine'
 import { loadDefaultVariant, turn1SplitChild, twoPlayerGame } from '../../engine/__tests__/helpers'
 import type { GameState } from '../../engine/types'
 import { forgetKey, installKey } from '../keyStore'
@@ -26,7 +26,7 @@ import {
   type GameRecord,
   type PlayerRecord,
 } from '../gameRecord'
-import { SAVE_VERSION, serializeGame } from '../../persistence/saveGame'
+import { SAVE_VERSION, deserializeGame, serializeGame } from '../../persistence/saveGame'
 import {
   SNAPSHOT_SCHEMA_VERSION,
   serializeSnapshot,
@@ -122,6 +122,39 @@ function splitOnce(): GameState {
   const parent = state.legions.find((legion) => legion.playerId === state.players[0]!.id)!
   const childCreatures = turn1SplitChild(state, parent)
   return dispatch(state, { type: 'split', parentId: parent.id, childCreatures })
+}
+
+/**
+ * A real Move-phase state built through the engine (`split` → `doneSplit`),
+ * with the roll forced, so a pin can compare two DIFFERENT rolls on the same
+ * board. `seed` picks which board.
+ */
+function draftState(roll: number, seed = 1): GameState {
+  let state = twoPlayerGame(seed)
+  const parent = state.legions.find((legion) => legion.playerId === state.players[0]!.id)!
+  state = dispatch(state, {
+    type: 'split',
+    parentId: parent.id,
+    childCreatures: turn1SplitChild(state, parent),
+  })
+  state = dispatch(state, { type: 'doneSplit' }, () => 0.5)
+  return withMovementRoll(state, roll)
+}
+
+/** The same state with a different movement roll — the ONLY thing that changes. */
+function withMovementRoll(state: GameState, roll: number): GameState {
+  const next = structuredClone(state)
+  next.movementRoll = roll
+  return next
+}
+
+/**
+ * The engine's OWN answer to "where may this legion go" for a state — the
+ * oracle every adoption pin compares against, so the pins can never encode a
+ * second implementation of the movement rule.
+ */
+function engineDestinations(state: GameState, legionId: string): string[] {
+  return [...getMovesForSelected(dispatch(state, { type: 'selectLegion', legionId })).keys()]
 }
 
 /** Deep-copy without `variant`, with the per-client dice ids neutralised and the
@@ -320,7 +353,12 @@ describe('adoption keeps the local UI and follows the chain', () => {
 
     const adopted = adopt(latest!.body, local, variant)
     expect(adopted.selectedLegionId).toBe(inspected)
-    expect(adopted.legalHexes).toEqual(['0101', '0202'])
+    // `legalHexes` is NOT a local UI field: it is DERIVED from the adopted state
+    // and its own roll, so the local chips never survive.
+    expect(adopted.legalHexes).not.toEqual(['0101', '0202'])
+    expect(adopted.legalHexes).toEqual(
+      [...getMovesForSelected({ ...adopted, selectedLegionId: inspected }).keys()],
+    )
     // ...and what the LOCAL player had in their own hand is replaced by the
     // shared truth.
     expect(adopted.legions).toHaveLength(remoteState.legions.length)
@@ -332,6 +370,179 @@ describe('adoption keeps the local UI and follows the chain', () => {
     expect(reset.selectedLegionId).toBeNull()
     expect(reset.legalHexes).toEqual([])
     expect(published.name).toBe(latest!.body.header.name)
+  })
+
+  it('adopting a state whose roll CHANGED shows the ADOPTED roll, not the previous one', async () => {
+    const arm = createMemoryTransport({ identity: CREATOR })
+    const { record } = await seededGame(arm)
+    const variant = loadDefaultVariant()
+    const published = await publishSnapshot(arm, CREATOR, record, draftState(3), {
+      store: TEST_STORE,
+    })
+    const latest = await fetchLatest(arm, GAME, { store: TEST_STORE })
+    // The ADOPTED state as this client will see it (its ids are the deserialiser's).
+    const remoteState = deserializeGame(latest!.body.state, variant)
+    const inspected = remoteState.legions.find(
+      (legion) => legion.playerId === remoteState.players[0]!.id,
+    )!.id
+
+    // The LOCAL client holds roll 6, this stack selected, and the set computed
+    // for it.
+    const local = withMovementRoll(remoteState, 6)
+    local.selectedLegionId = inspected
+    const onLocalRoll = engineDestinations(local, inspected)
+    expect(onLocalRoll.length).toBeGreaterThan(0)
+
+    // The ADOPTED state carries a DIFFERENT roll.
+    const onAdoptedRoll = engineDestinations(remoteState, inspected)
+    expect(onAdoptedRoll).not.toEqual(onLocalRoll)
+
+    const adopted = adopt(latest!.body, local, variant)
+    expect(adopted.movementRoll).toBe(remoteState.movementRoll)
+    expect(adopted.legalHexes).toEqual(onAdoptedRoll)
+    expect(adopted.legalHexes).not.toEqual(onLocalRoll)
+    // The nicety that IS worth keeping: the inspected legion survives.
+    expect(adopted.selectedLegionId).toBe(inspected)
+    expect(published.name).toBe(latest!.body.header.name)
+  })
+
+  it('adopting a state where the inspected legion MOVED recomputes for its new position', async () => {
+    const arm = createMemoryTransport({ identity: CREATOR })
+    const { record } = await seededGame(arm)
+    const variant = loadDefaultVariant()
+
+    // The legion's position at the START of the turn and the destination a legal
+    // move took it to — both from the ENGINE.
+    const before = draftState(6)
+    const inspected = before.legions.find(
+      (legion) => legion.playerId === before.players[0]!.id,
+    )!.id
+    const originHex = before.legions.find((l) => l.id === inspected)!.hexLabel
+    const destination = engineDestinations(before, inspected)[0]!
+    expect(destination).not.toBe(originHex)
+    const moved = dispatch(before, { type: 'move', legionId: inspected, toHex: destination })
+    expect(moved.legions.find((l) => l.id === inspected)!.hexLabel).toBe(destination)
+
+    // The REMOTE state is the NEXT turn: the same legion, now standing where it
+    // moved to, selectable again. This is the state the client adopts.
+    const remoteTurn = structuredClone(moved)
+    const legion = remoteTurn.legions.find((l) => l.id === inspected)!
+    legion.moved = false
+    legion.moveOriginHex = null
+    remoteTurn.selectedLegionId = null
+    remoteTurn.legalHexes = []
+    await publishSnapshot(arm, CREATOR, record, remoteTurn, { store: TEST_STORE })
+    const latest = await fetchLatest(arm, GAME, { store: TEST_STORE })
+    const adoptedState = deserializeGame(latest!.body.state, variant)
+    expect(
+      adoptedState.legions.find((l) => l.id === inspected)!.hexLabel,
+    ).toBe(destination)
+
+    // The LOCAL client still holds what it computed BEFORE the move: the same
+    // legion, selected at its ORIGIN position, with the set for that position.
+    const local = structuredClone(adoptedState)
+    local.selectedLegionId = inspected
+    local.legions.find((l) => l.id === inspected)!.hexLabel = originHex
+    const onOrigin = engineDestinations(local, inspected)
+    expect(onOrigin.length).toBeGreaterThan(0)
+
+    const adopted = adopt(latest!.body, local, variant)
+    expect(adopted.legions.find((l) => l.id === inspected)!.hexLabel).toBe(destination)
+    expect(adopted.legalHexes).toEqual(engineDestinations(adopted, inspected))
+    // The set that belonged to the ORIGIN position must not survive.
+    expect(adopted.legalHexes).not.toEqual(onOrigin)
+  })
+
+  it('a full owner-shaped turn sequence: 6, a remote turn, then 3 — and the move is accepted', async () => {
+    const arm = createMemoryTransport({ identity: CREATOR })
+    const { record } = await seededGame(arm)
+    const variant = loadDefaultVariant()
+    const session = createSyncSession({
+      transport: arm,
+      identity: CREATOR,
+      record,
+      store: TEST_STORE,
+    })
+
+    // 1. The owner's first turn: roll 6, one stack selected. This is the roll the
+    //    client still holds when the next snapshot arrives.
+    const first = draftState(6)
+    const legion = first.legions.find((l) => l.playerId === first.players[0]!.id)!
+    const firstTurn = dispatch(first, { type: 'selectLegion', legionId: legion.id })
+    await publishSnapshot(arm, CREATOR, record, firstTurn, { store: TEST_STORE })
+
+    // 2. The owner's NEXT turn (after a remote turn) is a DIFFERENT roll, with
+    //    the same board: this is the snapshot the client adopts. The round
+    //    advances exactly as the engine advances it, so the two publishes are
+    //    DISTINCT names (the name carries the round).
+    const remoteTurn = withMovementRoll(first, 3)
+    remoteTurn.turnNumber = firstTurn.turnNumber + 1
+    await publishSnapshot(arm, CREATOR, record, remoteTurn, { store: TEST_STORE })
+    const latest = await fetchLatest(arm, GAME, { store: TEST_STORE, heldName: null })
+    expect(latest!.body.header.turn).toBe(remoteTurn.turnNumber)
+
+    // The ids the adopting client will actually hold: the deserialiser's.
+    const asAdopted = deserializeGame(latest!.body.state, variant)
+    const inspected = asAdopted.legions.find(
+      (l) => l.playerId === asAdopted.players[0]!.id,
+    )!.id
+    const onThree = engineDestinations(asAdopted, inspected)
+    expect(onThree.length).toBeGreaterThan(0)
+    const onSix = engineDestinations(withMovementRoll(asAdopted, 6), inspected)
+    expect(onSix.length).toBeGreaterThan(onThree.length)
+    expect(onSix).not.toEqual(onThree)
+
+    // 3. The client adopts it with roll 6 still in hand.
+    let current: GameState | null = withMovementRoll(asAdopted, 6)
+    current.selectedLegionId = inspected
+    current.legalHexes = onSix
+    const path = createCommitPath({
+      getState: () => current,
+      setState: (next) => {
+        current = next
+      },
+      getSession: () => session,
+    })
+    const adopted = path.remote(latest!.body, variant)
+    expect(adopted).not.toBeNull()
+    expect(current!.selectedLegionId).toBe(inspected)
+    expect(current!.movementRoll).toBe(3)
+    expect(current!.legalHexes).toEqual(onThree)
+    expect(current!.legalHexes).not.toEqual(onSix)
+
+    // 4. ... and a move that is legal for the NEW roll is accepted. Under the
+    //    defect the client held the 45-hex set from roll 6 instead of this
+    //    3-hex one, so the roll-6-only destinations were the ones it offered.
+    //    `dispatch` reports a refused command through `message`, so an accepted
+    //    move is one that changes the legion's position.
+    const destination = onThree[0]!
+    const rollSixOnly = onSix.filter((hex) => !onThree.includes(hex))
+    expect(rollSixOnly.length).toBeGreaterThan(0)
+    expect(onThree).not.toContain(rollSixOnly[0]!)
+    const after: GameState = dispatch(current!, {
+      type: 'move',
+      legionId: inspected,
+      toHex: destination,
+    })
+    expect(after.legions.find((l) => l.id === inspected)!.hexLabel).toBe(destination)
+    expect(after.message).not.toMatch(/illegal/i)
+  })
+
+  it('a legion that no longer exists clears the selection AND the reachable set', async () => {
+    const arm = createMemoryTransport({ identity: CREATOR })
+    const { record } = await seededGame(arm)
+    const variant = loadDefaultVariant()
+    await publishSnapshot(arm, CREATOR, record, splitOnce(), { store: TEST_STORE })
+    const latest = await fetchLatest(arm, GAME, { store: TEST_STORE })
+
+    const local = twoPlayerGame(1)
+    local.selectedLegionId = 'gone-forever'
+    local.legalHexes = ['0101', '0202']
+
+    const adopted = adopt(latest!.body, local, variant)
+    expect(adopted.legions.some((legion) => legion.id === 'gone-forever')).toBe(false)
+    expect(adopted.selectedLegionId).toBeNull()
+    expect(adopted.legalHexes).toEqual([])
   })
 
   it('the commit path adopts a REMOTE body through the same seam, and never publishes it', async () => {
