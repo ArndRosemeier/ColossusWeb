@@ -83,20 +83,33 @@ export interface LobbyPanelViewProps {
  * changed yet" from "this screen is dead". It renders the loop's own state — it
  * makes no request of its own — and every sentence it can say is a function of
  * that state, so a pin can assert the wording as well as the presence.
+ *
+ * A rate limit reads as PACING, not as a broken lobby: the store said "slow
+ * down", the loop is waiting the `Retry-After` out, and the sentence says so
+ * WITH the wait. The failure detail below still carries the service's own
+ * message, so the refusal is never hidden.
  */
 export interface LobbyFreshnessProps {
   readonly status: PollStatus | null
   readonly pollSeconds: number
+  /** The loop's last refusal, so its SENTENCE can be the fresh one. */
+  readonly failure?: FailureDescription | null
 }
 
 export function LobbyFreshness(props: LobbyFreshnessProps) {
   const { status } = props
   const phase = status?.phase ?? 'starting'
+  const rateLimited = status?.lastError?.code === 'rate_limited'
+  const retryAfter = props.failure?.retryAfterSeconds
   const label =
     status === null
       ? 'Checking the store…'
       : status.phase === 'error'
-        ? `list update failed — retrying (${status.failures} in a row, last tried ${props.pollSeconds}s ago)`
+        ? rateLimited
+          ? `the store is busy — slowing down${
+              retryAfter === undefined ? '' : `, retrying in ${retryAfter}s`
+            }`
+          : `list update failed — retrying (${status.failures} in a row, last tried ${props.pollSeconds}s ago)`
         : status.phase === 'stopped'
           ? 'Not watching the store any more'
           : status.phase === 'idle'
@@ -202,7 +215,11 @@ export function LobbyPanelView(props: LobbyPanelViewProps) {
           ) : (
             <p className="hint">Nobody has joined yet.</p>
           )}
-          <LobbyFreshness status={props.pollStatus} pollSeconds={pollSeconds} />
+          <LobbyFreshness
+            status={props.pollStatus}
+            pollSeconds={pollSeconds}
+            failure={props.failure}
+          />
           <div className="setup-actions">
             {isCreator && active.record.status === 'lobby' && (
               <button
@@ -329,7 +346,11 @@ export function LobbyPanelView(props: LobbyPanelViewProps) {
                 ))}
               </ul>
             )}
-            <LobbyFreshness status={props.pollStatus} pollSeconds={pollSeconds} />
+            <LobbyFreshness
+              status={props.pollStatus}
+              pollSeconds={pollSeconds}
+              failure={props.failure}
+            />
             <div className="setup-actions">
               <button type="button" className="ghost" onClick={props.onRefresh} disabled={props.busy}>
                 Refresh games

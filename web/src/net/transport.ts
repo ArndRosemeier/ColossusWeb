@@ -47,13 +47,34 @@ export interface GetResult {
 }
 
 export interface ServerStoreTransport {
-  list(store: string): Promise<StoreObject[]>
+  /**
+   * The objects in a store, in the store's own (name) order.
+   *
+   * `prefix` is the service's own `?prefix=` filter (S5): only names that START
+   * WITH it are returned. Omitted, the whole store is returned — which is what
+   * every caller did before the filter existed, so this stays backward
+   * compatible. The prefix obeys the SAME rule as a name
+   * ({@link OBJECT_PREFIX_PATTERN}) and is validated HERE, once, so both
+   * implementations refuse an illegal prefix locally, identically, and BEFORE
+   * any request is made — the service answers `400 invalid_name` for an empty or
+   * uppercase one, and a prefix matching nothing is a `200` with an empty list.
+   */
+  list(store: string, prefix?: string): Promise<StoreObject[]>
   get(store: string, name: string): Promise<GetResult>
   put(store: string, name: string, value: string): Promise<PutResult>
   remove(store: string, name: string): Promise<void>
   /** The identity of whoever currently holds the key. */
   whoami(): Promise<StoreIdentity>
 }
+
+/**
+ * The service's error `code` for a request refused by its own rate limiter
+ * (`429`, with a `Retry-After` header). Named here because it is a code the
+ * client BRANCHES on — the poll loop must wait the header out instead of using
+ * its doubling backoff — and a bare string in two modules would be the seam this
+ * file exists to prevent.
+ */
+export const RATE_LIMITED_CODE = 'rate_limited'
 
 /**
  * A failure, never a silent fallback. `code` is the service's own error code
@@ -64,16 +85,28 @@ export interface ServerStoreTransport {
  * `transport_error` / `bad_response` are the two codes this client mints
  * itself, for a network failure and for a body that is not the expected shape.
  * A local refusal (an illegal object name) is `invalid_name` / `invalid_store`.
+ *
+ * `retryAfterSeconds` is set ONLY from a `Retry-After` response header (whole
+ * seconds, `>= 0`) — today that means a `429 rate_limited`. It is the
+ * service's own instruction and the caller obeys it rather than guessing, which
+ * is why it rides on the error instead of being folded into the message text.
  */
 export class ServerStoreError extends Error {
   readonly code: string
   readonly status: number | null
+  readonly retryAfterSeconds?: number
 
-  constructor(code: string, message: string, status: number | null = null) {
+  constructor(
+    code: string,
+    message: string,
+    status: number | null = null,
+    retryAfterSeconds?: number,
+  ) {
     super(message)
     this.name = 'ServerStoreError'
     this.code = code
     this.status = status
+    if (retryAfterSeconds !== undefined) this.retryAfterSeconds = retryAfterSeconds
     // `target: es2023` downlevels a class `extends Error` to ES5 semantics only
     // for older targets; this explicit restore keeps `instanceof` honest anyway.
     Object.setPrototypeOf(this, ServerStoreError.prototype)
@@ -91,6 +124,15 @@ export const OBJECT_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/
 /** The service's rule for store names (`API.md`), as the client validates it. */
 export const STORE_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/
 
+/**
+ * The service's rule for a LISTING PREFIX, validated locally so an illegal one
+ * is refused before a request is made. It is the name rule verbatim
+ * (`src/core/validate.ts`: `parseObjectPrefix` calls the same `parseName`), and
+ * it is a separate constant only so a reader can see WHY a prefix is legal:
+ * `game.` and `player.abc-1234.` pass, `GAME.` and the empty string do not.
+ */
+export const OBJECT_PREFIX_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/
+
 export function assertObjectName(name: string): string {
   if (!OBJECT_NAME_PATTERN.test(name)) {
     throw new ServerStoreError(
@@ -99,6 +141,23 @@ export function assertObjectName(name: string): string {
     )
   }
   return name
+}
+
+/**
+ * Refuse an illegal listing prefix LOCALLY, with the same code and the same
+ * shape of message the local name guard uses, so a caller gets one behaviour
+ * from both transports and the service never sees a request it would answer
+ * `400 invalid_name` (which would silently return nothing if we mistook it for
+ * "no matches").
+ */
+export function assertObjectPrefix(prefix: string): string {
+  if (!OBJECT_PREFIX_PATTERN.test(prefix)) {
+    throw new ServerStoreError(
+      'invalid_name',
+      `illegal object prefix ${JSON.stringify(prefix)}: want /${OBJECT_PREFIX_PATTERN.source}/`,
+    )
+  }
+  return prefix
 }
 
 export function assertStoreName(store: string): string {

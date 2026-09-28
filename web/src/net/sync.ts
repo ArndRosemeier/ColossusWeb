@@ -48,7 +48,7 @@ import { PLAYER_COLORS } from '../engine/types'
 import { deserializeGame, serializeGame, type SavedGameBlob } from '../persistence/saveGame'
 import type { LoadedVariant } from '../variant/loadVariant'
 import { createContentCache, type ContentCache } from './contentCache'
-import { describeFailure, type FailureDescription } from './failure'
+import { describeFailure, formatFailureStatus, type FailureDescription } from './failure'
 import {
   assertGameId,
   playerTagFor,
@@ -64,6 +64,7 @@ import {
   parseSnapshot,
   serializeSnapshot,
   snapshotObjectName,
+  snapshotObjectPrefixFor,
   snapshotRefsForGame,
   type SnapshotBody,
   type SnapshotFork,
@@ -71,6 +72,7 @@ import {
 } from './snapshot'
 import { serverStoreName } from './storeName'
 import {
+  RATE_LIMITED_CODE,
   ServerStoreError,
   assertStoreName,
   type ServerStoreTransport,
@@ -340,7 +342,8 @@ export interface FetchOptions {
 }
 
 /**
- * Read the newest snapshot of a game: list, filter to the game's snapshots, take
+ * Read the newest snapshot of a game: list THIS GAME's snapshots
+ * (`prefix=snap.<gameid>.` — one narrow request, never the whole store), take
  * the GREATEST name, then read every body at that `(turn, seq)`.
  *
  * **The list is for LEARNING NAMES and HASHES, never for content.** `sha256` from
@@ -368,7 +371,7 @@ export async function fetchLatest(
   assertStoreName(store)
   assertGameId(gameId)
 
-  const objects = await transport.list(store)
+  const objects = await transport.list(store, snapshotObjectPrefixFor(gameId))
   const byName = new Map(objects.map((object) => [object.name, object] as const))
   const refs = snapshotRefsForGame(objects, gameId)
   if (refs.length === 0) return null
@@ -636,10 +639,54 @@ export function browserVisibility(): VisibilitySource {
 }
 
 /**
+ * The bounds on a `Retry-After` the loop will honour, in MILLISECONDS. The
+ * service's window is 60s, so both are far away from a real value; they exist so
+ * a malformed or hostile header cannot park the loop for ever (a stall no user
+ * could distinguish from a hang) or spin it inside the window it was told to
+ * leave. `FLOOR` is the poll's own base interval: obeying a *smaller* wait than
+ * we would have used anyway is not obeying anything.
+ */
+export const RATE_LIMIT_DELAY_FLOOR_MS = 1000
+export const RATE_LIMIT_DELAY_CEILING_MS = 15 * 60 * 1000
+
+/** A `Retry-After` in whole seconds, as a bounded delay in milliseconds. */
+function retryDelayMs(seconds: number): number {
+  return Math.min(Math.max(seconds * 1000, RATE_LIMIT_DELAY_FLOOR_MS), RATE_LIMIT_DELAY_CEILING_MS)
+}
+
+/**
+ * When the next tick runs after a FAILED one — the ONE rule about retry timing,
+ * exported so its arithmetic can be pinned directly (the loop that USES it is
+ * pinned separately; a test that had to infer the delay from tick counts would
+ * be testing the fake clock instead).
+ *
+ *  - **A rate limit OBEYS `Retry-After`.** The service told us how long to leave
+ *    it alone, so the delay is that (bounded), NOT the doubling backoff — whose
+ *    cap is `interval × 8` (16s in a game, 40s in the lobby) and would therefore
+ *    retry INSIDE the 60-second window it was told to wait out, making the
+ *    refusal worse. A `429` with no readable header falls back to the backoff,
+ *    which is the old behaviour rather than an invented wait.
+ *  - **Anything else keeps the existing doubling backoff**, unchanged.
+ */
+export function nextPollDelayMs(error: unknown, intervalMs: number, failures: number): number {
+  if (
+    error instanceof ServerStoreError &&
+    error.code === RATE_LIMITED_CODE &&
+    error.retryAfterSeconds !== undefined
+  ) {
+    return retryDelayMs(error.retryAfterSeconds)
+  }
+  return Math.min(intervalMs * 2 ** failures, intervalMs * 8)
+}
+
+/**
  * What the ONE poll loop reports about itself, in terms BOTH of its jobs can
- * state — the game's snapshot fetch and the lobby's list refresh. The only
- * game-specific field is `detail`, and a fork arrives there already worded
- * ({@link formatFork}) so this module stays the only place a fork is a sentence.
+ * state — the game's snapshot fetch and the lobby's list refresh. `detail` is
+ * the job's own warning, already worded where the job words it: a fork arrives
+ * as {@link formatFork}'s sentence, and a failure as
+ * `formatFailureStatus`'s (so a rate limit reads as "the store is
+ * busy — slowing down", not as an unexplained error). `null` means "nothing to
+ * add".
  */
 export interface PollStatus {
   readonly phase: 'idle' | 'polling' | 'error' | 'stopped'
@@ -650,9 +697,8 @@ export interface PollStatus {
   readonly lastError: FailureDescription | null
   readonly lastPolledAt: string | null
   /**
-   * What the job's LAST successful tick noticed that is worth saying out loud —
-   * the game's fork sentence ({@link formatFork}) is the only user today. `null`
-   * means "nothing to add"; the lobby never sets it.
+   * What the job's LAST tick has to say beyond "healthy" — a fork, or the
+   * failure that just happened. `null` means "nothing to add".
    */
   readonly detail: string | null
 }
@@ -671,8 +717,11 @@ export interface PollStatus {
  * - **Hidden tab → no request at all.** The timer still fires, sees the tab is
  *   hidden and reschedules; becoming visible again polls immediately.
  * - **Error → backoff.** The interval doubles per consecutive failure up to 8×,
- *   and resets to the base interval on the first success. The error is reported
- *   (`onStatus` + `onError`) and never swallowed.
+ *   and resets to the base interval on the first success. A RATE LIMIT is the one
+ *   exception: a `429` carrying `Retry-After` schedules the next tick no sooner
+ *   than that instead ({@link nextPollDelayMs}), because the service's own
+ *   instruction beats a backoff that would retry inside the window. The error is
+ *   reported (`onStatus` + `onError`) and never swallowed.
  * - **Torn down → silent.** `stop()` (or the `AbortSignal`) clears the timer,
  *   unsubscribes and stops the loop for good.
  *
@@ -705,7 +754,6 @@ export interface PollHandle {
 
 export function pollLoop(options: PollLoopOptions): PollHandle {
   const interval = options.intervalMs
-  const maxInterval = interval * 8
   const visibility = options.visibility ?? browserVisibility()
   let stopped = false
   let timer: ReturnType<typeof setTimeout> | null = null
@@ -768,9 +816,12 @@ export function pollLoop(options: PollLoopOptions): PollHandle {
     } catch (error) {
       failures += 1
       lastError = describeFailure(error)
+      detail = formatFailureStatus(lastError)
       report('error')
       options.onError?.(lastError)
-      schedule(Math.min(interval * 2 ** failures, maxInterval))
+      // A `429` waits out the `Retry-After` it carried; anything else keeps the
+      // doubling backoff (see `nextPollDelayMs`).
+      schedule(nextPollDelayMs(error, interval, failures))
     }
   }
 

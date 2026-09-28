@@ -126,13 +126,13 @@ describe.each(ARMS)('%s — the lobby', (_name, makeArm) => {
     installKey(TEST_KEY)
   })
 
-  it('Create writes exactly ONE object, named g.<id>.game, with a lobby body', async () => {
+  it('Create writes exactly ONE object, named game.<id>, with a lobby body', async () => {
     const { transport, writes } = withWriteLog(arm.transport)
     const record = await createGame(ctx(transport, CREATOR), request())
 
     const name = gameObjectName(record.gameId)
     expect(writes).toEqual([`put ${TEST_STORE}/${name}`])
-    expect(name).toMatch(/^g\.[a-z0-9._-]+\.game$/)
+    expect(name).toMatch(/^game\.[a-z0-9._-]+$/)
 
     const objects = await arm.transport.list(TEST_STORE)
     expect(objects.map((object) => object.name)).toEqual([name])
@@ -217,7 +217,7 @@ describe.each(ARMS)('%s — the lobby', (_name, makeArm) => {
     expect(second).toEqual(first)
     expect(writes).toEqual([])
     expect(await shaMap(arm.transport)).toEqual(before)
-    const playerObjects = Object.keys(before).filter((name) => name.includes('.p.'))
+    const playerObjects = Object.keys(before).filter((name) => name.startsWith('player.'))
     expect(playerObjects).toHaveLength(1)
   })
 
@@ -356,18 +356,23 @@ describe.each(ARMS)('%s — the lobby', (_name, makeArm) => {
   it('Discovery ignores non-game objects and surfaces an unreadable game record', async () => {
     const good = await createGame(ctx(arm.transport, CREATOR), request({ displayName: 'Good Game' }))
     await arm.seed('random.object', '{"hello":1}')
-    await arm.seed('g.abc.p.key_5e1a', '{"some":"player"}')
-    await arm.seed('g.broken-1111aaaa.game', '{"version":2,"gameId":"broken-1111aaaa"}')
-    await arm.seed('g.notjson-2222bbbb.game', 'not json at all')
-    await arm.seed('g.other-3333cccc.game', serializeGameRecord({ ...good, gameId: 'other-3333cccc' }))
+    await arm.seed('player.abc.key_5e1a', '{"some":"player"}')
+    await arm.seed('game.broken-1111aaaa', '{"version":2,"gameId":"broken-1111aaaa"}')
+    await arm.seed('game.notjson-2222bbbb', 'not json at all')
+    await arm.seed('game.other-3333cccc', serializeGameRecord({ ...good, gameId: 'other-3333cccc' }))
+    // An OLD-scheme trio, orphaned in the live store: it is neither listed as a
+    // game nor read nor deleted.
+    await arm.seed('g.old-5555eeee.game', '{"version":1,"gameId":"old-5555eeee"}')
+    await arm.seed('g.old-5555eeee.p.key_5e1a', '{"version":1}')
+    await arm.seed('g.old-5555eeee.s.0001.000.key_5e1a', '{"version":1}')
 
     const listing = await listGames(ctx(arm.transport, CREATOR))
     expect(listing.games.map((game) => game.gameId).sort()).toEqual(
       [good.gameId, 'other-3333cccc'].sort(),
     )
     expect(listing.unreadable.map((entry) => entry.objectName).sort()).toEqual([
-      'g.broken-1111aaaa.game',
-      'g.notjson-2222bbbb.game',
+      'game.broken-1111aaaa',
+      'game.notjson-2222bbbb',
     ])
     for (const entry of listing.unreadable) {
       expect(entry.failure.code).toBe('bad_game_record')
@@ -380,15 +385,24 @@ describe.each(ARMS)('%s — the lobby', (_name, makeArm) => {
       ...listing.unreadable.map((entry) => entry.objectName),
     ]
     expect(seen).not.toContain('random.object')
-    expect(seen).not.toContain('g.abc.p.key_5e1a')
+    expect(seen).not.toContain('player.abc.key_5e1a')
+    expect(seen).not.toContain('g.old-5555eeee.game')
+    // Ignored is not deleted: every old-scheme object is still in the store.
+    expect(Object.keys(await shaMap(arm.transport))).toEqual(
+      expect.arrayContaining([
+        'g.old-5555eeee.game',
+        'g.old-5555eeee.p.key_5e1a',
+        'g.old-5555eeee.s.0001.000.key_5e1a',
+      ]),
+    )
   })
 
   it('Discovery surfaces a game whose object cannot even be fetched', async () => {
     const good = await createGame(ctx(arm.transport, CREATOR), request({ displayName: 'Reachable' }))
-    const ghost = 'g.ghost-4444dddd.game'
+    const ghost = gameObjectName('ghost-4444dddd')
     await arm.seed(ghost, serializeGameRecord({ ...good, gameId: 'ghost-4444dddd' }))
     const failing: ServerStoreTransport = {
-      list: (store) => arm.transport.list(store),
+      list: (store, prefix) => arm.transport.list(store, prefix),
       get: async (store, name) => {
         if (name === ghost) throw new ServerStoreError('not_found', 'it vanished')
         return arm.transport.get(store, name)

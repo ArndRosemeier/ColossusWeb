@@ -37,15 +37,18 @@ import { describeFailure, type FailureDescription } from './failure'
 import {
   GAME_RECORD_VERSION,
   MIN_SEATS,
+  PLAYER_OBJECT_PREFIX,
   PLAYER_RECORD_VERSION,
   assertGameId,
   assertGameObjectName,
   assertPlayerObjectName,
   gameIdFor,
-  parseGameObjectRecord,
+  gameObjectsPrefix,
   parseGameObjectName,
+  parseGameObjectRecord,
   parsePlayerObjectName,
   parsePlayerRecord,
+  playerObjectsPrefixFor,
   playerTagFor,
   seatOrderFor,
   serializeGameRecord,
@@ -188,44 +191,64 @@ export function startRefusal(
   return null
 }
 
-function countPlayers(objects: readonly StoreObject[], gameId: string): number {
-  let count = 0
-  for (const object of objects) {
-    if (parsePlayerObjectName(object.name)?.gameId === gameId) count += 1
-  }
-  return count
-}
-
-/** The player objects the store holds for one game, in the store's own order. */
-function playerObjectsFor(objects: readonly StoreObject[], gameId: string): StoreObject[] {
-  return objects.filter((object) => parsePlayerObjectName(object.name)?.gameId === gameId)
+/**
+ * How many participants a listing holds.
+ *
+ * Since S5 the listing a caller passes here is ALREADY scoped by
+ * `player.<gameid>.` — one game's participants and nothing else — so this is
+ * just its length. It is still a named function so the count has ONE
+ * definition and cannot drift between the three call sites that ask for it.
+ */
+function countPlayers(playerObjects: readonly StoreObject[]): number {
+  return playerObjects.length
 }
 
 /**
- * Read every joined player's record for a game, from a listing the caller has
- * ALREADY taken. This is the ONE place `p.` bodies are read, so `readLobby` (what
- * the UI shows) and `startGame` (which must derive the seat order from exactly
- * these records) can never disagree about who is in the game.
+ * Read every joined player's record for a game, from the `player.<gameid>.`
+ * listing the caller has ALREADY taken. This is the ONE place player bodies are
+ * read, so `readLobby` (what the UI shows) and `startGame` (which must derive
+ * the seat order from exactly these records) can never disagree about who is in
+ * the game.
  *
- * Bodies are fetched **by name only**, and only when the listing's `sha256` says
- * they changed ({@link ContentCache}); a body the caller already holds is never
- * re-read. The raw listing is a parameter because a poll tick takes it ONCE and
- * uses it for the games, the game record and the players alike.
+ * The listing is taken by NAME through the body cache, and only when the
+ * listing's `sha256` says a body changed ({@link ContentCache}); a body the
+ * caller already holds is never re-read.
  */
 async function readPlayerRecords(
   ctx: LobbyContext,
-  gameId: string,
-  objects: readonly StoreObject[],
+  playerObjects: readonly StoreObject[],
   cache?: ContentCache,
 ): Promise<PlayerRecord[]> {
   const players: PlayerRecord[] = []
-  for (const object of playerObjectsFor(objects, gameId)) {
+  for (const object of playerObjects) {
     const value = cache
       ? await cache.adopt(object.name, object.sha256)
       : (await ctx.transport.get(ctx.store, object.name)).value
     players.push(parsePlayerRecord(value))
   }
   return players
+}
+
+/**
+ * Read ONE game record by NAME and check that the body and the name agree
+ * (`parseGameObjectRecord`). A point read is as narrow as a `prefix=game.` list
+ * and costs the same single request; it is used where the game's own listing is
+ * not already in hand (there the listing's `sha256` is used instead, so no read
+ * is repeated). The name is asserted first, so an illegal game id fails locally.
+ */
+async function readGameRecord(
+  ctx: LobbyContext,
+  gameId: string,
+  cache?: ContentCache,
+): Promise<GameRecord> {
+  const gameName = assertGameObjectName(gameId)
+  const result = await ctx.transport.get(ctx.store, gameName)
+  if (cache !== undefined && result.sha256 !== null) {
+    // The caller holds these bytes now, so a later tick whose listing still
+    // reports this hash can skip the read.
+    cache.put(gameName, result.sha256, result.value)
+  }
+  return parseGameObjectRecord(gameName, result.value)
 }
 
 // ---------------------------------------------------------------------------
@@ -285,37 +308,46 @@ export async function createGame(
 // ---------------------------------------------------------------------------
 
 /**
- * List the games in the store: the store's own list route, filtered client-side
- * to the game-object shape.
+ * List the games in the store, with ONE narrow request: `prefix=game.` returns
+ * exactly the lobby's records — no snapshots, no player objects, nothing else.
+ * That is the whole point of the S5 rename: before it the leading segment was
+ * the game id, so every prefix (`g.`) returned the WHOLE store, and snapshots
+ * (one object per move) dominate it as a game runs.
  *
- * **The list is for LEARNING NAMES, never for reading content.** Each game's body
- * is fetched by NAME, and only when the listing's `sha256` says it changed
- * ({@link ContentCache}); a body already held is reused. So the steady state of a
- * poll tick — nobody created or changed a game — is one list request and no body
- * reads at all. The list route still returns every object in the store,
- * unpaginated, because that is all the service offers (a `since=` filter is
- * ServerStore-side and out of scope here): this shrinks the BODY reads, not the
- * list.
+ * **The listing is for LEARNING NAMES, never for reading content.** Bodies are
+ * read by name through the content cache, and only when their `sha256` changed,
+ * so the steady state of a poll tick is one list request and no body reads. The
+ * prefix shrinks the LIST; the cache shrinks the READS.
  *
- * A caller that already has the raw listing can pass it in (see
- * {@link listGamesFrom}), so one tick takes the list ONCE for the games, the
- * active game's record and the players alike.
+ * A caller that already has the games listing (and the player objects it wants
+ * counted) can pass them in (see {@link listGamesFrom}), so a tick takes each
+ * request exactly once.
  */
 export async function listGames(
   ctx: LobbyContext,
   cache?: ContentCache,
 ): Promise<GameListing> {
-  return listGamesFrom(ctx, await ctx.transport.list(ctx.store), cache)
+  const [games, players] = await Promise.all([
+    ctx.transport.list(ctx.store, gameObjectsPrefix()),
+    // The `player.` prefix matches EVERY game's participants — this is the one
+    // place the wide player listing is right, because the lobby must show each
+    // listed game's player count. The per-game view uses
+    // `playerObjectsPrefixFor(gameId)` instead.
+    ctx.transport.list(ctx.store, PLAYER_OBJECT_PREFIX),
+  ])
+  return listGamesFrom(ctx, games, players, cache)
 }
 
 /**
- * Discovery from a listing the caller already took. The cache is brought in line
- * with THIS listing, which is what drops a name that has disappeared: a deleted
- * game is not remembered as current.
+ * Discovery from listings the caller already took: the games
+ * (`prefix=game.`) and the player objects it wants counted. The cache is brought
+ * in line with the GAMES listing, which is what drops a name that has
+ * disappeared: a deleted game is not remembered as current.
  */
 export async function listGamesFrom(
   ctx: LobbyContext,
   objects: readonly StoreObject[],
+  playerObjects: readonly StoreObject[] = [],
   cache?: ContentCache,
 ): Promise<GameListing> {
   cache?.retain(objects.map((object) => object.name))
@@ -325,21 +357,24 @@ export async function listGamesFrom(
 
   for (const object of objects) {
     const gameId = parseGameObjectName(object.name)
-    // "not a game": not a lobby object at all, so it is in neither list.
+    // "not a game": not a lobby object at all, so it is in neither list. The
+    // old scheme (`g.<id>.game`, pre-S5) lands here too, which is exactly how an
+    // orphaned `g.*` object is ignored without being deleted.
     if (gameId === null) continue
     try {
       const value = cache
         ? await cache.adopt(object.name, object.sha256)
         : (await ctx.transport.get(ctx.store, object.name)).value
       const record = parseGameObjectRecord(object.name, value)
+      const mine = playerObjects.filter(
+        (player) => parsePlayerObjectName(player.name)?.gameId === gameId,
+      )
       games.push({
         objectName: object.name,
         gameId,
         record,
-        playerCount: countPlayers(objects, gameId),
-        alreadyJoined: playerObjectsFor(objects, gameId).some(
-          (player) => parsePlayerObjectName(player.name)?.tag === tag,
-        ),
+        playerCount: countPlayers(mine),
+        alreadyJoined: mine.some((player) => parsePlayerObjectName(player.name)?.tag === tag),
       })
     } catch (error) {
       // LOUD: a game we cannot read is reported with the service's own code and
@@ -352,30 +387,46 @@ export async function listGamesFrom(
 
 /**
  * Read one game and everyone in it. The caller's own action, so failures
- * propagate. `objects` may be a listing the caller already took; bodies are read
- * by name and only when their `sha256` changed.
+ * propagate. TWO narrow reads, never the whole store:
+ *
+ *  - the game record, from the `prefix=game.` listing when the caller already
+ *    holds one (`games`), else by NAME — one request either way;
+ *  - its participants with `prefix=player.<gameid>.` — exactly this game's
+ *    players, unless the caller already listed them (`players`).
+ *
+ * A game whose object is not in the listing it was given is a LOUD `not_found`:
+ * a game view must not render a record it cannot point at.
  */
 export async function readLobby(
   ctx: LobbyContext,
   gameId: string,
-  options: { objects?: readonly StoreObject[]; cache?: ContentCache } = {},
+  options: {
+    games?: readonly StoreObject[]
+    players?: readonly StoreObject[]
+    cache?: ContentCache
+  } = {},
 ): Promise<ActiveLobby> {
   assertGameId(gameId)
   const gameName = assertGameObjectName(gameId)
-  const objects = options.objects ?? (await ctx.transport.list(ctx.store))
-  const subject = objects.find((object) => object.name === gameName)
-  if (subject === undefined) {
+  const subject = options.games?.find((object) => object.name === gameName)
+  let record: GameRecord
+  if (subject !== undefined) {
+    const value = options.cache
+      ? await options.cache.adopt(subject.name, subject.sha256)
+      : (await ctx.transport.get(ctx.store, gameName)).value
+    record = parseGameObjectRecord(gameName, value)
+  } else if (options.games !== undefined) {
     throw new ServerStoreError(
       'not_found',
       `no object ${JSON.stringify(gameName)} in store ${JSON.stringify(ctx.store)}`,
       404,
     )
+  } else {
+    record = await readGameRecord(ctx, gameId, options.cache)
   }
-  const value = options.cache
-    ? await options.cache.adopt(subject.name, subject.sha256)
-    : (await ctx.transport.get(ctx.store, gameName)).value
-  const record = parseGameObjectRecord(gameName, value)
-  return { record, players: await readPlayerRecords(ctx, gameId, objects, options.cache) }
+  const playerObjects =
+    options.players ?? (await ctx.transport.list(ctx.store, playerObjectsPrefixFor(gameId)))
+  return { record, players: await readPlayerRecords(ctx, playerObjects, options.cache) }
 }
 
 // ---------------------------------------------------------------------------
@@ -383,8 +434,12 @@ export async function readLobby(
 // ---------------------------------------------------------------------------
 
 /**
- * Join a game: write the caller's OWN `g.<gameid>.p.<tag>` object and nothing
+ * Join a game: write the caller's OWN `player.<gameid>.<tag>` object and nothing
  * else. Joining again returns the object already there, unchanged.
+ *
+ * The listing it needs is ONE narrow request, `prefix=player.<gameid>.` — this
+ * game's participants — because both questions it asks ("is my object already
+ * there?", "is the game full?") are about exactly those objects.
  */
 export async function joinGame(ctx: LobbyContext, gameId: string): Promise<PlayerRecord> {
   assertGameId(gameId)
@@ -396,9 +451,9 @@ export async function joinGame(ctx: LobbyContext, gameId: string): Promise<Playe
     gameName,
     (await ctx.transport.get(ctx.store, gameName)).value,
   )
-  const objects = await ctx.transport.list(ctx.store)
+  const players = await ctx.transport.list(ctx.store, playerObjectsPrefixFor(gameId))
 
-  const mine = objects.find((object) => object.name === playerName)
+  const mine = players.find((object) => object.name === playerName)
   if (mine) {
     const existing = parsePlayerRecord(
       (await ctx.transport.get(ctx.store, playerName)).value,
@@ -414,7 +469,7 @@ export async function joinGame(ctx: LobbyContext, gameId: string): Promise<Playe
     return existing
   }
 
-  const blocked = joinBlockedReason(record, countPlayers(objects, gameId))
+  const blocked = joinBlockedReason(record, countPlayers(players))
   if (blocked) throw blocked
 
   const player: PlayerRecord = {
@@ -472,22 +527,14 @@ export async function startGame(
 ): Promise<GameRecord> {
   assertGameId(gameId)
   const gameName = assertGameObjectName(gameId)
-  const objects = await ctx.transport.list(ctx.store)
-  const subject = objects.find((object) => object.name === gameName)
-  if (subject === undefined) {
-    throw new ServerStoreError(
-      'not_found',
-      `no object ${JSON.stringify(gameName)} in store ${JSON.stringify(ctx.store)}`,
-      404,
-    )
-  }
-  const record = parseGameObjectRecord(
-    gameName,
-    cache
-      ? await cache.adopt(gameName, subject.sha256)
-      : (await ctx.transport.get(ctx.store, gameName)).value,
-  )
-  const players = await readPlayerRecords(ctx, gameId, objects, cache)
+  // TWO narrow listings: the games (`prefix=game.`, whose `sha256` lets the
+  // record be read through the cache) and this game's participants
+  // (`prefix=player.<gameid>.`) — exactly the records the seat order is derived
+  // from. Never the whole store.
+  const games = await ctx.transport.list(ctx.store, gameObjectsPrefix())
+  const playerObjects = await ctx.transport.list(ctx.store, playerObjectsPrefixFor(gameId))
+  const { record } = await readLobby(ctx, gameId, { games, players: playerObjects, cache })
+  const players = await readPlayerRecords(ctx, playerObjects, cache)
   const refusal = startRefusal(record, ctx.identity, players.length)
   if (refusal) throw refusal
 

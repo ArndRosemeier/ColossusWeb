@@ -72,7 +72,10 @@ function logged(base: ServerStoreTransport): Logged {
       const value = Reflect.get(target, property, receiver) as unknown
       if (typeof value !== 'function') return value
       return (...args: unknown[]) => {
-        calls.push(`${String(property)} ${String(args[1] ?? args[0])}`)
+        // `list`'s second argument is the S5 prefix; recording it keeps the
+        // "every read is by a name the listing gave" pin honest.
+        const detail = property === 'list' ? `${String(args[0])} prefix=${String(args[1] ?? '-')}` : String(args[1] ?? args[0])
+        calls.push(`${String(property)} ${detail}`)
         return (value as (...a: unknown[]) => unknown).apply(target, args)
       }
     },
@@ -137,22 +140,23 @@ describe('the lobby listing reads bodies only when their hash changed', () => {
     await Promise.resolve()
     for (let i = 0; i < 50; i++) await Promise.resolve()
 
-    // The FIRST tick must read the body: nothing was held yet.
-    expect(lists(calls)).toHaveLength(1)
+    // The FIRST tick must read the body: nothing was held yet. Two NARROW lists
+    // since S5 — `prefix=game.` and `prefix=player.` — never the whole store.
+    expect(lists(calls)).toHaveLength(2)
     expect(reads(calls)).toHaveLength(1)
     expect(watcher.getData().listing?.games).toHaveLength(1)
 
     calls.length = 0
     await vi.advanceTimersByTimeAsync(1000)
     for (let i = 0; i < 50; i++) await Promise.resolve()
-    // Nothing changed: the tick is a list and NOT ONE body read.
-    expect(lists(calls)).toHaveLength(1)
+    // Nothing changed: the tick is two lists and NOT ONE body read.
+    expect(lists(calls)).toHaveLength(2)
     expect(reads(calls)).toHaveLength(0)
 
     calls.length = 0
     await vi.advanceTimersByTimeAsync(1000)
     for (let i = 0; i < 50; i++) await Promise.resolve()
-    expect(lists(calls)).toHaveLength(1)
+    expect(lists(calls)).toHaveLength(2)
     expect(reads(calls)).toHaveLength(0)
     watcher.close()
   })
@@ -164,6 +168,9 @@ describe('the lobby listing reads bodies only when their hash changed', () => {
       displayName: 'First game',
     })
     await seedGame(shared.for(CREATOR), { gameId: 'cache-bbbb2222', displayName: 'Second game' })
+    // NB: an 8-hex suffix is REQUIRED for a legal game id (S1's cap), and the
+    // seeded ids above are used verbatim as object names only — the point here
+    // is the cache, not the id shape.
     const { transport, calls } = logged(shared.for(CREATOR))
     const watcher = new LobbyWatcher({
       transport,
@@ -188,7 +195,7 @@ describe('the lobby listing reads bodies only when their hash changed', () => {
     calls.length = 0
     await vi.advanceTimersByTimeAsync(1000)
     for (let i = 0; i < 50; i++) await Promise.resolve()
-    expect(lists(calls)).toHaveLength(1)
+    expect(lists(calls)).toHaveLength(2)
     expect(reads(calls)).toEqual([`get ${gameObjectName(first.gameId)}`])
     const byId = new Map(watcher.getData().listing!.games.map((game) => [game.gameId, game]))
     expect(byId.get(first.gameId)!.record.maxPlayers).toBe(4)
@@ -215,6 +222,8 @@ describe('the lobby listing reads bodies only when their hash changed', () => {
     calls.length = 0
     await vi.advanceTimersByTimeAsync(1000)
     for (let i = 0; i < 50; i++) await Promise.resolve()
+    // The game is gone, so the tick takes only the ONE lobby list: no players
+    // remain to count.
     expect(lists(calls)).toHaveLength(1)
     expect(reads(calls)).toHaveLength(0)
     // Gone means GONE: the cache never resurrects it, and no body is read.

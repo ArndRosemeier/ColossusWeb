@@ -1,10 +1,11 @@
 /**
  * The lobby's plain-data records — the shape of a game object
- * (`g.<gameid>.game`) and of a player object (`g.<gameid>.p.<tag>`), the ONLY
+ * (`game.<gameid>`) and of a player object (`player.<gameid>.<tag>`), the ONLY
  * place those names are built and parsed, and the parse/validate boundary for
  * both bodies.
  *
- * The design is `docs/design/multiplayer.md` §4.2. Two rules are structural here:
+ * The design is `docs/design/multiplayer.md` §4.2. Three rules are structural
+ * here:
  *
  *  1. **Exactly one writer per object.** The game object is written only by the
  *     creator (at Create, then at Start); a player object is written only by its
@@ -15,6 +16,12 @@
  *     is DISCOVERING games (`listGames`) turns that error into an explicit
  *     "unreadable" entry; a caller that is joining or starting a NAMED game lets
  *     it propagate, because there the record is the thing being acted on.
+ *  3. **The KIND leads the name (S5).** `game.` / `player.` / `snap.` is what
+ *     makes the store's `?prefix=` filter worth using: one narrow request per
+ *     access pattern (`game.` is exactly the lobby list, `player.<gameid>.`
+ *     exactly one game's participants, `snap.<gameid>.` exactly its sync) instead
+ *     of the whole, ever-growing store. Before S5 the leading segment was the
+ *     game id (`g.<gameid>.…`), so every prefix returned everything.
  *
  * ## The name budget (why the shapes are capped)
  *
@@ -22,7 +29,7 @@
  * (`transport.ts`). A player object name is longer than a game object name, so
  * the budget is spent on the player object:
  *
- *     g. <gameid<=32> . p . <tag8>   <= 45 characters
+ *     player. <gameid<=32> . <tag8>   <= 47 characters
  *
  * `MAX_GAME_ID_LENGTH = 32` is therefore a deliberate cap: a 23-character slug
  * plus `-` plus an 8-hex suffix. The *display* name is not capped and lives in
@@ -43,7 +50,7 @@
  * alone could not guarantee.
  */
 
-import { ServerStoreError, assertObjectName } from './transport'
+import { ServerStoreError, assertObjectName, assertObjectPrefix } from './transport'
 
 /** Schema versions. A record from another version is refused, never guessed at. */
 export const GAME_RECORD_VERSION = 2
@@ -130,13 +137,24 @@ export const GAME_ID_PATTERN = /^[a-z0-9][a-z0-9._-]*$/
 export const MAX_PLAYER_TAG_LENGTH = 8
 
 /**
- * Discovery's filter, verbatim from the design: a game object is
- * `g.<gameid>.game`. A player object whose tag happens to be `game`
- * (`g.abc.p.game`) would also match this, so {@link parseGameObjectName}
- * excludes the player shape first.
+ * The kind-led prefixes (S5). One per ACCESS PATTERN, which is the whole point
+ * of the rename: a listing filtered by one of these returns exactly the objects
+ * that pattern needs and nothing else.
+ *
+ *  - {@link GAME_OBJECT_PREFIX}      — the lobby list;
+ *  - {@link playerObjectPrefix}      — one game's participants;
+ *  - `snapshot.ts`'s `snapshotObjectPrefix` — one game's sync.
  */
-export const GAME_OBJECT_NAME_PATTERN = /^g\.([a-z0-9][a-z0-9._-]*)\.game$/
-export const PLAYER_OBJECT_NAME_PATTERN = /^g\.([a-z0-9][a-z0-9._-]*)\.p\.([a-z0-9._-]+)$/
+export const GAME_OBJECT_PREFIX = 'game.'
+export const PLAYER_OBJECT_PREFIX = 'player.'
+
+/**
+ * Discovery's filter: a game object is `game.<gameid>`. The pattern is ANCHORED
+ * and excludes the `.` that would make `game.abc.extra` look like a game, so a
+ * name the lobby never wrote is never parsed as one.
+ */
+export const GAME_OBJECT_NAME_PATTERN = /^game\.([a-z0-9][a-z0-9._-]*)$/
+export const PLAYER_OBJECT_NAME_PATTERN = /^player\.([a-z0-9][a-z0-9._-]*)\.([a-z0-9._-]+)$/
 
 /** Turn a display name into the slug half of a game id. Never empty, never illegal. */
 export function slugifyDisplayName(displayName: string): string {
@@ -189,20 +207,43 @@ export function gameIdFor(displayName: string, suffix: string = randomGameSuffix
 }
 
 export function gameObjectName(gameId: string): string {
-  return `g.${gameId}.game`
+  return `${GAME_OBJECT_PREFIX}${gameId}`
 }
 
 export function playerObjectName(gameId: string, tag: string): string {
-  return `g.${gameId}.p.${tag}`
+  return `${playerObjectPrefix(gameId)}${tag}`
+}
+
+/**
+ * The listing prefix for ONE game's participants: `player.<gameid>.`. The
+ * trailing dot is what keeps it from also matching a different game whose id
+ * merely STARTS WITH this one (`abc` vs `abc-2`).
+ */
+export function playerObjectPrefix(gameId: string): string {
+  return `${PLAYER_OBJECT_PREFIX}${assertGameId(gameId)}.`
+}
+
+/** The listing prefix for the lobby list. Validated through the ONE local guard. */
+export function gameObjectsPrefix(): string {
+  return assertObjectPrefix(GAME_OBJECT_PREFIX)
+}
+
+/** The listing prefix for one game's participants, validated like every other. */
+export function playerObjectsPrefixFor(gameId: string): string {
+  return assertObjectPrefix(playerObjectPrefix(gameId))
 }
 
 /**
  * The game id a game object name carries, or `null` when the name is not a game
- * object ("not a game", which discovery ignores). The PLAYER shape is excluded
- * first so `g.abc.p.game` is a player, never a game whose id is `abc.p`.
+ * object ("not a game", which discovery ignores).
+ *
+ * This is also what makes the OLD scheme (`g.<gameid>.game`, pre-S5) inert: it
+ * matches nothing here, so an orphaned `g.*` object is not a game, is not
+ * parsed as one, and is never touched. It stays in the store until its owner
+ * deletes it (which is deliberate — migrating the owner's test game is out of
+ * scope, and the client must simply not choke on it).
  */
 export function parseGameObjectName(name: string): string | null {
-  if (PLAYER_OBJECT_NAME_PATTERN.test(name)) return null
   const match = GAME_OBJECT_NAME_PATTERN.exec(name)
   return match ? match[1]! : null
 }
@@ -480,4 +521,52 @@ export function assertGameObjectName(gameId: string): string {
 /** The name a player object must have, checked against the service's own rule. */
 export function assertPlayerObjectName(gameId: string, tag: string): string {
   return assertObjectName(playerObjectName(gameId, tag))
+}
+
+/**
+ * The LONGEST name each kind can produce, at the maximum `gameId`. The budget
+ * assertion the brief asks for is that EVERY name builder still fits the
+ * service's 64-character rule; these three are the extreme cases, and
+ * {@link nameBudget} is the one place that judges them, so a future widening of
+ * any name (or of `MAX_GAME_ID_LENGTH`) fails loudly instead of minting a name
+ * the service would refuse.
+ */
+export function longestGameObjectName(gameId: string = 'x'.repeat(MAX_GAME_ID_LENGTH)): string {
+  return gameObjectName(gameId)
+}
+
+export function longestPlayerObjectName(
+  gameId: string = 'x'.repeat(MAX_GAME_ID_LENGTH),
+  tag: string = 'z'.repeat(MAX_PLAYER_TAG_LENGTH),
+): string {
+  return playerObjectName(gameId, tag)
+}
+
+export interface NameBudget {
+  readonly game: number
+  readonly player: number
+  /** Supplied by `snapshot.ts` (it owns the snapshot shape) — the third extreme. */
+  readonly snapshot: number
+}
+
+/**
+ * The character length of the longest name of each kind. `longestSnapshot` is
+ * passed IN rather than imported so this module keeps its one-way dependency on
+ * nothing but `transport.ts` (the snapshot module already imports this one).
+ */
+export function nameBudget(longestSnapshot: number): NameBudget {
+  const budget: NameBudget = {
+    game: longestGameObjectName().length,
+    player: longestPlayerObjectName().length,
+    snapshot: longestSnapshot,
+  }
+  for (const [kind, length] of Object.entries(budget)) {
+    if (length > OBJECT_NAME_MAX_LENGTH) {
+      throw new ServerStoreError(
+        'invalid_name',
+        `the longest ${kind} object name is ${length} characters; the service allows ${OBJECT_NAME_MAX_LENGTH}`,
+      )
+    }
+  }
+  return budget
 }

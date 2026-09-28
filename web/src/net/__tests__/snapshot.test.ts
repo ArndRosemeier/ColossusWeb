@@ -23,11 +23,12 @@ import {
   serializeSnapshot,
   snapshotNameBudget,
   snapshotObjectName,
+  snapshotObjectPrefixFor,
   snapshotRefsForGame,
   type SnapshotBody,
 } from '../snapshot'
-import { OBJECT_NAME_MAX_LENGTH } from '../gameRecord'
-import type { StoreObject } from '../transport'
+import { OBJECT_NAME_MAX_LENGTH, gameObjectName, playerObjectName } from '../gameRecord'
+import { assertObjectPrefix, type StoreObject } from '../transport'
 
 const GAME = 'twin-1234abcd'
 const TAG_A = 'key_5e1a'
@@ -77,8 +78,8 @@ describe('the name IS the ordering', () => {
       snapshotObjectName(GAME, 2, 0, TAG_A),
     ]
     expect([...names].sort()).toEqual(names)
-    expect(names[0]).toContain('.s.0001.009.')
-    expect(names[3]).toContain('.s.0001.100.')
+    expect(names[0]).toContain('.0001.009.')
+    expect(names[3]).toContain('.0001.100.')
     expect(newestSnapshotGroup(names.map((name) => parseSnapshotObjectName(name)!))[0]!.name).toBe(
       names[5],
     )
@@ -90,9 +91,9 @@ describe('the name IS the ordering', () => {
   it('the longest legal name fits the service 64-character rule', () => {
     const longest = longestSnapshotObjectName()
     expect(longest.length).toBeLessThanOrEqual(OBJECT_NAME_MAX_LENGTH)
-    // g. + 32 + .s. + 4 + . + 3 + . + 8 = 54
-    expect(snapshotNameBudget()).toBe(54)
-    expect(longest).toContain(`.s.${MAX_SNAPSHOT_TURN}.${MAX_SNAPSHOT_SEQ}.`)
+    // snap. + 32 + . + 4 + . + 3 + . + 8 = 55
+    expect(snapshotNameBudget()).toBe(55)
+    expect(longest).toContain(`.${MAX_SNAPSHOT_TURN}.${MAX_SNAPSHOT_SEQ}.`)
   })
 
   it('refuses a turn or seq whose padding would sort out of order', () => {
@@ -114,16 +115,18 @@ describe('the name IS the ordering', () => {
       seq: 7,
       tag: TAG_A,
     })
-    expect(parseSnapshotObjectName(`g.${GAME}.game`)).toBeNull()
-    expect(parseSnapshotObjectName(`g.${GAME}.p.${TAG_A}`)).toBeNull()
-    expect(parseSnapshotObjectName(`g.${GAME}.s.00001.000.${TAG_A}`)).toBeNull()
-    expect(parseSnapshotObjectName(`g.${GAME}.s.0001.000.short`)).toBeNull()
+    expect(parseSnapshotObjectName(`game.${GAME}`)).toBeNull()
+    expect(parseSnapshotObjectName(`player.${GAME}.${TAG_A}`)).toBeNull()
+    expect(parseSnapshotObjectName(`snap.${GAME}.00001.000.${TAG_A}`)).toBeNull()
+    expect(parseSnapshotObjectName(`snap.${GAME}.0001.000.short`)).toBeNull()
+    // The OLD scheme is not a snapshot either, so a stale object is inert.
+    expect(parseSnapshotObjectName(`g.${GAME}.s.0001.000.${TAG_A}`)).toBeNull()
   })
 
   it("filters an object list to ONE game's snapshots", () => {
     const objects = [
-      objectFor(`g.${GAME}.game`),
-      objectFor(`g.${GAME}.p.${TAG_A}`),
+      objectFor(gameObjectName(GAME)),
+      objectFor(playerObjectName(GAME, TAG_A)),
       objectFor(snapshotObjectName(GAME, 1, 0, TAG_A)),
       objectFor(snapshotObjectName('other-1111aaaa', 1, 0, TAG_A)),
       objectFor('random.object'),
@@ -131,6 +134,21 @@ describe('the name IS the ordering', () => {
     expect(snapshotRefsForGame(objects, GAME).map((ref) => ref.name)).toEqual([
       snapshotObjectName(GAME, 1, 0, TAG_A),
     ])
+  })
+
+  it("names ONE game's sync with its prefix, and nothing else", () => {
+    const prefix = snapshotObjectPrefixFor(GAME)
+    expect(prefix).toBe(`snap.${GAME}.`)
+    const mine = snapshotObjectName(GAME, 3, 1, TAG_A)
+    const otherGame = snapshotObjectName('other-1111aaaa', 3, 1, TAG_A)
+    const otherKind = playerObjectName(GAME, TAG_A)
+    expect(mine.startsWith(prefix)).toBe(true)
+    expect(otherGame.startsWith(prefix)).toBe(false)
+    expect(otherKind.startsWith(prefix)).toBe(false)
+    // A game id that merely STARTS WITH this one is not this game.
+    expect(snapshotObjectName(`${GAME}-2`, 1, 0, TAG_A).startsWith(prefix)).toBe(false)
+    // The prefix is legal for the store (it answers 400 for an illegal one).
+    expect(() => assertObjectPrefix(prefix)).not.toThrow()
   })
 })
 
@@ -199,6 +217,8 @@ describe('a fork is DETECTED and chosen deterministically, never resolved silent
     ]
     expect(chooseSnapshot(candidates, parent).ref.tag).toBe(TAG_A)
     expect(chooseSnapshot(candidates, null).ref.tag).toBe(TAG_B)
-    expect(chooseSnapshot(candidates, 'g.other-1111aaaa.s.0001.000.key_5e1a').ref.tag).toBe(TAG_B)
+    expect(
+      chooseSnapshot(candidates, snapshotObjectName('other-1111aaaa', 1, 0, TAG_A)).ref.tag,
+    ).toBe(TAG_B)
   })
 })

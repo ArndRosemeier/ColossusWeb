@@ -98,7 +98,10 @@ function withCallLog(base: ServerStoreTransport): {
       if (typeof value !== 'function') return value
       if (property === 'list' || property === 'get' || property === 'put' || property === 'remove') {
         return (...args: unknown[]) => {
-          calls.push(`${String(property)} ${String(args[1] ?? args[0])}`)
+          // `list`'s second argument is the S5 prefix, so the trace records
+          // WHICH narrow request was made and not merely that one was.
+          const detail = property === 'list' ? `${String(args[0])} prefix=${String(args[1] ?? '-')}` : String(args[1] ?? args[0])
+          calls.push(`${String(property)} ${detail}`)
           return (value as (...a: unknown[]) => unknown).apply(target, args)
         }
       }
@@ -228,6 +231,38 @@ describe('the lobby refreshes on the poll while visible', () => {
     await advance(1000)
     expect(lists(calls)).toHaveLength(3)
     expect(watcher.getData().status?.polls).toBe(3)
+    watcher.close()
+  })
+
+  it('uses the THREE narrow prefixes, one per access pattern, and never the whole store', async () => {
+    const store = new SharedStore()
+    const record = await bobCreatesAndJoins(store)
+    await joinGame(contextFor(store.for(CREATOR), CREATOR), record.gameId)
+    const { transport, calls } = withCallLog(store.for(CREATOR))
+    const watcher = new LobbyWatcher({
+      transport,
+      identity: CREATOR,
+      store: TEST_STORE,
+      intervalMs: 1000,
+    })
+    watcher.start()
+    await advance(0)
+    // No game open yet: the lobby list, plus the participants it counts.
+    expect(lists(calls)).toEqual([
+      `list ${TEST_STORE} prefix=game.`,
+      `list ${TEST_STORE} prefix=player.`,
+    ])
+    // Open the game this client is inside: a THIRD narrow request, for exactly
+    // that game's participants.
+    await watcher.setActiveGame(record.gameId)
+    await advance(0)
+    expect(lists(calls)).toContain(`list ${TEST_STORE} prefix=player.${record.gameId}.`)
+    // NOT ONE request asked for the whole store.
+    expect(calls.filter((call) => call.endsWith('prefix=-'))).toEqual([])
+    expect(watcher.getData().active?.players.map((player) => player.label).sort()).toEqual([
+      'bob',
+      'tom',
+    ])
     watcher.close()
   })
 
@@ -422,6 +457,53 @@ describe('the freshness signal', () => {
       createElement(LobbyFreshness, { status: null, pollSeconds: 0 }),
     )
     expect(starting).toContain('Checking the store…')
+  })
+
+  it('reads a rate limit as "the store is busy — slowing down", with the wait', () => {
+    const limited = renderToStaticMarkup(
+      createElement(LobbyFreshness, {
+        status: pollStatus({
+          phase: 'error',
+          failures: 1,
+          lastError: {
+            title: 'The store is busy — slowing down.',
+            code: 'rate_limited',
+            message: 'rate limit exceeded; retry in 60s',
+            retryAfterSeconds: 60,
+          },
+        }),
+        pollSeconds: 0,
+        failure: {
+          title: 'The store is busy — slowing down.',
+          code: 'rate_limited',
+          message: 'rate limit exceeded; retry in 60s',
+          retryAfterSeconds: 60,
+        },
+      }),
+    )
+    expect(limited).toContain('the store is busy — slowing down')
+    expect(limited).toContain('retrying in 60s')
+    // It must NOT read like an unexplained failure, and not as a broken lobby.
+    expect(limited).not.toContain('list update failed')
+
+    // The SAME status with an ordinary failure keeps the old wording, so the
+    // rate-limit sentence is a BRANCH and not a replacement.
+    const ordinary = renderToStaticMarkup(
+      createElement(LobbyFreshness, {
+        status: pollStatus({
+          phase: 'error',
+          failures: 2,
+          lastError: {
+            title: 'Could not reach the store.',
+            code: 'transport_error',
+            message: 'down',
+          },
+        }),
+        pollSeconds: 7,
+      }),
+    )
+    expect(ordinary).toContain('list update failed')
+    expect(ordinary).not.toContain('the store is busy')
   })
 
   it('shows the freshness line in the lobby panel, so a static list is explained', () => {

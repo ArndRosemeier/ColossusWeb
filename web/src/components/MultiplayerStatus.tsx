@@ -5,9 +5,11 @@
  *
  * It renders from props only, so "it says whose turn it is" and "a fork is
  * surfaced, not swallowed" are checkable with `react-dom/server` and no store.
- * The fork's SENTENCE is not invented here: `sync.ts`'s `formatFork` words it
- * once and the poll's status carries it (`PollStatus.detail`), so the warning and
- * the state it warns about can never disagree.
+ * Neither sentence is invented here: a fork is `sync.ts`'s `formatFork` and a
+ * failure is `failure.ts`'s `formatFailureStatus`, both carried on
+ * `PollStatus.detail`, so the warning and the state it warns about can never
+ * disagree. A `429` therefore reads as "the store is busy — slowing down",
+ * with the wait the service itself asked for.
  */
 
 import type { FailureDescription } from '../net/failure'
@@ -29,6 +31,9 @@ function pollLabel(status: PollStatus | null): string {
   if (status === null) return 'connecting…'
   if (status.phase === 'stopped') return 'sync stopped'
   if (status.phase === 'error') {
+    // A rate limit is PACING, not a broken sync: the loop is doing what the
+    // store asked, so it must not read as a failure the player should act on.
+    if (status.lastError?.code === 'rate_limited') return 'store busy — slowing down'
     return status.failures > 1
       ? `sync error (retry ${status.failures})`
       : 'sync error'
@@ -39,8 +44,11 @@ function pollLabel(status: PollStatus | null): string {
 
 export function MultiplayerStatus(props: MultiplayerStatusProps) {
   const { seat, seatCount, myTurn, gameOver, status, failure } = props
-  // `detail` is the job's own warning — today only the game's fork sentence.
+  // The job's own warning — the fork sentence, or the failure that just
+  // happened. A FAILURE is rendered below from the description itself (title,
+  // code and the service's message), so the same sentence is not printed twice.
   const detail = status?.detail ?? null
+  const showDetail = detail !== null && failure === null
   const seatLabel =
     seat >= 0 ? `Seat ${seat + 1}/${seatCount}` : `Watching (${seatCount} seats)`
 
@@ -56,14 +64,18 @@ export function MultiplayerStatus(props: MultiplayerStatusProps) {
           <span className="muted mp-readonly">read-only</span>
         ))}
       <span className="muted">· {pollLabel(status)}</span>
-      {detail && (
+      {showDetail && (
         <span className="connect-failure" role="alert">
           {detail}
         </span>
       )}
       {failure && (
         <span className="connect-failure" role="alert">
-          {failure.title} <span className="connect-code">{failure.code}</span> {failure.message}
+          {failure.title}{' '}
+          {failure.retryAfterSeconds === undefined ? null : (
+            <>retrying in {failure.retryAfterSeconds}s </>
+          )}
+          <span className="connect-code">{failure.code}</span> {failure.message}
         </span>
       )}
     </span>

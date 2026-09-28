@@ -43,12 +43,20 @@ interface Stored {
   createdAt: string
 }
 
-function json(status: number, body: string): Response {
-  return new Response(body, { status, headers: { 'content-type': 'application/json' } })
+function json(status: number, body: string, headers: Record<string, string> = {}): Response {
+  return new Response(body, {
+    status,
+    headers: { 'content-type': 'application/json', ...headers },
+  })
 }
 
-function errorEnvelope(status: number, code: string, message: string): Response {
-  return json(status, JSON.stringify({ error: { code, message } }))
+function errorEnvelope(
+  status: number,
+  code: string,
+  message: string,
+  headers: Record<string, string> = {},
+): Response {
+  return json(status, JSON.stringify({ error: { code, message } }), headers)
 }
 
 async function digest(value: string): Promise<string> {
@@ -69,6 +77,18 @@ export class FakeStoreFetch {
   readonly objects = new Map<string, Stored>()
   /** Fail the next call matching this `"<METHOD> <path>"` prefix, once. */
   scriptedFailure: { match: string; status: number; code: string; message: string } | null = null
+  /**
+   * A QUEUE of further refusals, consumed one per matching request — the store's
+   * own "keep saying 429 until the window turns over" behaviour, needed by a pin
+   * that asserts a retry is SCHEDULED rather than merely raised once.
+   */
+  scriptedFailures: Array<{
+    match: string
+    status: number
+    code: string
+    message: string
+    headers?: Record<string, string>
+  }> = []
   acceptedKeys: string[] = [TEST_KEY]
   /** Object GETs whose `x-serverstore-sha256` header is withheld. */
   withholdShaHeader = false
@@ -94,6 +114,14 @@ export class FakeStoreFetch {
     this.calls.push({ url, method, headers: { ...realHeaders }, body })
 
     const path = new URL(url).pathname + new URL(url).search
+    const queued = this.scriptedFailures.findIndex((entry) =>
+      `${method} ${path}`.startsWith(entry.match),
+    )
+    if (queued >= 0) {
+      const failure = this.scriptedFailures[queued]!
+      this.scriptedFailures.splice(queued, 1)
+      return errorEnvelope(failure.status, failure.code, failure.message, failure.headers)
+    }
     if (this.scriptedFailure && `${method} ${path}`.startsWith(this.scriptedFailure.match)) {
       const failure = this.scriptedFailure
       this.scriptedFailure = null
@@ -111,13 +139,23 @@ export class FakeStoreFetch {
 
     if (path === '/whoami') return json(200, WHOAMI_BODY)
 
-    const match = /^\/stores\/([^/]+)\/objects(?:\/([^/?]+))?$/.exec(path)
+    // `path` carries the query string (so a captured request shows the URL the
+    // service receives); the ROUTE is the pathname alone.
+    const match = /^\/stores\/([^/]+)\/objects(?:\/([^/?]+))?$/.exec(new URL(url).pathname)
     if (!match) return errorEnvelope(404, 'not_found', `no route ${path}`)
     const store = decodeURIComponent(match[1]!)
     const name = match[2] === undefined ? undefined : decodeURIComponent(match[2]!)
     const mapKey = `${store}\u0000${name ?? ''}`
 
     if (method === 'GET' && name === undefined) {
+      // The store's ONE listing filter. `prefix` is validated exactly as
+      // `parseObjectPrefix` validates it (the same name rule), and an illegal
+      // one is REFUSED rather than silently ignored — a fake that returned the
+      // whole store for `?prefix=` would let a client bug hide behind green.
+      const prefix = new URL(url).searchParams.get('prefix')
+      if (prefix !== null && !/^[a-z0-9][a-z0-9._-]{0,63}$/.test(prefix)) {
+        return errorEnvelope(400, 'invalid_name', `illegal object name prefix ${JSON.stringify(prefix)}`)
+      }
       const objects = [...this.objects.entries()]
         .filter(([key]) => key.startsWith(`${store}\u0000`))
         .map(([key, stored]) => ({
@@ -127,6 +165,7 @@ export class FakeStoreFetch {
           size: new TextEncoder().encode(stored.value).length,
           createdAt: stored.createdAt,
         }))
+        .filter((object) => prefix === null || object.name.startsWith(prefix))
         .sort((a, b) => (a.name < b.name ? -1 : 1))
       return json(200, JSON.stringify({ objects }))
     }

@@ -17,6 +17,10 @@
  * {@link pollLoop}, which registers this job at {@link LOBBY_POLL_INTERVAL_MS}.
  * A second `setTimeout` here would be the defect the old comment feared.
  *
+ * Every request it makes is NARROW (S5): `prefix=game.` for the list,
+ * `prefix=player.` for the counts, and `prefix=player.<gameid>.` for the game
+ * this client is inside. It never lists the whole store.
+ *
  * The two loops in this app (this one and the game's snapshot sync) are never
  * alive at once: a game REPLACES the setup screen (`App.tsx` renders
  * `SetupScreen` only while no game state exists), and each takes its loop down on
@@ -38,7 +42,12 @@
 import { readActiveGame } from './activeGame'
 import { createContentCache, type ContentCache } from './contentCache'
 import { describeFailure, type FailureDescription } from './failure'
-import { gameObjectName } from './gameRecord'
+import {
+  PLAYER_OBJECT_PREFIX,
+  gameObjectName,
+  gameObjectsPrefix,
+  playerObjectsPrefixFor,
+} from './gameRecord'
 import {
   createGame,
   joinGame,
@@ -338,23 +347,42 @@ export class LobbyWatcher {
   }
 
   private async read(): Promise<void> {
-    // ONE list per tick, for BOTH jobs: the games, the active game's record and
-    // its players all come from this one listing. Bodies are then read by NAME,
-    // and only where the listing's `sha256` says they changed.
-    const objects = await this.context.transport.list(this.context.store)
-    const listing = await listGamesFrom(this.context, objects, this.cache)
+    // TWO narrow listings per tick when a game is open, ONE when none is: the
+    // games (`prefix=game.`, which is EXACTLY the lobby list — the whole point
+    // of the S5 rename) and, only for the game this client is inside,
+    // `prefix=player.<gameid>.` — exactly its participants. Each body is then
+    // read by NAME through the cache, and only where the listing's `sha256` says
+    // it changed, so the steady state is these lists and no body reads.
+    const objects = await this.context.transport.list(this.context.store, gameObjectsPrefix())
+    // The participants of the LISTED games, so each row can show a player count:
+    // ONE further narrow request (`prefix=player.`), and only when there is a
+    // game to count. The per-game view below uses `player.<gameid>.` instead.
+    const players =
+      objects.length === 0
+        ? []
+        : await this.context.transport.list(this.context.store, PLAYER_OBJECT_PREFIX)
+    // Bodies are then read by NAME through the cache, and only where the
+    // listing's `sha256` says they changed.
+    const listing = await listGamesFrom(this.context, objects, players, this.cache)
     let active: ActiveLobby | null = null
     const wanted = this.activeGameId
     if (wanted !== null) {
-      const name = gameObjectName(wanted)
-      if (objects.some((object) => object.name === name)) {
-        active = await readLobby(this.context, wanted, { objects, cache: this.cache })
+      if (objects.some((object) => object.name === gameObjectName(wanted))) {
+        const playerObjects = await this.context.transport.list(
+          this.context.store,
+          playerObjectsPrefixFor(wanted),
+        )
+        active = await readLobby(this.context, wanted, {
+          games: objects,
+          players: playerObjects,
+          cache: this.cache,
+        })
       } else {
         // The game is GONE (deleted, or never there any more). That is not a
         // refusal: the view closes, and the cache drops the name on the next
         // listing. The caller decides whether to forget the resume pointer.
         this.activeGameId = null
-        this.cache.forget(name)
+        this.cache.forget(gameObjectName(wanted))
       }
     }
     if (this.closed) return

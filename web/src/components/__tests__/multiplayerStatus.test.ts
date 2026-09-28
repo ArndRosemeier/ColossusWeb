@@ -93,6 +93,35 @@ describe('the status line states the rules a player needs', () => {
     expect(markup).toContain('network down')
   })
 
+  it('says a rate limit is the store being busy, and carries the wait', () => {
+    const markup = render({
+      status: status({
+        phase: 'error',
+        failures: 1,
+        lastError: {
+          title: 'The store is busy — slowing down.',
+          code: 'rate_limited',
+          message: 'rate limit exceeded; retry in 60s',
+          retryAfterSeconds: 60,
+        },
+      }),
+      failure: {
+        title: 'The store is busy — slowing down.',
+        code: 'rate_limited',
+        message: 'rate limit exceeded; retry in 60s',
+        retryAfterSeconds: 60,
+      },
+    })
+    // PACING, not a broken sync: the status line says what is happening…
+    expect(markup).toContain('store busy — slowing down')
+    // …and the service's own words are still on the error surface, with the
+    // wait it asked for. The refusal is explained, never hidden.
+    expect(markup).toContain('The store is busy — slowing down.')
+    expect(markup).toContain('retrying in 60s')
+    expect(markup).toContain('rate_limited')
+    expect(markup).toContain('rate limit exceeded; retry in 60s')
+  })
+
   it('says the game is over instead of naming a turn', () => {
     const markup = render({ gameOver: true })
     expect(markup).toContain('game over')

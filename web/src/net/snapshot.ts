@@ -11,11 +11,17 @@
  * is that object names are unique and lexicographically sortable — so the name
  * carries the state's position and the greatest name IS the newest state:
  *
- *     g.<gameid>.s.<tttt>.<sss>.<tag>
+ *     snap.<gameid>.<tttt>.<sss>.<tag>
  *
  *  - `tttt` — the state's `turnNumber`, zero-padded to 4;
  *  - `sss`  — the publish counter **within that turn**, zero-padded to 3;
  *  - `tag`  — the writer's 8-character public handle (`playerTagFor`).
+ *
+ * The KIND (`snap.`) leads from S5 on, so `?prefix=snap.<gameid>.` is EXACTLY
+ * one game's sync — the store's filter turns "read every snapshot of every game
+ * in the store and throw most away" into one narrow request. The ordering is
+ * untouched by that rename: it is still the padded `(turn, seq, tag)` suffix,
+ * and the greatest name is still the newest state.
  *
  * Two writers that publish from the same parent produce the same `(turn, seq)`
  * with DIFFERENT tags: a race is two visible objects (a FORK), never a silent
@@ -50,7 +56,7 @@ import {
   OBJECT_NAME_MAX_LENGTH,
   assertGameId,
 } from './gameRecord'
-import { ServerStoreError, assertObjectName, type StoreObject } from './transport'
+import { ServerStoreError, assertObjectName, assertObjectPrefix, type StoreObject } from './transport'
 
 /** The body schema this client writes and the only one it reads. */
 export const SNAPSHOT_SCHEMA_VERSION = 1
@@ -62,15 +68,15 @@ export const MAX_SNAPSHOT_TURN = 10 ** SNAPSHOT_TURN_DIGITS - 1
 /** `999` — past this the 3-digit field would sort before a smaller seq. */
 export const MAX_SNAPSHOT_SEQ = 10 ** SNAPSHOT_SEQ_DIGITS - 1
 
-/** The `s` of `g.<gameid>.s.<turn>.<seq>.<tag>`. */
-export const SNAPSHOT_MARKER = 's'
+/** The kind segment of `snap.<gameid>.<turn>.<seq>.<tag>` (S5's rename). */
+export const SNAPSHOT_OBJECT_PREFIX = 'snap.'
 
 /** A writer tag is exactly what `playerTagFor` mints: 8 legal name characters. */
 export const SNAPSHOT_TAG_PATTERN = /^[a-z0-9._-]{8}$/
 
 /** The full name shape. Anchored, and the gameId group is greedy. */
 export const SNAPSHOT_OBJECT_NAME_PATTERN =
-  /^g\.([a-z0-9][a-z0-9._-]*)\.s\.(\d{4})\.(\d{3})\.([a-z0-9._-]{8})$/
+  /^snap\.([a-z0-9][a-z0-9._-]*)\.(\d{4})\.(\d{3})\.([a-z0-9._-]{8})$/
 
 export interface SnapshotRef {
   /** The object's full name — the ordering key. */
@@ -145,15 +151,30 @@ export function snapshotObjectName(gameId: string, turn: number, seq: number, ta
       `snapshot writer tag ${JSON.stringify(tag)} is not exactly ${MAX_PLAYER_TAG_LENGTH} legal name characters`,
     )
   }
-  return assertObjectName(`g.${gameId}.s.${turnPart}.${seqPart}.${tag}`)
+  return assertObjectName(`${SNAPSHOT_OBJECT_PREFIX}${gameId}.${turnPart}.${seqPart}.${tag}`)
+}
+
+/**
+ * The listing prefix for ONE game's sync: `snap.<gameid>.`. It is the ONLY
+ * listing `fetchLatest` takes, so a poll tick reads this game's snapshots and
+ * nothing else — not the lobby's records, not another game's sync.
+ */
+export function snapshotObjectPrefix(gameId: string): string {
+  return `${SNAPSHOT_OBJECT_PREFIX}${assertGameId(gameId)}.`
+}
+
+/** {@link snapshotObjectPrefix}, checked against the transport's own prefix rule. */
+export function snapshotObjectPrefixFor(gameId: string): string {
+  return assertObjectPrefix(snapshotObjectPrefix(gameId))
 }
 
 /**
  * The LONGEST snapshot name the game-id cap allows, with the highest legal
  * turn/seq and a maximal tag. This is the budget assertion the brief asks for:
- * `gameid <= 32` + `g.` + `.s.` + 4 + `.` + 3 + `.` + 8 must fit the service's
- * 64-character rule. It is a function so a pin can PRINT the number, and it is
- * also exercised implicitly by every real name (`assertObjectName`).
+ * `snap.` (5) + `gameid <= 32` + `.` + 4 + `.` + 3 + `.` + 8 must fit the
+ * service's 64-character rule. It is a function so a pin can PRINT the number,
+ * and it is also exercised implicitly by every real name
+ * (`assertObjectName`).
  */
 export function longestSnapshotObjectName(
   gameId: string = 'x'.repeat(MAX_GAME_ID_LENGTH),

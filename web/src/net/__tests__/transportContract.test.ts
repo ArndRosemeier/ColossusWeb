@@ -22,6 +22,11 @@ const ARMS: Array<[string, () => Arm]> = [
   ['in-memory fake', memoryArm],
 ]
 
+/** The names a listing holds, in the order the store reported them. */
+function namesOf(objects: ReadonlyArray<{ name: string }>): string[] {
+  return objects.map((object) => object.name)
+}
+
 describe.each(ARMS)('%s', (_name, makeArm) => {
   let arm: Arm
 
@@ -112,5 +117,59 @@ describe.each(ARMS)('%s', (_name, makeArm) => {
     const serialized = JSON.stringify(identity)
     expect(serialized).not.toContain(TEST_KEY)
     expect(serialized).not.toContain('ssk_')
+  })
+
+  it('filters the list by prefix: exactly the names that start with it', async () => {
+    await arm.seed('game.alpha', '{"kind":"game"}')
+    await arm.seed('game.beta', '{"kind":"game"}')
+    await arm.seed('player.alpha.key_5e1a', '{"kind":"player"}')
+    await arm.seed('player.beta.key_5e1a', '{"kind":"player"}')
+    await arm.seed('snap.alpha.0001.000.key_5e1a', '{"kind":"snapshot"}')
+    await arm.seed('random.object', '{"kind":"other"}')
+
+    // The lobby's list.
+    expect(namesOf(await arm.transport.list(TEST_STORE, 'game.'))).toEqual(['game.alpha', 'game.beta'])
+    // One game's participants — and the trailing dot keeps `alpha` off `alpha-2`.
+    await arm.seed('player.alpha-2.key_5e1a', '{"kind":"player"}')
+    expect(namesOf(await arm.transport.list(TEST_STORE, 'player.alpha.'))).toEqual([
+      'player.alpha.key_5e1a',
+    ])
+    // One game's sync.
+    expect(namesOf(await arm.transport.list(TEST_STORE, 'snap.alpha.'))).toEqual([
+      'snap.alpha.0001.000.key_5e1a',
+    ])
+    // Omitted: the whole store, exactly as before the filter existed.
+    expect(namesOf(await arm.transport.list(TEST_STORE))).toHaveLength(7)
+    // A prefix matching nothing is an EMPTY LIST, never an error.
+    expect(await arm.transport.list(TEST_STORE, 'zzz')).toEqual([])
+  })
+
+  it('refuses an illegal prefix locally, before any request is made', async () => {
+    await arm.seed('game.alpha', '{}')
+    const before = arm.requests.length
+    // The service answers `400 invalid_name` for these; a client that could not
+    // tell that from "no matches" would render an empty lobby as a healthy one.
+    await expect(arm.transport.list(TEST_STORE, 'GAME.')).rejects.toThrow(/illegal object prefix/)
+    await expect(arm.transport.list(TEST_STORE, '')).rejects.toThrow(/illegal object prefix/)
+    await expect(arm.transport.list(TEST_STORE, '-lead')).rejects.toThrow(/illegal object prefix/)
+    await expect(arm.transport.list(TEST_STORE, 'a'.repeat(65))).rejects.toThrow(
+      /illegal object prefix/,
+    )
+    expect(arm.requests.length).toBe(before)
+  })
+
+  it('lists an old-scheme g.* object without ever calling it a game', async () => {
+    // The live store holds three orphaned `g.*` objects from the owner's test
+    // game. They are deliberately NOT migrated and NOT deleted; the client must
+    // simply never treat one as a game.
+    await arm.seed('g.abc.game', '{"version":1}')
+    await arm.seed('g.abc.p.key_5e1a', '{"version":1}')
+    await arm.seed('g.abc.s.0001.000.key_5e1a', '{"version":1}')
+    await arm.seed('game.real-1111aaaa', '{"kind":"game"}')
+    expect(namesOf(await arm.transport.list(TEST_STORE, 'game.'))).toEqual(['game.real-1111aaaa'])
+    expect(namesOf(await arm.transport.list(TEST_STORE, 'player.'))).toEqual([])
+    expect(namesOf(await arm.transport.list(TEST_STORE, 'snap.'))).toEqual([])
+    // ...and they are still there, untouched: ignoring is not deleting.
+    expect(namesOf(await arm.transport.list(TEST_STORE))).toHaveLength(4)
   })
 })

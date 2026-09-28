@@ -12,6 +12,7 @@
 import {
   ServerStoreError,
   assertObjectName,
+  assertObjectPrefix,
   assertStoreName,
   type GetResult,
   type PutResult,
@@ -111,10 +112,18 @@ export class MemoryTransport implements ServerStoreTransport {
     if (failure) throw failure
   }
 
-  async list(store: string): Promise<StoreObject[]> {
+  async list(store: string, prefix?: string): Promise<StoreObject[]> {
     assertStoreName(store)
+    // The same local refusal as the HTTP transport, so an illegal prefix fails
+    // identically and BEFORE anything is filtered: the service returns `400
+    // invalid_name` for it, and a fake that quietly returned everything (or
+    // nothing) would let a client bug hide behind a green test.
+    if (prefix !== undefined) assertObjectPrefix(prefix)
     this.fail('LIST', store)
-    return this.listSync().filter((object) => object.store === store)
+    return this.listSync().filter(
+      (object) =>
+        object.store === store && (prefix === undefined || object.name.startsWith(prefix)),
+    )
   }
 
   async get(store: string, name: string): Promise<GetResult> {

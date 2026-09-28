@@ -7,7 +7,7 @@
  * visible through the app's one error surface).
  */
 
-import { ServerStoreError } from './transport'
+import { RATE_LIMITED_CODE, ServerStoreError } from './transport'
 
 export interface FailureDescription {
   /** A short human sentence naming what happened. */
@@ -16,6 +16,12 @@ export interface FailureDescription {
   code: string
   /** The service's own message, verbatim. */
   message: string
+  /**
+   * The service's `Retry-After`, in whole seconds, when the failure carried one
+   * (a `429 rate_limited`). Present only when the service actually said so: a
+   * wait this client invented would be a lie about the store's instruction.
+   */
+  retryAfterSeconds?: number
 }
 
 /**
@@ -36,11 +42,27 @@ const RECORD_CODES = new Set([
 ])
 
 function titleFor(code: string): string {
+  if (code === RATE_LIMITED_CODE) return 'The store is busy — slowing down.'
   if (KEY_CODES.has(code)) return 'The store refused the key.'
   if (TRANSPORT_CODES.has(code)) return 'Could not reach the store.'
   if (RECORD_CODES.has(code)) return 'A game record could not be read.'
   if (code === 'not_found') return 'The store does not have that object.'
   return 'The lobby refused.'
+}
+
+/**
+ * ONE sentence for a failure, wherever the app states one — the poll loop's
+ * status line, the lobby's alert and the game's status line all render THIS, so
+ * "the store is busy" can never be worded one way in the lobby and another in a
+ * game. A rate limit reads as PACING rather than a catastrophe: the service told
+ * us to slow down and we are doing exactly that.
+ */
+export function formatFailureStatus(failure: FailureDescription): string {
+  const limit =
+    failure.code === RATE_LIMITED_CODE && failure.retryAfterSeconds !== undefined
+      ? ` — retrying in ${failure.retryAfterSeconds}s`
+      : ''
+  return `${failure.title}${limit} ${failure.message}`
 }
 
 export function describeFailure(error: unknown): FailureDescription {
@@ -49,6 +71,9 @@ export function describeFailure(error: unknown): FailureDescription {
       title: titleFor(error.code),
       code: error.code,
       message: error.message,
+      ...(error.retryAfterSeconds === undefined
+        ? {}
+        : { retryAfterSeconds: error.retryAfterSeconds }),
     }
   }
   const message = error instanceof Error ? error.message : String(error)

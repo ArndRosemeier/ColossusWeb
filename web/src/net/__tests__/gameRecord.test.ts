@@ -16,12 +16,17 @@ import {
   assertGameId,
   gameIdFor,
   gameObjectName,
+  gameObjectsPrefix,
+  longestGameObjectName,
+  longestPlayerObjectName,
+  nameBudget,
   parseGameObjectName,
   parseGameObjectRecord,
   parseGameRecord,
   parsePlayerObjectName,
   parsePlayerRecord,
   playerObjectName,
+  playerObjectsPrefixFor,
   playerTagFor,
   seatIndexOf,
   seatOrderFor,
@@ -31,7 +36,8 @@ import {
   type GameRecord,
   type PlayerRecord,
 } from '../gameRecord'
-import { OBJECT_NAME_PATTERN, assertObjectName } from '../transport'
+import { longestSnapshotObjectName } from '../snapshot'
+import { OBJECT_NAME_PATTERN, assertObjectName, assertObjectPrefix } from '../transport'
 
 /** The service's own rule, asserted the way the service asserts it. */
 function expectLegalObjectName(name: string): void {
@@ -51,6 +57,8 @@ const HOSTILE_DISPLAY_NAMES = [
   'a very long name '.repeat(400),
   '../etc/passwd',
   'g.abc.game',
+  'game.abc',
+  'player.abc.key_5e1a',
 ]
 
 describe('game ids and object names', () => {
@@ -95,21 +103,27 @@ describe('game ids and object names', () => {
   })
 
   it('parses a game object name and ignores everything else', () => {
-    expect(parseGameObjectName('g.twin-1234abcd.game')).toBe('twin-1234abcd')
-    // A player object is NEVER a game, even when its tag is literally "game".
-    expect(parseGameObjectName('g.abc.p.game')).toBeNull()
+    expect(parseGameObjectName('game.twin-1234abcd')).toBe('twin-1234abcd')
+    // The OLD scheme is inert: `g.<id>.game` is not a game object any more, so
+    // an orphaned one is never listed, parsed or deleted (S5's pin).
+    expect(parseGameObjectName('g.twin-1234abcd.game')).toBeNull()
     expect(parseGameObjectName('g.abc.p.key_5e1a')).toBeNull()
     expect(parseGameObjectName('random.object')).toBeNull()
-    expect(parseGameObjectName('games.abc.game')).toBeNull()
-    expect(parseGameObjectName('g.abc.game.bak')).toBeNull()
+    expect(parseGameObjectName('games.abc')).toBeNull()
+    // A dot IS legal inside a game id, so `game.abc.bak` is a game whose id is
+    // `abc.bak` — which is exactly why the pattern anchors at the end.
+    expect(parseGameObjectName('game.abc.bak')).toBe('abc.bak')
+    // A player object can never look like a game to this parser.
+    expect(parseGameObjectName('player.abc.key_5e1a')).toBeNull()
   })
 
   it('parses a player object name into its game id and tag', () => {
-    expect(parsePlayerObjectName('g.abc.p.key_5e1a')).toEqual({
+    expect(parsePlayerObjectName('player.abc.key_5e1a')).toEqual({
       gameId: 'abc',
       tag: 'key_5e1a',
     })
-    expect(parsePlayerObjectName('g.abc.game')).toBeNull()
+    expect(parsePlayerObjectName('g.abc.p.key_5e1a')).toBeNull()
+    expect(parsePlayerObjectName('player.abc')).toBeNull()
   })
 
   it('derives the tag from the first 8 lowercased characters of the full id', () => {
@@ -124,6 +138,36 @@ describe('game ids and object names', () => {
   it('assertGameId refuses an id that would overflow the name budget', () => {
     expect(() => assertGameId('a'.repeat(MAX_GAME_ID_LENGTH + 1))).toThrow(/illegal game id/)
     expect(() => assertGameId('Upper')).toThrow(/illegal game id/)
+  })
+
+  it('leads with the KIND: each prefix matches its own names and no others', () => {
+    const gameId = gameIdFor('Kind Led')
+    const gameName = gameObjectName(gameId)
+    const playerName = playerObjectName(gameId, playerTagFor('key_5e1a1d3f'))
+
+    // `prefix=game.` is EXACTLY the lobby list.
+    expect(gameName.startsWith(gameObjectsPrefix())).toBe(true)
+    expect(playerName.startsWith(gameObjectsPrefix())).toBe(false)
+    // `prefix=player.<gameid>.` is exactly THAT game's participants — the
+    // trailing dot keeps `abc` from also matching `abc-2`.
+    expect(playerName.startsWith(playerObjectsPrefixFor(gameId))).toBe(true)
+    expect(gameName.startsWith(playerObjectsPrefixFor(gameId))).toBe(false)
+    expect(playerName.startsWith(playerObjectsPrefixFor('other-game-1111aaaa'))).toBe(false)
+    // The old scheme's `g.` prefix is not ours at all any more.
+    expect(gameName.startsWith('g.')).toBe(false)
+  })
+
+  it('every name builder still fits the service 64-character rule at the maximum id', () => {
+    const budget = nameBudget(longestSnapshotObjectName().length)
+    // 5 + 32 = 37 for a game, 7 + 32 + 1 + 8 = 48 for a player, 5 + 32 + 1 + 4
+    // + 1 + 3 + 1 + 8 = 55 for a snapshot.
+    expect(budget).toEqual({ game: 37, player: 48, snapshot: 55 })
+    for (const length of Object.values(budget)) expect(length).toBeLessThanOrEqual(64)
+    expectLegalObjectName(longestGameObjectName())
+    expectLegalObjectName(longestPlayerObjectName())
+    // The prefixes are legal too — the service refuses `?prefix=` otherwise.
+    expect(() => assertObjectPrefix(gameObjectsPrefix())).not.toThrow()
+    expect(() => assertObjectPrefix(playerObjectsPrefixFor('x'.repeat(MAX_GAME_ID_LENGTH)))).not.toThrow()
   })
 })
 
@@ -194,7 +238,7 @@ describe('game records', () => {
 
   it('refuses a body whose gameId disagrees with the object name', () => {
     expect(() =>
-      parseGameObjectRecord('g.other-9999ffff.game', serializeGameRecord(record)),
+      parseGameObjectRecord('game.other-9999ffff', serializeGameRecord(record)),
     ).toThrow(/the name and the body disagree/)
   })
 

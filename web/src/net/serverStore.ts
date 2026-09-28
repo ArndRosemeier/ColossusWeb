@@ -15,6 +15,7 @@ import { getKey } from './keyStore'
 import {
   ServerStoreError,
   assertObjectName,
+  assertObjectPrefix,
   assertStoreName,
   type GetResult,
   type PutResult,
@@ -83,8 +84,28 @@ function parseJson(text: string, what: string): unknown {
   }
 }
 
+/**
+ * The `Retry-After` a response carries, as whole seconds — or `undefined` when
+ * it carries none, or carries something this client cannot read as whole
+ * seconds (HTTP allows an HTTP-date there; the store sends integer seconds, and
+ * a value we do not understand must not be invented into a wait).
+ *
+ * This is THE ONLY reader of that header (`x-serverstore-sha256` is the only
+ * other header read anywhere in the app, in {@link ServerStoreTransportHttp.get}),
+ * so a `429`'s instruction has exactly one path to the caller.
+ */
+function retryAfterSeconds(response: Response): number | undefined {
+  const raw = response.headers.get('retry-after')
+  if (raw === null) return undefined
+  const trimmed = raw.trim()
+  if (!/^\d+$/.test(trimmed)) return undefined
+  const seconds = Number(trimmed)
+  return Number.isSafeInteger(seconds) ? seconds : undefined
+}
+
 /** Surface `{error:{code,message}}` with BOTH fields; fall back to the status text. */
 function toError(response: Response, body: string): ServerStoreError {
+  const retryAfter = retryAfterSeconds(response)
   try {
     const parsed = parseJson(body, 'error body')
     const envelope = asRecord(parsed, 'error envelope')['error']
@@ -93,7 +114,7 @@ function toError(response: Response, body: string): ServerStoreError {
       const code = record['code']
       const message = record['message']
       if (typeof code === 'string' && typeof message === 'string') {
-        return new ServerStoreError(code, message, response.status)
+        return new ServerStoreError(code, message, response.status, retryAfter)
       }
     }
   } catch {
@@ -103,6 +124,7 @@ function toError(response: Response, body: string): ServerStoreError {
     'bad_response',
     `HTTP ${response.status} ${response.statusText} without an error envelope: ${body.slice(0, 200)}`,
     response.status,
+    retryAfter,
   )
 }
 
@@ -203,11 +225,16 @@ export class ServerStoreTransportHttp implements ServerStoreTransport {
     return response
   }
 
-  async list(store: string): Promise<StoreObject[]> {
+  async list(store: string, prefix?: string): Promise<StoreObject[]> {
     assertStoreName(store)
-    const response = await this.request(`/stores/${encodeURIComponent(store)}/objects`, {
-      method: 'GET',
-    })
+    // Validated LOCALLY and before the request: the service answers `400
+    // invalid_name` for an empty or uppercase prefix, and a client that could
+    // not tell that apart from "no matches" would silently see an empty lobby.
+    const query = prefix === undefined ? '' : `?prefix=${encodeURIComponent(assertObjectPrefix(prefix))}`
+    const response = await this.request(
+      `/stores/${encodeURIComponent(store)}/objects${query}`,
+      { method: 'GET' },
+    )
     return parseObjectList(await response.text())
   }
 

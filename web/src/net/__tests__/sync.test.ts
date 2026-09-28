@@ -31,6 +31,7 @@ import {
   SNAPSHOT_SCHEMA_VERSION,
   serializeSnapshot,
   snapshotObjectName,
+  snapshotObjectPrefixFor,
   type SnapshotBody,
 } from '../snapshot'
 import {
@@ -240,7 +241,7 @@ describe('publish → fetch → adopt', () => {
     // The Start hand-off publishes the opening snapshot itself.
     path.publishCurrent()
     await path.settled()
-    expect(names(await arm.list(TEST_STORE)).filter((name) => name.includes('.s.'))).toHaveLength(1)
+    expect(names(await arm.list(TEST_STORE, snapshotObjectPrefixFor(GAME))).filter((name) => name.includes('.'))).toHaveLength(1)
 
     const state = current!
     const parent = state.legions.find((legion) => legion.playerId === state.players[0]!.id)!
@@ -251,10 +252,12 @@ describe('publish → fetch → adopt', () => {
     }
     path.local((prev) => dispatch(prev, split), split)
     await path.settled()
-    const afterSplit = names(await arm.list(TEST_STORE)).filter((name) => name.includes('.s.'))
+    const afterSplit = names(await arm.list(TEST_STORE, snapshotObjectPrefixFor(GAME))).filter((name) => name.includes('.'))
     expect(afterSplit).toHaveLength(2)
-    expect(afterSplit[0]).toMatch(/\.s\.0001\.000\.key_5e1a$/)
-    expect(afterSplit[1]).toMatch(/\.s\.0001\.001\.key_5e1a$/)
+    // The prefix already scopes these to GAME; what is asserted is the ORDER
+    // (the padded turn/seq the rename must not touch).
+    expect(afterSplit[0]).toMatch(/\.0001\.000\.key_5e1a$/)
+    expect(afterSplit[1]).toMatch(/\.0001\.001\.key_5e1a$/)
 
     // Selection is a UI-only command: the one commit path still changes state,
     // but it must NOT publish.
@@ -265,7 +268,7 @@ describe('publish → fetch → adopt', () => {
     const next = path.local((prev) => dispatch(prev, select), select)
     expect(next).not.toBeNull()
     await path.settled()
-    expect(names(await arm.list(TEST_STORE)).filter((name) => name.includes('.s.'))).toHaveLength(2)
+    expect(names(await arm.list(TEST_STORE, snapshotObjectPrefixFor(GAME))).filter((name) => name.includes('.'))).toHaveLength(2)
   })
 
   it('a state with a pending throw is NOT published until the throw is committed', async () => {
@@ -287,7 +290,7 @@ describe('publish → fetch → adopt', () => {
     })
     path.local((prev) => ({ ...prev, message: 'throw' }))
     await path.settled()
-    expect(names(await arm.list(TEST_STORE)).filter((name) => name.includes('.s.'))).toHaveLength(0)
+    expect(names(await arm.list(TEST_STORE, snapshotObjectPrefixFor(GAME))).filter((name) => name.includes('.'))).toHaveLength(0)
   })
 
   it('refuses to publish for a caller who is not seated', async () => {
@@ -413,7 +416,7 @@ describe('a race is a visible FORK, resolved deterministically', () => {
       store: TEST_STORE,
       parentName: null,
     })
-    const stored = names(await arm.list(TEST_STORE)).filter((name) => name.includes('.s.'))
+    const stored = names(await arm.list(TEST_STORE, snapshotObjectPrefixFor(GAME))).filter((name) => name.includes('.'))
     expect(stored).toHaveLength(2)
     expect(new Set(stored).size).toBe(2)
 
