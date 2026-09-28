@@ -36,6 +36,11 @@ import {
   saveGameToLocalStorage,
   type SavedGameMeta,
 } from '../persistence/saveGame'
+import {
+  boardBlockedReason,
+  boardClickVerdict,
+  type BoardGate,
+} from '../ui/boardInteraction'
 import { AI_SPEEDS, type AiSpeedId } from '../ui/aiSpeed'
 import {
   buildMoveAnim,
@@ -410,6 +415,38 @@ export default function App() {
   const myTurn =
     multiplayer === null ? true : state !== null && myPlayerId !== null && isMyTurn(state, myPlayerId)
   const interactive = Boolean(state) && !aiActing && !busy && !gameOver && myTurn
+  /**
+   * THE board authority for this client: whether it may act, and what the ONE
+   * message surface says when it may not. `interactive`, the painted fields
+   * (`MasterBoardView` reads the same flag) and the click verdict all derive from
+   * this ONE value, so "painted" and "accepted" cannot disagree (ledger row 13).
+   */
+  const boardGate: BoardGate =
+    state === null
+      ? { canAct: false, refusal: 'No game is open.' }
+      : {
+          canAct: interactive,
+          refusal: gameOver
+            ? 'The game is over.'
+            : aiActing
+              ? 'The AI is playing — wait for it to finish.'
+              : busy
+                ? 'A move is being played — wait for it to finish.'
+                : boardBlockedReason(state, myPlayerId),
+        }
+
+  /**
+   * The board's refusal, on the app's ONE message surface. It goes through the
+   * ONE commit path with the local-only `notice` command, so it is visible,
+   * never publishes a snapshot, and cannot silently change what is selected.
+   */
+  const notify = useCallback(
+    (message: string) => {
+      const cmd: GameCommand = { type: 'notice', message }
+      commitPath.local((prev) => engDispatch(prev, cmd), cmd)
+    },
+    [commitPath],
+  )
 
   // Paced AI autoplay — blocked while a physical throw is pending, and NEVER on
   // in a multiplayer game (those seats are human; a client-driven AI would
@@ -482,7 +519,13 @@ export default function App() {
   }, [aiSpeed, commitPath])
 
   const onHexClick = (label: string) => {
-    if (!state || !interactive) return
+    if (!state) return
+    // A click this client may not act on is REFUSED, loudly — never a silent
+    // deselect (ledger row 13, AGENTS.md rule 1).
+    if (!boardGate.canAct) {
+      notify(boardGate.refusal)
+      return
+    }
     if (state.battle && !state.battle.done) {
       const battle = state.battle
       if (battle.phase === 'Move' && battle.selectedUnitId) {
@@ -498,24 +541,38 @@ export default function App() {
       apply({ type: 'deselectLegion' })
       return
     }
-    if (state.phase === 'Move' && state.selectedLegionId) {
-      const moves = getMovesForSelected(state)
-      const info = moves.get(label)
-      if (info) {
+    // The verdict and the PAINTED fields are one computation: whatever is drawn
+    // as a destination is accepted, a drawn PREVIEW is refused with a reason,
+    // and a plain hex is still the deselect gesture.
+    const verdict = boardClickVerdict(state, boardGate, label)
+    switch (verdict.kind) {
+      case 'move':
         apply({
           type: 'move',
-          legionId: state.selectedLegionId,
-          toHex: label,
-          teleport: info.teleport,
+          legionId: verdict.legionId,
+          toHex: verdict.toHex,
+          teleport: verdict.teleport,
         })
-      } else {
+        break
+      case 'deselect':
         apply({ type: 'deselectLegion' })
-      }
+        break
+      case 'refuse':
+        notify(verdict.message)
+        break
+      case 'ignore':
+        break
     }
   }
 
   const onLegionClick = (legionId: string) => {
-    if (!state || !interactive) return
+    if (!state) return
+    // Selecting is itself acting: a spectator or the other seat is told why,
+    // rather than the click vanishing.
+    if (!boardGate.canAct) {
+      notify(boardGate.refusal)
+      return
+    }
     // Toggle off when re-clicking the selected legion during split/muster
     if (
       state.selectedLegionId === legionId &&

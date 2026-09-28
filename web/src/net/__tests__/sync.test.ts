@@ -11,7 +11,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createGame, dispatch, getMovesForSelected } from '../../engine/GameEngine'
 import { loadDefaultVariant, turn1SplitChild, twoPlayerGame } from '../../engine/__tests__/helpers'
-import type { GameState } from '../../engine/types'
+import type { GameCommand, GameState } from '../../engine/types'
 import { forgetKey, installKey } from '../keyStore'
 import { createMemoryTransport } from '../memoryTransport'
 import {
@@ -43,6 +43,7 @@ import {
   fetchLatest,
   gameSeedFor,
   isMyTurn,
+  isSharedCommand,
   multiplayerSeatOptions,
   pollLatest,
   publishSnapshot,
@@ -332,6 +333,49 @@ describe('publish → fetch → adopt', () => {
     await expect(
       publishSnapshot(arm, STRANGER, record, twoPlayerGame(1), { store: TEST_STORE }),
     ).rejects.toMatchObject({ code: 'not_seated' })
+  })
+
+  it('a refusal notice reaches the ONE message surface and publishes NOTHING', async () => {
+    const arm = createMemoryTransport({ identity: CREATOR })
+    const { record } = await seededGame(arm)
+    const session = createSyncSession({
+      transport: arm,
+      identity: CREATOR,
+      record,
+      store: TEST_STORE,
+    })
+    let current: GameState | null = twoPlayerGame(1)
+    const path = createCommitPath({
+      getState: () => current,
+      setState: (next) => {
+        current = next
+      },
+      getSession: () => session,
+    })
+    path.publishCurrent()
+    await path.settled()
+    const namesOf = async () =>
+      names(await arm.list(TEST_STORE, snapshotObjectPrefixFor(GAME))).filter((name) =>
+        name.includes('.'),
+      )
+    const before = await namesOf()
+    expect(before).toHaveLength(1)
+
+    // A refused board click (the owner's trap, ledger row 13) carries its
+    // sentence through the ONE commit path and changes NO shared state.
+    const notice: GameCommand = {
+      type: 'notice',
+      message: "Bu02 is Bob's legion — its fields are only a movement preview.",
+    }
+    expect(isSharedCommand(notice)).toBe(false)
+    const next = path.local((prev) => dispatch(prev, notice), notice)
+    expect(next).not.toBeNull()
+    expect(next!.message).toBe(notice.message)
+    // Nothing else changed — a notice cannot deselect the inspected legion.
+    expect(next!.selectedLegionId).toBe(current!.selectedLegionId)
+    expect(next!.legions).toEqual(current!.legions)
+    await path.settled()
+    expect(await namesOf()).toHaveLength(before.length)
   })
 })
 

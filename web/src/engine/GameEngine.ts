@@ -306,6 +306,13 @@ export function dispatch(state: GameState, command: GameCommand, rng = Math.rand
 }
 
 function applyCommand(state: GameState, command: GameCommand, rng: () => number): void {
+  // A notice is the UI's OWN channel: it changes no game data, so it is answered
+  // before any state-specific dispatch — a refused click must be explainable even
+  // while a throw is pending or a battle/engagement owns the phase.
+  if (command.type === 'notice') {
+    state.message = command.message
+    return
+  }
   if (command.type === 'commitDice') {
     commitPendingDice(state, rng, command.values)
     return

@@ -521,6 +521,9 @@ export function isMyTurn(state: GameState, playerId: string): boolean {
 const LOCAL_ONLY_COMMANDS: ReadonlySet<GameCommand['type']> = new Set([
   'selectLegion',
   'deselectLegion',
+  // A refusal message is this client's OWN surface (ledger row 13): it changes
+  // no game data, so it must never churn the shared seq.
+  'notice',
 ])
 
 export function isSharedCommand(command: GameCommand): boolean {

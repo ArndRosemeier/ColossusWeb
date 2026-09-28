@@ -12,13 +12,12 @@ import {
   canUndoRecruit,
   canUndoSplit,
   getLegalRecruits,
-  getMovesForSelected,
   playerLegions,
   unseparatedSplitStacks,
 } from '../engine/GameEngine'
-import { listEnemyMovePreview } from '../engine/movement'
 import { bestRecruit, bestRecruitAt } from '../engine/recruit'
 import type { GameCommand, GameState, Legion } from '../engine/types'
+import { boardInteraction } from '../ui/boardInteraction'
 import type { MasterMoveAnim } from '../ui/moveAnimation'
 import { pointsToSvg, usePathTween } from '../ui/usePathTween'
 import { MusterForm, SplitForm } from './LegionActions'
@@ -209,14 +208,14 @@ export function MasterBoardView({
     ? state.legions.find((l) => l.id === state.selectedLegionId)
     : null
   const player = activePlayer(state)
-  const moveInfo =
-    state.phase === 'Move' && selected && selected.playerId === player.id
-      ? getMovesForSelected(state)
-      : new Map<string, { side: string; teleport: boolean }>()
-  const enemyPreview =
-    state.phase === 'Move' && selected && selected.playerId !== player.id
-      ? listEnemyMovePreview(state, selected)
-      : new Map<string, { minRoll: number; teleport: boolean }>()
+  /**
+   * The PAINTED fields come from the SAME seam a click is judged by
+   * (`ui/boardInteraction.ts`), driven by the SAME `interactive` the click gate
+   * uses. `interactive === false` (a spectator, the other seat's turn, an AI
+   * playing) therefore paints NOTHING actionable: the board can never show a
+   * field that a click refuses (ledger row 13).
+   */
+  const { legal: moveInfo, preview: enemyPreview } = boardInteraction(state, interactive)
   const legalLabels = [...moveInfo.keys()]
   const splitHexes = new Set(
     state.phase === 'Move' ? unseparatedSplitStacks(state).map((g) => g.hexLabel) : [],

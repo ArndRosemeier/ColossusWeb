@@ -260,6 +260,12 @@ export interface GameState {
 export type GameCommand =
   | { type: 'selectLegion'; legionId: string }
   | { type: 'deselectLegion' }
+  /**
+   * Put a sentence on the app's ONE message surface WITHOUT changing the game.
+   * The board's way to explain a click it refuses (`ui/boardInteraction.ts`);
+   * LOCAL-ONLY, so it never publishes (`sync.ts`'s `LOCAL_ONLY_COMMANDS`).
+   */
+  | { type: 'notice'; message: string }
   | { type: 'split'; parentId: string; childCreatures: string[]; childHex?: string }
   | { type: 'undoSplit'; childId: string }
   | { type: 'doneSplit' }
