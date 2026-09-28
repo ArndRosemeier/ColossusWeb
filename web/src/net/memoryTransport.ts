@@ -26,6 +26,23 @@ interface StoredObject {
   createdAt: string
 }
 
+/**
+ * The object map and scripted failures, factored out so SEVERAL transports can
+ * share ONE store. A test that gives two "browsers" a map each would prove
+ * nothing about one client seeing another's write; with this, a `put` through
+ * one transport is a `get` through the other, exactly as the shared bucket works.
+ */
+export interface MemoryTransportBackend {
+  readonly objects: Map<string, StoredObject>
+  failures: Record<string, ServerStoreError>
+}
+
+export function createMemoryTransportBackend(
+  failures: Record<string, ServerStoreError> = {},
+): MemoryTransportBackend {
+  return { objects: new Map(), failures }
+}
+
 export interface MemoryTransportOptions {
   /** The identity `whoami()` reports. */
   identity: StoreIdentity
@@ -35,6 +52,11 @@ export interface MemoryTransportOptions {
    * throws exactly that error — for testing the error path without a network.
    */
   failures?: Record<string, ServerStoreError>
+  /**
+   * A shared backend, so several transports read and write ONE store. Omitted, a
+   * fresh private one is made (the usual case).
+   */
+  backend?: MemoryTransportBackend
 }
 
 /**
@@ -52,13 +74,15 @@ function byteLength(value: string): number {
 }
 
 export class MemoryTransport implements ServerStoreTransport {
-  private readonly objects = new Map<string, StoredObject>()
+  private readonly objects: Map<string, StoredObject>
   private readonly failures: Record<string, ServerStoreError>
   private identity: StoreIdentity
 
   constructor(options: MemoryTransportOptions) {
     this.identity = options.identity
-    this.failures = options.failures ?? {}
+    const backend = options.backend
+    this.objects = backend?.objects ?? new Map()
+    this.failures = options.failures ?? backend?.failures ?? {}
   }
 
   /** The objects currently held, for a test that wants to inspect them directly. */

@@ -5,11 +5,13 @@
  *
  * It renders from props only, so "it says whose turn it is" and "a fork is
  * surfaced, not swallowed" are checkable with `react-dom/server` and no store.
+ * The fork's SENTENCE is not invented here: `sync.ts`'s `formatFork` words it
+ * once and the poll's status carries it (`PollStatus.detail`), so the warning and
+ * the state it warns about can never disagree.
  */
 
 import type { FailureDescription } from '../net/failure'
-import type { SnapshotFork } from '../net/snapshot'
-import type { SyncStatus } from '../net/sync'
+import type { PollStatus } from '../net/sync'
 
 export interface MultiplayerStatusProps {
   /** This client's seat index, or -1 for a spectator. */
@@ -19,11 +21,11 @@ export interface MultiplayerStatusProps {
   turnLabel: string
   myTurn: boolean
   gameOver: boolean
-  status: SyncStatus | null
+  status: PollStatus | null
   failure: FailureDescription | null
 }
 
-function pollLabel(status: SyncStatus | null): string {
+function pollLabel(status: PollStatus | null): string {
   if (status === null) return 'connecting…'
   if (status.phase === 'stopped') return 'sync stopped'
   if (status.phase === 'error') {
@@ -35,15 +37,10 @@ function pollLabel(status: SyncStatus | null): string {
   return 'synced'
 }
 
-function forkLabel(fork: SnapshotFork | null): string | null {
-  if (fork === null) return null
-  const tags = fork.names.map((name) => name.split('.').pop() ?? name).join(', ')
-  return `FORK at turn ${fork.turn} seq ${fork.seq} — writers ${tags}; both snapshots kept`
-}
-
 export function MultiplayerStatus(props: MultiplayerStatusProps) {
   const { seat, seatCount, myTurn, gameOver, status, failure } = props
-  const fork = status?.fork ?? null
+  // `detail` is the job's own warning — today only the game's fork sentence.
+  const detail = status?.detail ?? null
   const seatLabel =
     seat >= 0 ? `Seat ${seat + 1}/${seatCount}` : `Watching (${seatCount} seats)`
 
@@ -59,9 +56,9 @@ export function MultiplayerStatus(props: MultiplayerStatusProps) {
           <span className="muted mp-readonly">read-only</span>
         ))}
       <span className="muted">· {pollLabel(status)}</span>
-      {fork && (
+      {detail && (
         <span className="connect-failure" role="alert">
-          {forkLabel(fork)}
+          {detail}
         </span>
       )}
       {failure && (

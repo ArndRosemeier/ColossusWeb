@@ -5,9 +5,9 @@
  * Two pieces, deliberately split:
  *
  *  - {@link LobbyPanelView} is PRESENTATIONAL: everything it draws comes from its
- *    props, so the rule that matters most ("Start appears only for the creator")
- *    is checkable without a browser or a store (`lobbyUi.test.ts` renders it with
- *    `react-dom/server`).
+ *    props, so the rules that matter most ("Start appears only for the creator",
+ *    "the creator is TOLD why Start is blocked") are checkable without a browser
+ *    or a store (`lobbyUi.test.ts` renders it with `react-dom/server`).
  *  - {@link LobbyPanel} is the container: it reads the ONE connection state
  *    `SetupScreen` owns, builds a lobby context, and calls the operations in
  *    `net/lobby.ts`. It never talks to the store directly — every read and write
@@ -17,33 +17,42 @@
  * renders a hint pointing at `ConnectPanel`, so a refusal there is never a blank
  * screen here.
  *
- * Out of scope, by design (S3): nothing polls, nothing watches the store, and no
- * game state is published. The list is refreshed on mount, after each action, and
- * by the explicit Refresh button.
+ * ## The list is LIVE (S4)
+ *
+ * This panel used to refresh once on mount, then only on an action or the
+ * explicit Refresh button — and the owner's first live test found the cost: the
+ * creator never saw a joiner arrive, so Start (which needs two joined players as
+ * the creator's view sees them) stayed disabled and "there is no way to start"
+ * was really "the lobby never refreshed". So the panel now WATCHES the store,
+ * through `net/lobbyWatcher.ts`: the lobby's job on the session's ONE poll loop
+ * (~5s, visible-only, backoff on error, no timer of its own — `sync.ts`'s
+ * `pollLoop` owns the timer). {@link LobbyFreshness} says so on screen, so a list
+ * that has not changed does not look dead, and a failed read is loud, not silent.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { forgetActiveGame, readActiveGame } from '../net/activeGame'
-import { describeFailure, type FailureDescription } from '../net/failure'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { forgetActiveGame, rememberActiveGame } from '../net/activeGame'
+import type { FailureDescription } from '../net/failure'
 import { seatIndexOf } from '../net/gameRecord'
 import {
-  createGame,
   joinBlockedReason,
-  joinGame,
-  leaveGame,
-  listGames,
   lobbyContext,
-  readLobby,
-  startGame,
   startRefusal,
   type ActiveLobby,
   type GameListing,
   type LobbyContext,
 } from '../net/lobby'
+import { LobbyWatcher, type LobbyData } from '../net/lobbyWatcher'
 import { createServerStoreTransport } from '../net/serverStore'
-import type { MultiplayerHandoff } from '../net/sync'
+import {
+  browserVisibility,
+  usePolledStatus,
+  type MultiplayerHandoff,
+  type PollHandle,
+  type PollStatus,
+} from '../net/sync'
 import type { ConnectionState } from '../net/useConnection'
-import { ServerStoreError, type StoreIdentity } from '../net/transport'
+import type { ServerStoreTransport, StoreIdentity } from '../net/transport'
 
 export interface LobbyPanelViewProps {
   /** The connected identity, or `null` when no key is connected yet. */
@@ -57,6 +66,8 @@ export interface LobbyPanelViewProps {
   active: ActiveLobby | null
   failure: FailureDescription | null
   notice: string | null
+  /** The watching loop's health, for the freshness signal. `null` while none runs. */
+  pollStatus: PollStatus | null
   busy: boolean
   onCreate: () => void
   onJoin: (gameId: string) => void
@@ -68,8 +79,80 @@ export interface LobbyPanelViewProps {
   onClose: () => void
 }
 
+/**
+ * The freshness signal: what a person needs in order to tell "nothing has
+ * changed yet" from "this screen is dead". It renders the loop's own state — it
+ * makes no request of its own — and every sentence it can say is a function of
+ * that state, so a pin can assert the wording as well as the presence.
+ */
+export interface LobbyFreshnessProps {
+  readonly status: PollStatus | null
+  readonly pollSeconds: number
+}
+
+export function LobbyFreshness(props: LobbyFreshnessProps) {
+  const { status } = props
+  const phase = status?.phase ?? 'starting'
+  const label =
+    status === null
+      ? 'Checking the store…'
+      : status.phase === 'error'
+        ? `list update failed — retrying (${status.failures} in a row, last tried ${props.pollSeconds}s ago)`
+        : status.phase === 'stopped'
+          ? 'Not watching the store any more'
+          : status.phase === 'idle'
+            ? 'Paused — this tab is hidden'
+            : status.polls === 0
+              ? 'Watching the store…'
+              : `live · updated ${props.pollSeconds}s ago`
+  return (
+    <p className="lobby-freshness" data-phase={phase}>
+      <span className="lobby-live-dot" aria-hidden="true" />
+      {label}
+    </p>
+  )
+}
+
+/** Whole seconds since `iso`, or 0 when there is no read yet. */
+function secondsAgo(iso: string | null, now: number): number {
+  if (iso === null) return 0
+  return Math.max(0, Math.round((now - Date.parse(iso)) / 1000))
+}
+
+/**
+ * The lobby's own clock. It exists only so the freshness line can count, and it
+ * ticks only while the tab is visible — a hidden tab neither polls nor redraws.
+ * The visibility source is `sync.ts`'s ONE rule rather than a second
+ * `visibilitychange` listener of the panel's own.
+ */
+function useLobbyPollSeconds(status: PollStatus | null, live: boolean): number {
+  const [now, setNow] = useState(() => Date.now())
+  const polling = status?.phase === 'polling'
+
+  useEffect(() => {
+    if (!live || !polling) return
+    const source = browserVisibility()
+    let timer: ReturnType<typeof setInterval> | null = null
+
+    const schedule = () => {
+      if (timer !== null) clearInterval(timer)
+      timer = source.visible() ? setInterval(() => setNow(Date.now()), 1000) : null
+      setNow(Date.now())
+    }
+    schedule()
+    const unsubscribe = source.subscribe(schedule)
+    return () => {
+      if (timer !== null) clearInterval(timer)
+      unsubscribe()
+    }
+  }, [live, polling])
+
+  return secondsAgo(status?.lastPolledAt ?? null, now)
+}
+
 export function LobbyPanelView(props: LobbyPanelViewProps) {
   const { identity, active } = props
+  const pollSeconds = useLobbyPollSeconds(props.pollStatus, identity !== null)
 
   if (!identity) {
     return (
@@ -120,6 +203,7 @@ export function LobbyPanelView(props: LobbyPanelViewProps) {
           ) : (
             <p className="hint">Nobody has joined yet.</p>
           )}
+          <LobbyFreshness status={props.pollStatus} pollSeconds={pollSeconds} />
           <div className="setup-actions">
             {isCreator && active.record.status === 'lobby' && (
               <button
@@ -148,6 +232,13 @@ export function LobbyPanelView(props: LobbyPanelViewProps) {
                 seats.
               </span>
             )}
+            {/*
+              The blocking reason is NEVER only a greyed-out button: the creator
+              with one player sees the rule working, in words, and the same text
+              is on the button's `title`. It clears by itself the moment the
+              second player's join appears in the list — the rule is re-evaluated
+              from the refreshed players, not remembered.
+            */}
             {startBlocked && (
               <span className="muted lobby-refusal">
                 {startBlocked.code}: {startBlocked.message}
@@ -239,6 +330,7 @@ export function LobbyPanelView(props: LobbyPanelViewProps) {
                 ))}
               </ul>
             )}
+            <LobbyFreshness status={props.pollStatus} pollSeconds={pollSeconds} />
             <div className="setup-actions">
               <button type="button" className="ghost" onClick={props.onRefresh} disabled={props.busy}>
                 Refresh games
@@ -277,122 +369,125 @@ interface Props {
 
 export function LobbyPanel({ connection, variantName, maxPlayers, onStarted }: Props) {
   const identity = connection.identity
-  const transport = useMemo(() => createServerStoreTransport(), [])
+  const transport: ServerStoreTransport = useMemo(() => createServerStoreTransport(), [])
   const ctx = useMemo<LobbyContext | null>(
     () => (identity === null ? null : lobbyContext({ transport, identity })),
     [identity, transport],
   )
 
   const [displayName, setDisplayName] = useState('')
-  const [listing, setListing] = useState<GameListing | null>(null)
-  const [active, setActive] = useState<ActiveLobby | null>(null)
-  const [failure, setFailure] = useState<FailureDescription | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // The hook that owns the live status hands it a reporter; the watcher (built
+  // before that hook can run) writes through this ref, so the loop's health has
+  // exactly ONE consumer — the hook's state — and the panel only renders it.
+  const statusReporter = useRef<((status: PollStatus) => void) | null>(null)
+  // ONE watcher per connection; it owns every read, and the loop's stop handle
+  // lives with the hook below. The panel never touches a timer.
+  const watcher = useMemo(
+    () =>
+      ctx === null
+        ? null
+        : new LobbyWatcher({
+            context: ctx,
+            onStatus: (status) => statusReporter.current?.(status),
+          }),
+    [ctx],
+  )
 
-  const refresh = useCallback(async (context: LobbyContext) => {
-    setListing(await listGames(context))
-  }, [])
+  // The panel renders the watcher's snapshot; the watcher owns every read.
+  const data: LobbyData = useSyncExternalStore(
+    watcher?.subscribe ?? noopSubscribe,
+    watcher?.getData ?? emptyLobbyData,
+  )
+  const listing = watcher === null ? null : data.listing
+  const active = watcher === null ? null : data.active
+  const polled = usePolledStatus(
+    useCallback(
+      (report: (status: PollStatus) => void): PollHandle | null => {
+        statusReporter.current = report
+        if (watcher === null) return null
+        watcher.start()
+        return { stop: () => watcher.close() }
+      },
+      [watcher],
+    ),
+  )
+  // A watcher that cannot read its own local pointer refuses to start, loudly
+  // (the hook caught it); a poll or action refusal is the watcher's own.
+  const failure = watcher === null ? polled.failure : data.failure
+  const pollStatus = polled.status
 
-  // Discovery on connect — once, and again only on an action or the Refresh
-  // button. The lobby does not poll the store: WATCHING it is the game's job
-  // (`net/sync.ts`), and a lobby that watched would be a second poll loop.
   useEffect(() => {
-    if (ctx === null) {
-      setListing(null)
-      setActive(null)
-      setFailure(null)
+    if (watcher === null || ctx === null) {
       setNotice(null)
+      setDisplayName('')
       return
     }
     setDisplayName((current) => (current.length > 0 ? current : `${ctx.identity.label}'s game`))
-    let cancelled = false
+    // RESUME: the watcher read the resume pointer at construction and its FIRST
+    // tick is already reading that game back, so a game this client was in
+    // before a reload is offered instead of starting a fresh local one. A pointer
+    // to a game that is gone reports `not_found`, which is forgotten here rather
+    // than re-read; anything else is already on the error surface.
     void (async () => {
-      try {
-        const next = await listGames(ctx)
-        if (cancelled) return
-        setListing(next)
-        // RESUME: a game this client was in before a reload is read back and
-        // offered, so opening it ADOPTS its latest snapshot instead of starting
-        // a fresh local game. A pointer to a game that is gone is forgotten.
-        let remembered: string | null = null
-        try {
-          remembered = readActiveGame()
-        } catch (error) {
-          setFailure(describeFailure(error))
-          return
-        }
-        if (remembered === null) return
-        try {
-          const lobby = await readLobby(ctx, remembered)
-          if (cancelled) return
-          setActive(lobby)
-          setNotice(`Resuming "${lobby.record.displayName}" — press Enter game.`)
-        } catch (error) {
-          if (error instanceof ServerStoreError && error.code === 'not_found') {
-            forgetActiveGame()
-            return
-          }
-          if (!cancelled) setFailure(describeFailure(error))
-        }
-      } catch (error) {
-        if (!cancelled) setFailure(describeFailure(error))
+      await watcher.refresh()
+      if (watcher.getData().failure?.code === 'not_found') {
+        forgetActiveGame()
+        await watcher.setActiveGame(null)
+        return
+      }
+      const resumed = watcher.getData().active
+      if (resumed !== null) {
+        setNotice(`Resuming "${resumed.record.displayName}" — press Enter game.`)
       }
     })()
-    return () => {
-      cancelled = true
-    }
-  }, [ctx])
+  }, [watcher, ctx])
 
   const run = useCallback(
-    async (action: (context: LobbyContext) => Promise<void>) => {
-      if (ctx === null) return
+    async (action: (target: LobbyWatcher) => Promise<void>) => {
+      if (watcher === null) return
       setBusy(true)
-      setFailure(null)
       setNotice(null)
       try {
-        await action(ctx)
-      } catch (error) {
-        setFailure(describeFailure(error))
+        await action(watcher)
+      } catch {
+        // The watcher stored the refusal and published it; the panel only has to
+        // stop being busy. Nothing is swallowed — `data.failure` renders it.
       } finally {
         setBusy(false)
       }
     },
-    [ctx],
+    [watcher],
   )
 
   const onCreate = useCallback(() => {
-    void run(async (context) => {
-      const record = await createGame(context, { displayName, variant: variantName, maxPlayers })
-      // The creator is a player too. Create wrote ONE object; this is the
-      // creator's own join, a second object owned by the same client.
-      await joinGame(context, record.gameId)
-      setActive(await readLobby(context, record.gameId))
-      await refresh(context)
+    void run(async (target) => {
+      await target.create({ displayName, variant: variantName, maxPlayers })
+      const record = target.getData().active!.record
+      rememberActiveGame(record.gameId)
       setNotice(`Created "${record.displayName}" (${record.gameId}). Waiting for players.`)
     })
-  }, [run, displayName, variantName, maxPlayers, refresh])
+  }, [run, displayName, variantName, maxPlayers])
 
   const onJoin = useCallback(
     (gameId: string) => {
-      void run(async (context) => {
-        const player = await joinGame(context, gameId)
-        const lobby = await readLobby(context, gameId)
-        setActive(lobby)
-        await refresh(context)
-        setNotice(`Joined "${lobby.record.displayName}" as ${player.label}.`)
+      void run(async (target) => {
+        await target.join(gameId)
+        const lobby = target.getData().active!
+        rememberActiveGame(gameId)
+        setNotice(`Joined "${lobby.record.displayName}".`)
       })
     },
-    [run, refresh],
+    [run],
   )
 
   const onStart = useCallback(() => {
-    void run(async (context) => {
-      if (active === null || identity === null) return
-      const started = await startGame(context, active.record.gameId)
-      const lobby = await readLobby(context, started.gameId)
-      setActive(lobby)
-      await refresh(context)
+    void run(async (target) => {
+      if (identity === null) return
+      await target.startGame()
+      const lobby = target.getData().active
+      if (lobby === null) return
       onStarted({
         record: lobby.record,
         players: lobby.players,
@@ -400,7 +495,7 @@ export function LobbyPanel({ connection, variantName, maxPlayers, onStarted }: P
         mode: 'host',
       })
     })
-  }, [run, active, identity, refresh, onStarted])
+  }, [run, identity, onStarted])
 
   const onEnter = useCallback(() => {
     if (active === null || identity === null) return
@@ -413,27 +508,25 @@ export function LobbyPanel({ connection, variantName, maxPlayers, onStarted }: P
   }, [active, identity, onStarted])
 
   const onLeave = useCallback(() => {
-    void run(async (context) => {
-      if (active === null) return
-      await leaveGame(context, active.record.gameId)
+    void run(async (target) => {
+      const label = target.getData().active?.record.displayName ?? 'the game'
+      await target.leaveGame()
       forgetActiveGame()
-      setActive(null)
-      await refresh(context)
-      setNotice(`Left "${active.record.displayName}".`)
+      setNotice(`Left "${label}".`)
     })
-  }, [run, active, refresh])
+  }, [run])
 
   const onRefresh = useCallback(() => {
-    void run(async (context) => {
-      await refresh(context)
+    void run(async (target) => {
+      await target.refresh()
       setNotice('Game list refreshed.')
     })
-  }, [run, refresh])
+  }, [run])
 
   const onClose = useCallback(() => {
-    setActive(null)
+    watcher?.back()
     setNotice(null)
-  }, [])
+  }, [watcher])
 
   return (
     <LobbyPanelView
@@ -446,6 +539,7 @@ export function LobbyPanel({ connection, variantName, maxPlayers, onStarted }: P
       active={active}
       failure={failure}
       notice={notice}
+      pollStatus={pollStatus}
       busy={busy}
       onCreate={onCreate}
       onJoin={onJoin}
@@ -456,4 +550,13 @@ export function LobbyPanel({ connection, variantName, maxPlayers, onStarted }: P
       onClose={onClose}
     />
   )
+}
+
+const NOOP = (): void => undefined
+function noopSubscribe(): () => void {
+  return NOOP
+}
+const EMPTY_LOBBY: LobbyData = { listing: null, active: null, failure: null, status: null }
+function emptyLobbyData(): LobbyData {
+  return EMPTY_LOBBY
 }

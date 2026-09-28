@@ -18,7 +18,17 @@
  * | adopting | {@link adopt} (deserialise + preserve local UI fields) |
  * | a local command changing state | {@link createCommitPath} — the only path that publishes |
  * | whose turn a seat may act | {@link actingPlayerIds} / {@link isMyTurn} |
- * | polling | {@link pollLatest} |
+ * | watching the store (the timer, visibility, backoff, stop) | {@link pollLoop} |
+ * | the GAME's poll job | {@link pollLatest} |
+ *
+ * ## One loop, two jobs
+ *
+ * `pollLoop` IS the loop: one timer, one visibility rule, one backoff, one stop
+ * handle. The game's snapshot fetch ({@link pollLatest}) and the lobby's list
+ * refresh (`net/lobbyWatcher.ts`) are JOBS registered on it, at their own
+ * cadences — so "the lobby polls" never means "a second timer exists". Before
+ * this, the loop had the game's job welded into it and the lobby deliberately
+ * had none; the owner found that the hard way (ledger row 10).
  *
  * ## Why `sss` is seeded from the parent
  *
@@ -32,10 +42,12 @@
  * See `snapshot.ts`'s header for the measurement.
  */
 
+import { useEffect, useRef, useState } from 'react'
 import type { NewGameOptions, GameCommand, GameState, PlayerKind } from '../engine/types'
 import { PLAYER_COLORS } from '../engine/types'
 import { deserializeGame, serializeGame, type SavedGameBlob } from '../persistence/saveGame'
 import type { LoadedVariant } from '../variant/loadVariant'
+import { createContentCache, type ContentCache } from './contentCache'
 import { describeFailure, type FailureDescription } from './failure'
 import {
   assertGameId,
@@ -65,8 +77,16 @@ import {
   type StoreIdentity,
 } from './transport'
 
-/** ~2s: there is no push channel, so the interval is the only throttle we have. */
-export const DEFAULT_POLL_INTERVAL_MS = 2000
+/**
+ * The GAME's poll interval — ~2s, because turn latency is what a player feels:
+ * a move made by someone else should appear on my board as close to instantly as
+ * polling allows. There is no push channel, so the interval is the only throttle
+ * there is. The LOBBY polls a different job at a different cadence
+ * (`lobbyWatcher.ts`: ~5s — nobody is waiting on a turn there, and a slower list
+ * keeps the request rate down), which is why this is named for the GAME rather
+ * than being a global "default".
+ */
+export const GAME_POLL_INTERVAL_MS = 2000
 
 /**
  * What the lobby hands to the app when a game opens.
@@ -110,6 +130,13 @@ export interface SyncSession {
   readonly record: GameRecord
   readonly store: string
   readonly tracker: SnapshotTracker
+  /**
+   * The bodies this session has already read, keyed by content address: the ONE
+   * reason a tick that changed nothing reads no body at all
+   * (`contentCache.ts`). It is per SESSION, not per call, because a per-call
+   * cache would never hit.
+   */
+  readonly cache: ContentCache
 }
 
 export function createSyncSession(options: {
@@ -118,6 +145,7 @@ export function createSyncSession(options: {
   record: GameRecord
   store?: string
   tracker?: SnapshotTracker
+  cache?: ContentCache
 }): SyncSession {
   const store = options.store ?? serverStoreName()
   assertStoreName(store)
@@ -128,6 +156,7 @@ export function createSyncSession(options: {
     record: options.record,
     store,
     tracker: options.tracker ?? createSnapshotTracker(),
+    cache: options.cache ?? createContentCache({ transport: options.transport, store }),
   }
 }
 
@@ -301,11 +330,28 @@ export interface FetchOptions {
   store?: string
   /** The snapshot this client currently holds — used to break a fork deterministically. */
   heldName?: string | null
+  /**
+   * The bodies this client already holds, by content address. With it, a tick
+   * whose newest snapshot is unchanged reads NO body at all; the newest group's
+   * members whose `sha256` changed are still read, so fork detection is exactly
+   * as it was.
+   */
+  cache?: ContentCache
 }
 
 /**
  * Read the newest snapshot of a game: list, filter to the game's snapshots, take
  * the GREATEST name, then read every body at that `(turn, seq)`.
+ *
+ * **The list is for LEARNING NAMES and HASHES, never for content.** `sha256` from
+ * the listing is a content address, so a body is point-read by NAME only when it
+ * is new or its hash changed ({@link ContentCache}) — the steady state of a tick
+ * is one list request and zero body reads. A name the newest group needs but the
+ * caller has never read is fetched; one it holds is reused. This changes only the
+ * REQUEST COUNT: the ordering (greatest name), the fork detection and the choice
+ * among the group are untouched, and a cache entry can never resurrect content
+ * whose hash moved (the key IS the hash) or that disappeared (the listing is the
+ * only source of names).
  *
  * A fork — more than one writer at the newest position — is returned so the
  * caller can SURFACE it; the choice among the fork's members is deterministic
@@ -322,13 +368,25 @@ export async function fetchLatest(
   assertStoreName(store)
   assertGameId(gameId)
 
-  const refs = snapshotRefsForGame(await transport.list(store), gameId)
+  const objects = await transport.list(store)
+  const byName = new Map(objects.map((object) => [object.name, object] as const))
+  const refs = snapshotRefsForGame(objects, gameId)
   if (refs.length === 0) return null
 
   const group = newestSnapshotGroup(refs)
   const candidates: Array<{ ref: SnapshotRef; parent: string | null; body: SnapshotBody }> = []
   for (const ref of group) {
-    const value = (await transport.get(store, ref.name)).value
+    const object = byName.get(ref.name)
+    if (object === undefined) {
+      // Cannot happen: `refs` was filtered from the same listing.
+      throw new ServerStoreError(
+        'bad_snapshot',
+        `${ref.name}: the listing that produced this ref no longer names it`,
+      )
+    }
+    const value = options.cache
+      ? await options.cache.adopt(ref.name, object.sha256)
+      : (await transport.get(store, ref.name)).value
     const body = parseSnapshot(value)
     if (body.header.name !== ref.name) {
       throw new ServerStoreError(
@@ -577,20 +635,64 @@ export function browserVisibility(): VisibilitySource {
   }
 }
 
-export interface SyncStatus {
+/**
+ * What the ONE poll loop reports about itself, in terms BOTH of its jobs can
+ * state — the game's snapshot fetch and the lobby's list refresh. The only
+ * game-specific field is `detail`, and a fork arrives there already worded
+ * ({@link formatFork}) so this module stays the only place a fork is a sentence.
+ */
+export interface PollStatus {
   readonly phase: 'idle' | 'polling' | 'error' | 'stopped'
+  /** Completed ticks. Counted for BOTH jobs, including a tick that found nothing. */
   readonly polls: number
+  /** Consecutive failed ticks; `0` while healthy. */
   readonly failures: number
   readonly lastError: FailureDescription | null
-  readonly fork: SnapshotFork | null
   readonly lastPolledAt: string | null
+  /**
+   * What the job's LAST successful tick noticed that is worth saying out loud —
+   * the game's fork sentence ({@link formatFork}) is the only user today. `null`
+   * means "nothing to add"; the lobby never sets it.
+   */
+  readonly detail: string | null
 }
 
-export interface PollOptions {
-  /** Defaults to {@link DEFAULT_POLL_INTERVAL_MS}. */
-  intervalMs?: number
-  onAdopt: (body: SnapshotBody, fork: SnapshotFork | null) => void
-  onStatus?: (status: SyncStatus) => void
+/**
+ * The ONE poll loop in this app — every "watch the store" job is a TICK of this,
+ * never a second timer. `net/lobbyWatcher.ts` registers the lobby job at its own
+ * cadence; {@link pollLatest} below registers the game's snapshot fetch. S3's
+ * original loop was this loop with the game's job hard-wired in; the behaviour
+ * (one request in flight, visibility, backoff, stop handle) is unchanged, it is
+ * just no longer welded to one job.
+ *
+ * - **Only ONE request in flight.** The next tick is scheduled when the previous
+ *   one settles, so a slow store can never build a backlog.
+ * - **`setTimeout` recursion, not `setInterval`**, so backoff is possible.
+ * - **Hidden tab → no request at all.** The timer still fires, sees the tab is
+ *   hidden and reschedules; becoming visible again polls immediately.
+ * - **Error → backoff.** The interval doubles per consecutive failure up to 8×,
+ *   and resets to the base interval on the first success. The error is reported
+ *   (`onStatus` + `onError`) and never swallowed.
+ * - **Torn down → silent.** `stop()` (or the `AbortSignal`) clears the timer,
+ *   unsubscribes and stops the loop for good.
+ *
+ * `onTick` may return a promise; a rejection is the error path, exactly as a
+ * synchronous throw is. A job that must report "nothing happened differently"
+ * simply resolves.
+ */
+export interface PollLoopOptions {
+  /** The job ONE tick performs. A throw (or rejection) is a failed tick. */
+  onTick: () => void | Promise<void>
+  intervalMs: number
+  /** Called on every tick attempt, and once at start with phase `'idle'`. */
+  onStatus: (status: PollStatus) => void
+  /**
+   * What the job's last successful tick wants said out loud (a fork, say). Read
+   * when the tick succeeds, and carried on the status from then on.
+   */
+  onDetail?: () => string | null
+  /** Called with the failure of a failed tick, before the backoff is scheduled. */
+  onError?: (failure: FailureDescription) => void
   /** Defaults to the browser's `document.visibilityState`. */
   visibility?: VisibilitySource
   /** Stops the loop when aborted, in addition to the returned handle. */
@@ -601,20 +703,8 @@ export interface PollHandle {
   stop(): void
 }
 
-/**
- * Poll for the newest snapshot. Only ONE request is in flight at a time; the
- * next is scheduled when the previous settles, so a slow store can never build a
- * backlog. `setTimeout` recursion, not `setInterval`, so backoff is possible.
- *
- * - **Hidden tab → no request at all.** The timer still fires, sees the tab is
- *   hidden and reschedules; becoming visible again polls immediately.
- * - **Error → backoff.** The interval doubles per consecutive failure up to 8×,
- *   and resets to the base interval on the first success.
- * - **Torn down → silent.** `stop()` (or the `AbortSignal`) clears the timer,
- *   unsubscribes and stops the loop for good.
- */
-export function pollLatest(session: SyncSession, options: PollOptions): PollHandle {
-  const interval = options.intervalMs ?? DEFAULT_POLL_INTERVAL_MS
+export function pollLoop(options: PollLoopOptions): PollHandle {
+  const interval = options.intervalMs
   const maxInterval = interval * 8
   const visibility = options.visibility ?? browserVisibility()
   let stopped = false
@@ -622,11 +712,11 @@ export function pollLatest(session: SyncSession, options: PollOptions): PollHand
   let failures = 0
   let polls = 0
   let lastError: FailureDescription | null = null
-  let fork: SnapshotFork | null = null
   let lastPolledAt: string | null = null
+  let detail: string | null = null
 
-  const report = (phase: SyncStatus['phase']): void => {
-    options.onStatus?.({ phase, polls, failures, lastError, fork, lastPolledAt })
+  const report = (phase: PollStatus['phase']): void => {
+    options.onStatus({ phase, polls, failures, lastError, lastPolledAt, detail })
   }
 
   function clearTimer(): void {
@@ -667,22 +757,19 @@ export function pollLatest(session: SyncSession, options: PollOptions): PollHand
       return
     }
     try {
-      const latest = await fetchLatest(session.transport, session.record.gameId, {
-        store: session.store,
-        heldName: session.tracker.last,
-      })
+      await options.onTick()
       failures = 0
       polls += 1
       lastError = null
       lastPolledAt = new Date().toISOString()
-      fork = latest?.fork ?? null
+      detail = options.onDetail?.() ?? null
       report('polling')
-      if (latest !== null) options.onAdopt(latest.body, latest.fork)
       schedule(interval)
     } catch (error) {
       failures += 1
       lastError = describeFailure(error)
       report('error')
+      options.onError?.(lastError)
       schedule(Math.min(interval * 2 ** failures, maxInterval))
     }
   }
@@ -699,4 +786,95 @@ export function pollLatest(session: SyncSession, options: PollOptions): PollHand
   void tick()
 
   return { stop }
+}
+
+/**
+ * The status of the loop driving the CURRENT screen, plus the failure that
+ * starting it hit (a corrupt local pointer, say) — both `null` before a loop runs.
+ *
+ * This is the hook half of the one loop: it hands the component's `setStatus`
+ * into `start` (the starter passes it to its loop's `onStatus`), and stops the
+ * loop it started on unmount. `App` and `LobbyPanel` both use it — but they are
+ * never mounted together (a game replaces the setup screen), so there is exactly
+ * ONE loop alive at a time and never a second timer.
+ *
+ * `start` is read through a ref, so a caller does not have to memoise it and a
+ * changed identity can never silently restart a loop under a live one. A `start`
+ * that THROWS is reported as `failure`, not propagated: a watcher that cannot
+ * read its own local state must not take the screen down with it.
+ */
+export interface PolledStatus {
+  readonly status: PollStatus | null
+  readonly failure: FailureDescription | null
+}
+
+export function usePolledStatus(
+  start: (report: (status: PollStatus) => void) => PollHandle | null | void,
+): PolledStatus {
+  const [status, setStatus] = useState<PollStatus | null>(null)
+  const [failure, setFailure] = useState<FailureDescription | null>(null)
+  const startRef = useRef(start)
+  startRef.current = start
+
+  useEffect(() => {
+    let handle: PollHandle | null | void = null
+    try {
+      handle = startRef.current(setStatus)
+    } catch (error) {
+      setFailure(describeFailure(error))
+      return
+    }
+    return () => handle?.stop()
+  }, [])
+
+  return { status, failure }
+}
+
+/**
+ * The game's fork warning, worded ONCE. `MultiplayerStatus` renders this string
+ * and {@link pollLatest} puts it on the status, so the sentence cannot drift from
+ * the status the line shows it from.
+ */
+export function formatFork(fork: SnapshotFork | null): string | null {
+  if (fork === null) return null
+  const tags = fork.names.map((name) => name.split('.').pop() ?? name).join(', ')
+  return `FORK at turn ${fork.turn} seq ${fork.seq} — writers ${tags}; both snapshots kept`
+}
+
+export interface PollOptions {
+  /** Defaults to {@link GAME_POLL_INTERVAL_MS}. */
+  intervalMs?: number
+  onAdopt: (body: SnapshotBody, fork: SnapshotFork | null) => void
+  onStatus?: (status: PollStatus) => void
+  /** Defaults to the browser's `document.visibilityState`. */
+  visibility?: VisibilitySource
+  /** Stops the loop when aborted, in addition to the returned handle. */
+  signal?: AbortSignal
+}
+
+/**
+ * The GAME's job on the ONE loop: poll for the newest snapshot and adopt it.
+ * A thin wrapper — the timer, the visibility rule, the backoff and the stop
+ * handle are all {@link pollLoop}'s, so the lobby cannot drift from the game.
+ */
+export function pollLatest(session: SyncSession, options: PollOptions): PollHandle {
+  let fork: SnapshotFork | null = null
+  return pollLoop({
+    intervalMs: options.intervalMs ?? GAME_POLL_INTERVAL_MS,
+    visibility: options.visibility,
+    signal: options.signal,
+    onStatus: (status) => options.onStatus?.(status),
+    // The job's detail is the fork sentence, remembered from the tick so the
+    // status carries exactly the fork the adoption did.
+    onDetail: () => formatFork(fork),
+    onTick: async () => {
+      const latest = await fetchLatest(session.transport, session.record.gameId, {
+        store: session.store,
+        heldName: session.tracker.last,
+        cache: session.cache,
+      })
+      fork = latest?.fork ?? null
+      if (latest !== null) options.onAdopt(latest.body, latest.fork)
+    },
+  })
 }

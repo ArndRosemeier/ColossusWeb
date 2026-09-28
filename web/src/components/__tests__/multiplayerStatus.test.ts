@@ -9,15 +9,16 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { MultiplayerStatus, type MultiplayerStatusProps } from '../MultiplayerStatus'
-import type { SyncStatus } from '../../net/sync'
+import { formatFork } from '../../net/sync'
+import type { PollStatus } from '../../net/sync'
 
-function status(overrides: Partial<SyncStatus> = {}): SyncStatus {
+function status(overrides: Partial<PollStatus> = {}): PollStatus {
   return {
     phase: 'polling',
     polls: 3,
     failures: 0,
     lastError: null,
-    fork: null,
+    detail: null,
     lastPolledAt: '2026-09-28T10:00:00.000Z',
     ...overrides,
   }
@@ -59,15 +60,17 @@ describe('the status line states the rules a player needs', () => {
 
   it('surfaces a FORK loudly, naming the writers — it is never silently resolved', () => {
     const markup = render({
+      // The SAME wording function the poll puts on the status: the line renders
+      // the fork sentence, it does not write its own.
       status: status({
-        fork: {
+        detail: formatFork({
           turn: 4,
           seq: 2,
           names: [
             'g.twin-1234abcd.s.0004.002.key_5e1a',
             'g.twin-1234abcd.s.0004.002.aaaabbbb',
           ],
-        },
+        }),
       }),
     })
     expect(markup).toContain('role="alert"')

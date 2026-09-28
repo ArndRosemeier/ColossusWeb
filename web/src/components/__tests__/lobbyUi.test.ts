@@ -1,11 +1,13 @@
 /**
- * The lobby UI pins — the part that is a RULE rather than a rendering detail:
- * **Start appears only for the creator**, and a refusal is shown with the
- * service's own code and message, never as a blank or a silent reset.
+ * The lobby UI pins — the parts that are a RULE rather than a rendering detail:
+ * **Start appears only for the creator**, **the creator is told WHY Start is
+ * blocked rather than only shown a greyed button**, and a refusal is shown with
+ * the service's own code and message, never as a blank or a silent reset.
  *
  * `LobbyPanelView` is presentational, so it renders server-side with no browser
  * and no store: every assertion below is about the props-to-markup rule, which is
- * exactly where "only the creator" lives.
+ * exactly where "only the creator" lives. The LIVE behaviour — a joiner reaching
+ * the creator's list within one tick — is `net/__tests__/lobbyWatcher.test.ts`.
  */
 
 import { createElement } from 'react'
@@ -74,6 +76,7 @@ function render(overrides: Partial<LobbyPanelViewProps> = {}): string {
     active: null,
     failure: null,
     notice: null,
+    pollStatus: null,
     busy: false,
     onCreate: () => undefined,
     onJoin: () => undefined,

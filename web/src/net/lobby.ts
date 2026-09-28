@@ -26,10 +26,13 @@
  * ## What this slice deliberately does NOT do
  *
  * No polling, no snapshots, no turn authority — that is S3. {@link listGames} is
- * a one-shot read, refreshed by the UI on an action or an explicit Refresh; the
- * lobby never watches the store in the background.
+ * a one-shot read; the LIVE lobby is `net/lobbyWatcher.ts`, which drives these
+ * operations from the ONE poll loop. Bodies are read by NAME and only when the
+ * listing's `sha256` changed (`contentCache.ts`), so a live lobby does not
+ * re-read what it already holds.
  */
 
+import type { ContentCache } from './contentCache'
 import { describeFailure, type FailureDescription } from './failure'
 import {
   GAME_RECORD_VERSION,
@@ -199,15 +202,28 @@ function playerObjectsFor(objects: readonly StoreObject[], gameId: string): Stor
 }
 
 /**
- * Read every joined player's record for a game. This is the ONE place `p.` bodies
- * are read, so `readLobby` (what the UI shows) and `startGame` (which must derive
- * the seat order from exactly these records) can never disagree about who is in
- * the game.
+ * Read every joined player's record for a game, from a listing the caller has
+ * ALREADY taken. This is the ONE place `p.` bodies are read, so `readLobby` (what
+ * the UI shows) and `startGame` (which must derive the seat order from exactly
+ * these records) can never disagree about who is in the game.
+ *
+ * Bodies are fetched **by name only**, and only when the listing's `sha256` says
+ * they changed ({@link ContentCache}); a body the caller already holds is never
+ * re-read. The raw listing is a parameter because a poll tick takes it ONCE and
+ * uses it for the games, the game record and the players alike.
  */
-async function readPlayerRecords(ctx: LobbyContext, gameId: string): Promise<PlayerRecord[]> {
+async function readPlayerRecords(
+  ctx: LobbyContext,
+  gameId: string,
+  objects: readonly StoreObject[],
+  cache?: ContentCache,
+): Promise<PlayerRecord[]> {
   const players: PlayerRecord[] = []
-  for (const object of playerObjectsFor(await ctx.transport.list(ctx.store), gameId)) {
-    players.push(parsePlayerRecord((await ctx.transport.get(ctx.store, object.name)).value))
+  for (const object of playerObjectsFor(objects, gameId)) {
+    const value = cache
+      ? await cache.adopt(object.name, object.sha256)
+      : (await ctx.transport.get(ctx.store, object.name)).value
+    players.push(parsePlayerRecord(value))
   }
   return players
 }
@@ -270,11 +286,39 @@ export async function createGame(
 
 /**
  * List the games in the store: the store's own list route, filtered client-side
- * to the game-object shape. One `GET` per game object; no polling, no query API
- * (the service has none — `docs/design/multiplayer.md` §4.2).
+ * to the game-object shape.
+ *
+ * **The list is for LEARNING NAMES, never for reading content.** Each game's body
+ * is fetched by NAME, and only when the listing's `sha256` says it changed
+ * ({@link ContentCache}); a body already held is reused. So the steady state of a
+ * poll tick — nobody created or changed a game — is one list request and no body
+ * reads at all. The list route still returns every object in the store,
+ * unpaginated, because that is all the service offers (a `since=` filter is
+ * ServerStore-side and out of scope here): this shrinks the BODY reads, not the
+ * list.
+ *
+ * A caller that already has the raw listing can pass it in (see
+ * {@link listGamesFrom}), so one tick takes the list ONCE for the games, the
+ * active game's record and the players alike.
  */
-export async function listGames(ctx: LobbyContext): Promise<GameListing> {
-  const objects = await ctx.transport.list(ctx.store)
+export async function listGames(
+  ctx: LobbyContext,
+  cache?: ContentCache,
+): Promise<GameListing> {
+  return listGamesFrom(ctx, await ctx.transport.list(ctx.store), cache)
+}
+
+/**
+ * Discovery from a listing the caller already took. The cache is brought in line
+ * with THIS listing, which is what drops a name that has disappeared: a deleted
+ * game is not remembered as current.
+ */
+export async function listGamesFrom(
+  ctx: LobbyContext,
+  objects: readonly StoreObject[],
+  cache?: ContentCache,
+): Promise<GameListing> {
+  cache?.retain(objects.map((object) => object.name))
   const tag = playerTagFor(ctx.identity.id)
   const games: ListedGame[] = []
   const unreadable: UnreadableGame[] = []
@@ -284,11 +328,14 @@ export async function listGames(ctx: LobbyContext): Promise<GameListing> {
     // "not a game": not a lobby object at all, so it is in neither list.
     if (gameId === null) continue
     try {
-      const value = (await ctx.transport.get(ctx.store, object.name)).value
+      const value = cache
+        ? await cache.adopt(object.name, object.sha256)
+        : (await ctx.transport.get(ctx.store, object.name)).value
+      const record = parseGameObjectRecord(object.name, value)
       games.push({
         objectName: object.name,
         gameId,
-        record: parseGameObjectRecord(object.name, value),
+        record,
         playerCount: countPlayers(objects, gameId),
         alreadyJoined: playerObjectsFor(objects, gameId).some(
           (player) => parsePlayerObjectName(player.name)?.tag === tag,
@@ -303,15 +350,32 @@ export async function listGames(ctx: LobbyContext): Promise<GameListing> {
   return { games, unreadable }
 }
 
-/** Read one game and everyone in it. The caller's own action, so failures propagate. */
-export async function readLobby(ctx: LobbyContext, gameId: string): Promise<ActiveLobby> {
+/**
+ * Read one game and everyone in it. The caller's own action, so failures
+ * propagate. `objects` may be a listing the caller already took; bodies are read
+ * by name and only when their `sha256` changed.
+ */
+export async function readLobby(
+  ctx: LobbyContext,
+  gameId: string,
+  options: { objects?: readonly StoreObject[]; cache?: ContentCache } = {},
+): Promise<ActiveLobby> {
   assertGameId(gameId)
   const gameName = assertGameObjectName(gameId)
-  const record = parseGameObjectRecord(
-    gameName,
-    (await ctx.transport.get(ctx.store, gameName)).value,
-  )
-  return { record, players: await readPlayerRecords(ctx, gameId) }
+  const objects = options.objects ?? (await ctx.transport.list(ctx.store))
+  const subject = objects.find((object) => object.name === gameName)
+  if (subject === undefined) {
+    throw new ServerStoreError(
+      'not_found',
+      `no object ${JSON.stringify(gameName)} in store ${JSON.stringify(ctx.store)}`,
+      404,
+    )
+  }
+  const value = options.cache
+    ? await options.cache.adopt(subject.name, subject.sha256)
+    : (await ctx.transport.get(ctx.store, gameName)).value
+  const record = parseGameObjectRecord(gameName, value)
+  return { record, players: await readPlayerRecords(ctx, gameId, objects, options.cache) }
 }
 
 // ---------------------------------------------------------------------------
@@ -401,14 +465,29 @@ export async function leaveGame(ctx: LobbyContext, gameId: string): Promise<void
  * client agree on which `GameState.players` index is whose, with no extra
  * round trip and no second source of truth.
  */
-export async function startGame(ctx: LobbyContext, gameId: string): Promise<GameRecord> {
+export async function startGame(
+  ctx: LobbyContext,
+  gameId: string,
+  cache?: ContentCache,
+): Promise<GameRecord> {
   assertGameId(gameId)
   const gameName = assertGameObjectName(gameId)
+  const objects = await ctx.transport.list(ctx.store)
+  const subject = objects.find((object) => object.name === gameName)
+  if (subject === undefined) {
+    throw new ServerStoreError(
+      'not_found',
+      `no object ${JSON.stringify(gameName)} in store ${JSON.stringify(ctx.store)}`,
+      404,
+    )
+  }
   const record = parseGameObjectRecord(
     gameName,
-    (await ctx.transport.get(ctx.store, gameName)).value,
+    cache
+      ? await cache.adopt(gameName, subject.sha256)
+      : (await ctx.transport.get(ctx.store, gameName)).value,
   )
-  const players = await readPlayerRecords(ctx, gameId)
+  const players = await readPlayerRecords(ctx, gameId, objects, cache)
   const refusal = startRefusal(record, ctx.identity, players.length)
   if (refusal) throw refusal
 
@@ -418,5 +497,9 @@ export async function startGame(ctx: LobbyContext, gameId: string): Promise<Game
     seatOrder: seatOrderFor(record.creator.id, players),
   }
   await ctx.transport.put(ctx.store, gameName, serializeGameRecord(started))
+  // The caller's cached copy of THIS object is now older than the store. Its
+  // content address changed, so the next listing would miss anyway; forgetting it
+  // here also drops it for a caller that reads without re-listing.
+  cache?.forget(gameName)
   return started
 }

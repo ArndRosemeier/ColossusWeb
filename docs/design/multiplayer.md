@@ -145,6 +145,21 @@ Discovery is then a read of the store's object list, filtered client-side by pre
 nothing else is needed, and the list route already exists. A player joins by writing their
 own `p.` object; the creator's client sees it on its next poll.
 
+**The list route is for LEARNING NAMES, never for reading content (S4).** The list returns
+`{name, sha256, size, createdAt}` for every object, and `sha256` is a content address, so a
+polling client remembers `{name -> sha256}` and **point-reads a body by name only when that
+name is new or its hash changed** (`web/src/net/contentCache.ts`). Before S4 a tick re-read
+the newest snapshot body and every listed game's body every time; now the steady state of a
+tick — nothing happened — is **one list request and zero body reads**, and a change costs
+exactly the bodies that changed. A name that disappears, or whose hash moves, is dropped, so
+the cache can never serve stale or resurrected content, and it changes nothing about which
+snapshot wins, fork detection or adoption.
+
+**Honest limit, measured rather than hidden:** this shrinks the BODY reads, not the list.
+The list still returns **every object in the store, unpaginated**, because that is all the
+service offers; a `since=`/prefix filter is queued on the ServerStore side and is out of
+scope here.
+
 **Name budget — it is tighter than it looks.** Object names are capped at **64 characters**,
 so `g.<gameid>.p.<playerid>` must fit with room to spare, and S3's snapshot names have to fit
 too. A ServerStore key id is UUID-shaped (~36 chars), which leaves almost no headroom.
@@ -228,8 +243,12 @@ snapshot-based transport does not replay and so is immune — another reason to 
    enough to matter.
 3. **`variant` is not in the snapshot.** `saveGame` already strips it; a game names its
    variant and every client loads the same one.
-4. **Poll every ~2s, only while the tab is visible**, with backoff on error. There is no
-   push channel and no rate limit; the interval is the only throttle we control.
+4. **Poll every ~2s in a GAME and ~5s in the LOBBY, only while the tab is visible**, with
+   backoff on error — ONE loop carrying two jobs (`web/src/net/sync.ts`'s `pollLoop`; the
+   lobby's job is `web/src/net/lobbyWatcher.ts`). There is no push channel and no rate limit,
+   so the interval is the only throttle we control; turn latency is what a player feels in a
+   game, while the lobby's event is the human-paced "somebody pressed Join", and 5s is under
+   the threshold where a person concludes a screen is dead.
 5. **Dice ids are normalised or excluded from equality**, since they differ per client.
 6. **A game's objects are DELETEd when it finishes** — the store has no GC, and the lobby
    list is unpaginated, so finished games must be cleaned up by the host client.

@@ -23,11 +23,12 @@ import {
   isMyTurn,
   multiplayerSeatOptions,
   pollLatest,
+  usePolledStatus,
   type CommitPath,
   type MultiplayerHandoff,
   type PollHandle,
+  type PollStatus,
   type SyncSession,
-  type SyncStatus,
 } from '../net/sync'
 import {
   loadGameFromLocalStorage,
@@ -96,8 +97,7 @@ export default function App() {
   const [moveAnim, setMoveAnim] = useState<MoveAnim | null>(null)
   const [pendingStrike, setPendingStrike] = useState<PendingStrikeAnnounce | null>(null)
   const [multiplayer, setMultiplayer] = useState<MultiplayerSeatInfo | null>(null)
-  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
-  const [syncFailure, setSyncFailure] = useState<FailureDescription | null>(null)
+  const [syncFailureState, setSyncFailureState] = useState<FailureDescription | null>(null)
   const pendingCmdRef = useRef<GameCommand | null>(null)
   const animatingRef = useRef(false)
   /** The game state as of NOW, so a command never acts on a stale render. */
@@ -131,7 +131,7 @@ export default function App() {
         getState: () => stateRef.current,
         setState: putState,
         getSession: () => sessionRef.current,
-        onFailure: (failure) => setSyncFailure(failure),
+        onFailure: (failure) => setSyncFailureState(failure),
       }),
     [putState],
   )
@@ -141,9 +141,48 @@ export default function App() {
     pollRef.current = null
     sessionRef.current = null
     setMultiplayer(null)
-    setSyncStatus(null)
-    setSyncFailure(null)
+    setSyncFailureState(null)
   }, [])
+
+  /**
+   * Start the session's poll loop for one open game — the SAME loop the lobby
+   * runs (`sync.ts`'s `pollLoop`), here carrying the game's snapshot job at the
+   * game's cadence. `pollLatest` is that job; nothing else in this component
+   * owns a timer.
+   *
+   * The optional `report` is what `usePolledStatus` hands its starter: the poll's
+   * own status goes into the hook's state through it, so the status line reads
+   * ONE status from ONE loop.
+   */
+  const startGameLoop = useCallback(
+    (session?: SyncSession, report?: (status: PollStatus) => void): PollHandle | null => {
+      // The hook starts this component's app life with no session — there is
+      // nothing to poll until `startMultiplayer` runs. A later call REPLACES the
+      // loop rather than stacking a second one on it.
+      if (session === undefined) return null
+      pollRef.current?.stop()
+      const handle = pollLatest(session, {
+        onAdopt: (body) => {
+          const current = variantRef.current
+          if (current !== null) commitPath.remote(body, current)
+        },
+        onStatus: (status) => report?.(status),
+      })
+      pollRef.current = handle
+      return handle
+    },
+    [commitPath],
+  )
+
+  // ONE loop for the whole session: this hook carries the loop's status into
+  // React, and the unmount effect below stops whatever `startGameLoop` created.
+  const polled = usePolledStatus((report) => startGameLoop(undefined, report))
+  const syncStatus = polled.status
+  // The failure the player sees: the loop's own last refusal, OR a publish that
+  // failed on the commit path (`onFailure` above). Both are the app's ONE error
+  // surface on the status line, and a later healthy poll does not erase a publish
+  // refusal — that one is cleared by the next successful publish or a new game.
+  const syncFailure = polled.failure ?? syncFailureState
 
   useEffect(() => {
     Promise.all([loadVariant('Default'), loadAssetManifest('Default')])
@@ -157,7 +196,9 @@ export default function App() {
       })
   }, [])
 
-  // Tear the poll loop down with the view: nothing outlives the component.
+  // Tear the poll loop down with the app: nothing outlives the component. (The
+  // loop's own start/stop pair is `usePolledStatus` above; this is the unmount
+  // half, which is why `startGameLoop` is the ONE place a loop is created.)
   useEffect(() => () => pollRef.current?.stop(), [])
 
   const start = useCallback(
@@ -246,20 +287,14 @@ export default function App() {
         putState(initial)
 
         if (handoff.mode === 'host') commitPath.publishCurrent()
-        pollRef.current = pollLatest(session, {
-          onAdopt: (body) => {
-            const current = variantRef.current
-            if (current !== null) commitPath.remote(body, current)
-          },
-          onStatus: (status) => setSyncStatus(status),
-        })
+        startGameLoop(session)
       } catch (e: unknown) {
         stopSession()
         putState(null)
         setError(e instanceof Error ? e.message : String(e))
       }
     },
-    [stopSession, putState, commitPath],
+    [stopSession, putState, commitPath, startGameLoop],
   )
 
   const continueSaved = useCallback(async () => {
