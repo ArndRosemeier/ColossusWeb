@@ -49,18 +49,25 @@ import {
   playerObjectsPrefixFor,
 } from './gameRecord'
 import {
+  GameDeletionError,
   createGame,
+  deleteGames,
+  deletionPlanFor,
+  deleteRefusalAdvice,
   joinGame,
   leaveGame,
   listGamesFrom,
   lobbyContext,
   readLobby,
+  retryingContext,
   startGame,
   type ActiveLobby,
   type CreateGameRequest,
+  type GameDeletionPlan,
   type GameListing,
   type LobbyContext,
 } from './lobby'
+import { createRequestRetrier } from './requestRetry'
 import { pollLoop, type PollHandle, type PollStatus, type VisibilitySource } from './sync'
 import type { ServerStoreTransport, StoreIdentity } from './transport'
 
@@ -91,6 +98,33 @@ export interface LobbyData {
   readonly failure: FailureDescription | null
   /** The loop's own health, for the freshness signal. */
   readonly status: PollStatus | null
+  /** Where a DELETE of one game has got to, or `null` when none is running. */
+  readonly deletion: DeletionUiState | null
+}
+
+/**
+ * What the panel needs to draw a delete: the plan it is CONFIRMING, and what a
+ * running delete has done so far.
+ *
+ * `plan` is a promise the panel asked for (`planDeletion`), so the confirmation
+ * can name the game, its object count and the kinds — never a bare "are you
+ * sure?". `deleted`/`total` are the progress of the run; `absent` counts objects
+ * that were already gone (another client's delete, say), which are NOT ours to
+ * claim. A failure leaves `failure` set AND keeps `deleted`/`total`, so the panel
+ * can say exactly what was and was not removed.
+ */
+export interface DeletionUiState {
+  readonly gameId: string
+  readonly plan: GameDeletionPlan
+  readonly deleted: number
+  readonly total: number
+  readonly absent: number
+  /** True while the DELETEs are in flight. */
+  readonly running: boolean
+  /** The store's own refusal, when one stopped the run. */
+  readonly failure: FailureDescription | null
+  /** The ONE actionable sentence for that refusal (`lobby.deleteRefusalAdvice`). */
+  readonly advice: string | null
 }
 
 export interface LobbyWatcherOptions {
@@ -133,7 +167,13 @@ export class LobbyStore {
   private watcher: LobbyWatcher | null = null
   private detach: (() => void) | null = null
   private readonly listeners = new Set<() => void>()
-  private data: LobbyData = { listing: null, active: null, failure: null, status: null }
+  private data: LobbyData = {
+    listing: null,
+    active: null,
+    failure: null,
+    status: null,
+    deletion: null,
+  }
 
   /** The watcher this store speaks for, for the panel's actions. */
   current(): LobbyWatcher | null {
@@ -210,6 +250,12 @@ export class LobbyWatcher {
   private activeGameId: string | null = null
   private failure: FailureDescription | null = null
   private status: PollStatus | null = null
+  /**
+   * The delete the panel is confirming or running, or `null`. Deliberately NOT
+   * cleared by a poll tick: a delete in flight is the user's own action and a
+   * background read must not wipe its confirmation or its progress.
+   */
+  private deletion: DeletionUiState | null = null
   private closed = false
   private poller: PollHandle | null = null
   private refreshInFlight: Promise<void> | null = null
@@ -260,6 +306,7 @@ export class LobbyWatcher {
       active: this.active,
       failure: this.failure,
       status: this.status,
+      deletion: this.deletion,
     }
   }
 
@@ -454,15 +501,122 @@ export class LobbyWatcher {
     this.publish()
   }
 
+  // --- deleting a game ------------------------------------------------------
+
+  /**
+   * Work out what deleting one game would remove, and hold it for the panel's
+   * confirmation. THREE narrow listings plus one point read (`deletionPlanFor`),
+   * made only when the user asks — a poll tick never pays for it.
+   *
+   * A refusal (not a participant, no such game, an unreadable record) is stored
+   * and shown like any other action's, and NO delete is offered.
+   */
+  planDeletion(gameId: string): Promise<DeletionUiState | null> {
+    return this.act(async () => {
+      const plan = await deletionPlanFor(this.context, gameId)
+      this.setDeletion({
+        gameId,
+        plan,
+        deleted: 0,
+        total: plan.snapshots.length + plan.players.length + 1,
+        absent: 0,
+        running: false,
+        failure: null,
+        advice: null,
+      })
+      return this.deletion
+    })
+  }
+
+  /**
+   * DELETE the planned game — the record, every player object and every snapshot
+   * of THAT game, record LAST (`deleteGames`), with progress published for each
+   * object so a 100-object delete does not look frozen.
+   *
+   * Every request goes through the ONE request retrier, so a `429` waits out the
+   * `Retry-After` the store sent instead of burning the window it was told to
+   * leave. A refusal stops the run and is reported with the store's own code and
+   * message, the ONE actionable sentence, and exactly what was and was not
+   * removed — NEVER as a success.
+   */
+  deleteGame(gameId: string): Promise<DeletionUiState | null> {
+    return this.act(async () => {
+      const planned = this.deletion?.gameId === gameId ? this.deletion.plan : null
+      const plan = planned ?? (await deletionPlanFor(this.context, gameId))
+      const total = plan.snapshots.length + plan.players.length + 1
+      this.setDeletion({
+        gameId,
+        plan,
+        deleted: 0,
+        total,
+        absent: 0,
+        running: true,
+        failure: null,
+        advice: null,
+      })
+      const transport = retryingContext(this.context, createRequestRetrier())
+      try {
+        await deleteGames(transport, gameId, {
+          onProgress: (progress) => {
+            this.setDeletion({
+              gameId,
+              plan,
+              deleted: progress.done,
+              total: progress.total,
+              absent: progress.absent.length,
+              running: true,
+              failure: null,
+              advice: null,
+            })
+          },
+        })
+        // Done: the game is GONE, so the panel has nothing left to confirm. The
+        // listing refresh below is what makes it disappear from the list.
+        this.setDeletion(null)
+        if (this.activeGameId === gameId) {
+          this.activeGameId = null
+          this.active = null
+        }
+        await this.refresh()
+        return this.deletion
+      } catch (error) {
+        // LOUD and EXACT: the store's refusal, the sentence that says what to do,
+        // and the counts — never a claim of success (`AGENTS.md` rule 1).
+        const refusal = error instanceof GameDeletionError ? error : null
+        this.setDeletion({
+          gameId,
+          plan,
+          deleted: refusal?.deleted.length ?? 0,
+          total,
+          absent: refusal?.absent.length ?? 0,
+          running: false,
+          failure: describeFailure(refusal?.error ?? error),
+          advice: refusal === null ? null : deleteRefusalAdvice(refusal),
+        })
+        throw error
+      }
+    })
+  }
+
+  /** Give up on a delete before or after it ran (the panel's Cancel). */
+  cancelDeletion(): void {
+    this.setDeletion(null)
+  }
+
+  private setDeletion(next: DeletionUiState | null): void {
+    this.deletion = next
+    this.publish()
+  }
+
   /**
    * Every action's own refresh is IMMEDIATE — it awaits its read here rather than
    * waiting for the next tick, so an action's result is on screen at once, and
    * the in-flight read also coalesces the tick that would have followed it. A
    * refusal is stored AND rethrown, so the panel can decide what to say about it.
    */
-  private async act(run: () => Promise<void>): Promise<void> {
+  private async act<T>(run: () => Promise<T>): Promise<T> {
     try {
-      await run()
+      return await run()
     } catch (error) {
       this.failure = describeFailure(error)
       this.publish()

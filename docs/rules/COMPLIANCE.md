@@ -22,6 +22,25 @@ Port modules: `engagement.ts`, `battleland.ts`, `battleMovement.ts`, `battleStri
 | S1 | Unique towers | pass | `createGame` | `rules-setup` |
 | S2 | Starting Titan+Angel+6 | colossus-diff | `createGame` | `rules-setup` |
 | S3–S4 | Titan death / last titan wins; mid-battle Titan ends after Strikeback (mutual → draw) | pass | `checkBattleTitanElimination` | `titanDeathBattle`, `rules-scoring` |
+| S5 | **Giving up the game** — a player leaves with their Titan ALIVE | colossus-diff | `resignRefusalReason` / `doResign` / `eliminatePlayer` | `rules-resign` |
+| S6 | **Deleting a game the caller was in** (lobby hygiene: the record + every player object + every snapshot, RECORD LAST) | n/a (lobby, not a board rule) | `deletionPlanFor` / `deleteGames` (`net/lobby.ts`) | `deleteGame` |
+
+**S5 is a Colossus difference, and the only authority for it.** Titan's own text covers leaving
+the game only through a Titan's death (*"if it is lost the player is out of the game and all of
+his forces are removed from play"*, `Titan-UltraBoardGames.html:525`) and through CONCEDING an
+Engagement, which eliminates one Legion and awards the winner full value
+(`Titan-Engagements.html:23-25`) — there is no board-game "resign". The Java server has it:
+`GameServerSide.java:1185-1218` `handlePlayerWithdrawal` makes the player dead through
+`PlayerServerSide.die(slayer)` and then `checkForVictory()`, with no phase guard and no second
+game-over; `PlayerServerSide.java:606-661` `die` removes every legion, gives **half** the value
+of a legion that is in an engagement to the enemy on its hex ("Engaged legions give half points
+to the player they're engaged with. All others give half points to slayer, if non-null"), gives
+nothing for an unengaged one when the slayer is null (a withdrawal's slayer IS null,
+`:609-610`), and hands the markers on only when there is a slayer (`handleSlaying`, `:645-656`).
+This port routes resignation through the SAME elimination body and the SAME ending
+(`checkTitanDeath`), so "the game is over" keeps ONE definition. The owner's scope is NARROWER
+than Java's: a resignation INSIDE a battle is refused, because the in-battle equivalent already
+exists as `concedeBattle`.
 
 ## Split / Movement / Teleport / Muster
 

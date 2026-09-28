@@ -1193,6 +1193,39 @@ button:disabled {
   gap: 0.4rem;
 }
 
+/* Give up — the irreversible, confirmed action, OUTSIDE a battle only. */
+.give-up {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border-top: 1px solid color-mix(in srgb, var(--blood) 40%, transparent);
+  padding-top: 0.6rem;
+}
+
+.give-up-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.give-up-row button.give-up-btn {
+  font-family: var(--font-display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+
+.give-up-warning,
+.give-up-refusal {
+  font-size: 0.72rem;
+  max-width: 22rem;
+}
+
+.give-up-refusal {
+  color: var(--copper);
+}
+
 .phase-actions .primary {
   font-family: var(--font-display);
   letter-spacing: 0.06em;
@@ -1816,4 +1849,40 @@ button:disabled {
 
 .lobby-refusal {
   font-size: 0.78rem;
+}
+
+/* S9 part B — deleting a game the caller was in: the affordance, the
+   confirmation that NAMES what goes, the progress of a 100-object delete, and
+   the store's own refusal when the key may not delete. */
+.lobby-delete-btn {
+  font-size: 0.72rem;
+  padding: 0.2rem 0.5rem;
+}
+
+.lobby-delete-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--blood) 60%, var(--panel-edge));
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--blood) 12%, transparent);
+}
+
+.lobby-delete-card p {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.lobby-delete-warning {
+  color: var(--copper);
+}
+
+.lobby-delete-progress {
+  color: var(--mist);
+}
+
+.lobby-delete-failure {
+  color: #ffb4ae;
 }

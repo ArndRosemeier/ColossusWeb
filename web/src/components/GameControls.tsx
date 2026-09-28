@@ -1,14 +1,16 @@
+import { useState } from 'react'
 import { AI_PROFILES } from '../ai/profiles'
 import {
   activePlayer,
   canUndoMove,
   canUndoRecruit,
   playerLegions,
+  resignRefusalReason,
   undoableSplitChildren,
   unseparatedSplitStacks,
 } from '../engine/GameEngine'
 import { publicViewSlots } from '../engine/publicKnowledge'
-import type { GameCommand, GameState } from '../engine/types'
+import type { GameCommand, GameState, PlayerState } from '../engine/types'
 import { CreatureChit, UnknownChit } from './CreatureChit'
 import {
   phaseEndCommand,
@@ -29,6 +31,106 @@ interface Props {
   interactive?: boolean
   /** Melee strike awaiting announced Strike-number (raised for carry). */
   pendingStrike?: PendingStrikeAnnounce | null
+  /**
+   * The seat this client holds in a multiplayer game; `null` in hotseat, where
+   * one person holds every HUMAN side. It decides WHOSE "Give up" is offered —
+   * exactly as `BoardDecisionOverlay`'s `myPlayerId` decides whose engagement
+   * answer is shown (S8's seat question, not a second authority: this only
+   * chooses which player's own control to render, `canResign` still owns WHEN).
+   */
+  myPlayerId?: string | null
+}
+
+/**
+ * The human players this client may offer "Give up" for, in seating order.
+ *
+ * In multiplayer that is only its OWN seat: nobody may resign someone else's
+ * game. In hotseat (`myPlayerId === null`) the one local human holds every human
+ * side, which is how the app already treats an engagement — so each human still
+ * alive gets their own named button.
+ */
+function resignablePlayers(state: GameState, myPlayerId: string | null): PlayerState[] {
+  return state.players.filter(
+    (p) => p.kind === 'human' && !p.dead && (myPlayerId === null || p.id === myPlayerId),
+  )
+}
+
+export interface GiveUpSectionProps {
+  state: GameState
+  myPlayerId: string | null
+  /** The player whose confirmation is being asked, or `null` for the first press. */
+  confirmingPlayerId?: string | null
+  onPress: (player: PlayerState, confirming: boolean) => void
+}
+
+/**
+ * GIVE UP — the control, in ONE place, so its wording and its DISABLED state are
+ * checkable without a browser (rendered server-side by `giveUp.test.ts`) and the
+ * browser check drives exactly this markup.
+ *
+ * Two statements the panel makes, both from the ENGINE's own predicates:
+ *
+ *  - **Whose** give-up is offered: this client's own seat in multiplayer, each
+ *    human side in hotseat (`resignablePlayers`), exactly as S8's seat question is
+ *    answered for the engagement card.
+ *  - **Whether** it may be pressed, and why not: `resignRefusalReason` — the ONE
+ *    wording of the in-battle refusal. Inside a battle the control is DISABLED
+ *    with that sentence beside it (and in its `title`), never silently absent, so
+ *    "why can't I give up?" has an answer on screen.
+ *
+ * The CONFIRMATION is client state, not game state: it changes nothing another
+ * client can observe, so it must not be a command and must not publish. The first
+ * press asks; the second (the label says `— confirm`) sends the shared command.
+ */
+export function GiveUpSection({
+  state,
+  myPlayerId,
+  confirmingPlayerId = null,
+  onPress,
+}: GiveUpSectionProps) {
+  const resignables = resignablePlayers(state, myPlayerId)
+  return (
+    <div className="give-up">
+      <h3>Give up</h3>
+      {resignables.length === 0 && (
+        <p className="hint">No player for this client left to give up.</p>
+      )}
+      {resignables.map((p) => {
+        const refusal = resignRefusalReason(state, p.id)
+        const awaiting = confirmingPlayerId === p.id
+        const legions = playerLegions(state, p.id)
+        return (
+          <div key={`give-up-${p.id}`} className="give-up-row">
+            <button
+              type="button"
+              className="danger give-up-btn"
+              data-player={p.id}
+              disabled={refusal !== null}
+              title={refusal ?? `Give up the game as ${p.name} — irreversible`}
+              onClick={() => onPress(p, awaiting)}
+            >
+              {awaiting
+                ? `Give up as ${p.name} — confirm`
+                : resignables.length > 1
+                  ? `Give up (${p.name})`
+                  : 'Give up the game'}
+            </button>
+            {refusal !== null && <span className="muted give-up-refusal">{refusal}</span>}
+            {refusal === null && awaiting && (
+              <span className="muted give-up-warning">
+                Irreversible: every {p.name}&apos;s legion leaves the board
+                {legions.length > 0
+                  ? ` (${legions.length} legion${legions.length === 1 ? '' : 's'})`
+                  : ''}
+                ; an engaged enemy scores half their value. Press again to confirm, and the other
+                players are told whose game just ended.
+              </span>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 export function GameControls({
@@ -36,7 +138,11 @@ export function GameControls({
   dispatch,
   interactive = true,
   pendingStrike = null,
+  myPlayerId = null,
 }: Props) {
+  // The confirmation is CLIENT state, not game state: it changes nothing anyone
+  // else can observe, so it must not be a command and must not publish.
+  const [confirmingResign, setConfirmingResign] = useState<string | null>(null)
   const player = activePlayer(state)
   const selected = state.selectedLegionId
     ? state.legions.find((l) => l.id === state.selectedLegionId)
@@ -381,6 +487,27 @@ export function GameControls({
             </>
           )}
         </div>
+      )}
+
+      {/*
+        GIVE UP — outside battles, the owner's own scope. It is a SHARED command
+        (`resign`), published like any other; the confirmation is client state
+        (see `GiveUpSection`).
+      */}
+      {interactive && (
+        <GiveUpSection
+          state={state}
+          myPlayerId={myPlayerId}
+          confirmingPlayerId={confirmingResign}
+          onPress={(p, confirming) => {
+            if (!confirming) {
+              setConfirmingResign(p.id)
+              return
+            }
+            setConfirmingResign(null)
+            dispatch({ type: 'resign', playerId: p.id })
+          }}
+        />
       )}
 
       {interactive && myLegs.length > 0 && (

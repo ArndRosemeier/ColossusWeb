@@ -840,6 +840,7 @@ export default function App() {
           dispatch={apply}
           interactive={interactive}
           pendingStrike={pendingStrike}
+          myPlayerId={myPlayerId}
         />
       </main>
     </div>

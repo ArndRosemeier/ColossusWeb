@@ -38,9 +38,10 @@ import {
   joinBlockedReason,
   startRefusal,
   type ActiveLobby,
+  type GameDeletionPlan,
   type GameListing,
 } from '../net/lobby'
-import { LobbyStore, LobbyWatcher, type LobbyData } from '../net/lobbyWatcher'
+import { LobbyStore, LobbyWatcher, type DeletionUiState, type LobbyData } from '../net/lobbyWatcher'
 import { createServerStoreTransport } from '../net/serverStore'
 import { serverStoreName } from '../net/storeName'
 import {
@@ -76,6 +77,14 @@ export interface LobbyPanelViewProps {
   onLeave: () => void
   onRefresh: () => void
   onClose: () => void
+  /**
+   * S9 part B: the delete the caller is confirming or running, or `null`. It is
+   * the WATCHER's own state (`LobbyData.deletion`), not the panel's, so a poll
+   * tick cannot wipe a confirmation the user is looking at.
+   */
+  deletion?: DeletionNotice | null
+  /** Opens the delete confirmation for a game the caller was in. */
+  onDelete?: (gameId: string) => void
 }
 
 /**
@@ -160,6 +169,95 @@ function useLobbyPollSeconds(status: PollStatus | null, live: boolean): number {
   }, [live, polling])
 
   return secondsAgo(status?.lastPolledAt ?? null, now)
+}
+
+/**
+ * The delete confirmation and its progress — the panel's words for S9 part B.
+ *
+ * `state` is the WATCHER's own (`LobbyData.deletion`), so the confirmation cannot
+ * be wiped by a poll tick. `deletePermitted` is the identity's own `perms` from
+ * `whoami`: the owner's live keys are `read,write`, and saying so BEFORE the first
+ * DELETE is better than after a 403.
+ */
+export interface DeletionNotice {
+  readonly state: DeletionUiState
+  /**
+   * What the confirmation NAMES: the game, and how many objects of each kind go.
+   * Counted by `deletionPlanFor` — the same plan the delete walks — so the promise
+   * and the action cannot disagree.
+   */
+  readonly plan: GameDeletionPlan
+  readonly displayName: string
+  readonly deletePermitted: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}
+
+/**
+ * What a delete looks like while it is happening and after it stops. Every
+ * sentence is a function of the watcher's state OR the store's own refusal:
+ *
+ *  - a RUNNING delete shows `12 / 40 objects` so a 100-object game does not look
+ *    frozen;
+ *  - a REFUSED one shows the store's own `code` and `message`, the ONE actionable
+ *    sentence, and — because the app must never claim a success — exactly what was
+ *    removed and what remains.
+ */
+export function DeletionCard(props: { notice: DeletionNotice }) {
+  const { state, plan, displayName, deletePermitted } = props.notice
+  const total = state.total
+  return (
+    <div className="lobby-delete-card" role="alertdialog" aria-label="Delete game">
+      <p>
+        Delete <strong>{displayName}</strong> <span className="muted">(id {state.gameId})</span> —
+        permanently remove {plan.snapshots.length} snapshot{plan.snapshots.length === 1 ? '' : 's'},{' '}
+        {plan.players.length} player object{plan.players.length === 1 ? '' : 's'} and the game record
+        ({total} object{total === 1 ? '' : 's'} in all). The record goes last, so a game that cannot
+        be finished stays visible and still deletable.
+      </p>
+      {!deletePermitted && (
+        <p className="muted lobby-delete-warning">
+          This key's permissions do not include <code>delete</code> (they are{' '}
+          <code>read,write</code>), so the store will refuse. Pressing Delete will show exactly what
+          the store says.
+        </p>
+      )}
+      {state.running && (
+        <p className="lobby-delete-progress" role="status">
+          Deleting… {state.deleted} / {total} objects
+          {state.absent > 0 ? ` (${state.absent} already gone)` : ''}
+        </p>
+      )}
+      {state.failure && (
+        <p className="lobby-delete-failure" role="alert">
+          <strong>Not deleted.</strong> Deleted {state.deleted} of {total} objects
+          {state.absent > 0 ? ` (${state.absent} were already gone)` : ''}; {state.failure.title}{' '}
+          <span className="connect-code">{state.failure.code}</span> {state.failure.message}
+          {state.advice ? ` — ${state.advice}` : ''}. The remaining {total - state.deleted - state.absent}{' '}
+          object{total - state.deleted - state.absent === 1 ? '' : 's'} — including the game record —
+          are still there, and the game is still listed and still deletable.
+        </p>
+      )}
+      <div className="setup-actions">
+        <button
+          type="button"
+          className="danger"
+          onClick={props.notice.onConfirm}
+          disabled={state.running}
+        >
+          {state.failure ? 'Try again' : state.running ? 'Deleting…' : 'Delete permanently'}
+        </button>
+        <button
+          type="button"
+          className="ghost"
+          onClick={props.notice.onCancel}
+          disabled={state.running}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
 }
 
 export function LobbyPanelView(props: LobbyPanelViewProps) {
@@ -330,6 +428,23 @@ export function LobbyPanelView(props: LobbyPanelViewProps) {
                           {blocked.code}: {blocked.message}
                         </span>
                       )}
+                      {/*
+                        S9 part B: a game the caller WAS IN can be deleted. The
+                        criterion is the caller's OWN `player.<gameid>.<tag>`
+                        object (`game.alreadyJoined`, from the S5 prefix listing),
+                        so a game they never joined is never offered.
+                      */}
+                      {game.alreadyJoined && (
+                        <button
+                          type="button"
+                          className="ghost lobby-delete-btn"
+                          data-game={game.gameId}
+                          disabled={props.busy}
+                          onClick={() => props.onDelete?.(game.gameId)}
+                        >
+                          Delete…
+                        </button>
+                      )}
                     </li>
                   )
                 })}
@@ -351,6 +466,9 @@ export function LobbyPanelView(props: LobbyPanelViewProps) {
               pollSeconds={pollSeconds}
               failure={props.failure}
             />
+            {/* The confirmation is OUTSIDE the list's branch so it survives a
+                listing that is momentarily empty or unreadable. */}
+            {props.deletion && <DeletionCard notice={props.deletion} />}
             <div className="setup-actions">
               <button type="button" className="ghost" onClick={props.onRefresh} disabled={props.busy}>
                 Refresh games
@@ -568,6 +686,59 @@ export function LobbyPanel({ connection, variantName, maxPlayers, onStarted }: P
     })
   }, [run])
 
+  /**
+   * S9 part B — the delete, in TWO presses, both on the WATCHER (which owns the
+   * plan, the progress and the refusal). The first press asks what would go; the
+   * second actually deletes. `run` already puts a refusal on the panel's ONE
+   * error surface, and the card says what remains.
+   */
+  const onDelete = useCallback(
+    (gameId: string) => {
+      void run(async (target) => {
+        await target.planDeletion(gameId)
+        setNotice(null)
+      })
+    },
+    [run],
+  )
+
+  const onConfirmDelete = useCallback(() => {
+    const deletion = data.deletion
+    if (deletion === null) return
+    void run(async (target) => {
+      const displayName =
+        listing?.games.find((game) => game.gameId === deletion.gameId)?.record.displayName ??
+        deletion.gameId
+      try {
+        await target.deleteGame(deletion.gameId)
+        setNotice(`Deleted "${displayName}".`)
+      } catch {
+        // The watcher stored the store's own refusal, the counts and the advice;
+        // the card renders them. Nothing is claimed as deleted.
+      }
+    })
+  }, [run, data.deletion, listing])
+
+  const onCancelDelete = useCallback(() => {
+    store.current()?.cancelDeletion()
+    store.refresh()
+  }, [store])
+
+  const deletePermitted = identity?.perms.includes('delete') ?? false
+  const deletionNotice: DeletionNotice | null =
+    data.deletion === null
+      ? null
+      : {
+          state: data.deletion,
+          plan: data.deletion.plan,
+          displayName:
+            listing?.games.find((game) => game.gameId === data.deletion!.gameId)?.record
+              .displayName ?? data.deletion.gameId,
+          deletePermitted,
+          onConfirm: onConfirmDelete,
+          onCancel: onCancelDelete,
+        }
+
   const onClose = useCallback(() => {
     store.current()?.back()
     store.refresh()
@@ -594,6 +765,8 @@ export function LobbyPanel({ connection, variantName, maxPlayers, onStarted }: P
       onLeave={onLeave}
       onRefresh={onRefresh}
       onClose={onClose}
+      deletion={deletionNotice}
+      onDelete={onDelete}
     />
   )
 }

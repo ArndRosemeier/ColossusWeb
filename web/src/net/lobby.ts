@@ -57,6 +57,8 @@ import {
   type PlayerRecord,
 } from './gameRecord'
 import { serverStoreName } from './storeName'
+import { createRequestRetrier, type RequestRetrier } from './requestRetry'
+import { snapshotObjectPrefixFor } from './snapshot'
 import {
   ServerStoreError,
   assertStoreName,
@@ -503,6 +505,262 @@ export async function leaveGame(ctx: LobbyContext, gameId: string): Promise<void
     )
   }
   await ctx.transport.remove(ctx.store, playerName)
+}
+
+// ---------------------------------------------------------------------------
+// Delete (S9 part B) — "games just accumulate"
+// ---------------------------------------------------------------------------
+
+/**
+ * Exactly what belongs to ONE game, split by KIND so the deletion ORDER is data
+ * rather than a loop's accident:
+ *
+ *  - `snapshots` — every `snap.<gameid>.*` (a long game has 100+ of them);
+ *  - `players`   — every `player.<gameid>.*`, the caller's own included;
+ *  - `record`    — the `game.<gameid>` object, and it goes LAST.
+ *
+ * **The record last is the whole safety property.** A game is VISIBLE in the
+ * lobby by its record: if a delete dies half way (a refusal, a dropped
+ * connection, a rate limit we must not spin through) the game is still listed and
+ * still deletable, instead of vanishing from the lobby while its snapshots live
+ * on as invisible objects nobody can find again.
+ */
+export interface GameDeletionPlan {
+  readonly gameId: string
+  /** The `game.<gameid>` object — deleted LAST, never before the rest. */
+  readonly record: string
+  readonly snapshots: StoreObject[]
+  readonly players: StoreObject[]
+}
+
+/** What the caller may act on: the plan's names, and the size of the job. */
+export function deletionPlanSize(plan: GameDeletionPlan): number {
+  return plan.snapshots.length + plan.players.length + 1
+}
+
+/** Every object the plan will delete, in the ORDER it deletes them. */
+export function deletionOrder(plan: GameDeletionPlan): string[] {
+  return [...plan.snapshots.map((o) => o.name), ...plan.players.map((o) => o.name), plan.record]
+}
+
+/** How far a running delete has got, for a progress line. */
+export interface GameDeletionProgress {
+  readonly gameId: string
+  readonly done: number
+  readonly total: number
+  /** The object just attempted — its NAME, never its content. */
+  readonly current: string
+  /** Objects that were already gone — a concurrent delete, not our work. */
+  readonly absent: string[]
+}
+
+export interface GameDeletionResult {
+  readonly gameId: string
+  /** Every object name this delete REMOVED, in the order it was removed. */
+  readonly deleted: string[]
+  /**
+   * Names that were already gone when their turn came (another client deleted
+   * them, say). They are NOT counted as our work: a game that vanished under us
+   * must not be reported as something we deleted.
+   */
+  readonly absent: string[]
+  readonly total: number
+}
+
+/**
+ * A delete that could not finish, reported as EXACTLY what was and was not
+ * removed.
+ *
+ * This is deliberately not a bare `ServerStoreError`: the store's own refusal (a
+ * `403` for a key without the `delete` permission, a `429` that outlived the
+ * retries) is only half the truth — the other half is the state of the game we
+ * were deleting, and the app must NEVER say a game was deleted when it was not
+ * (`AGENTS.md` rule 1). `error` is the store's refusal, verbatim; `deleted` and
+ * `remaining` are what the loop actually did.
+ */
+export class GameDeletionError extends Error {
+  readonly gameId: string
+  /** The store's own refusal — its `code` and `message`, untouched. */
+  readonly error: ServerStoreError
+  readonly deleted: string[]
+  readonly absent: string[]
+  readonly remaining: string[]
+  readonly forbidden: boolean
+  /** The store's own `code`, promoted so a caller can branch without unwrapping. */
+  readonly code: string
+
+  constructor(
+    gameId: string,
+    error: ServerStoreError,
+    deleted: string[],
+    absent: string[],
+    remaining: string[],
+    forbidden: boolean,
+  ) {
+    super(
+      `deleting "${gameId}" stopped after ${deleted.length} of ${deleted.length + remaining.length} objects: ${error.code} ${error.message}`,
+    )
+    this.name = 'GameDeletionError'
+    this.gameId = gameId
+    this.error = error
+    this.deleted = deleted
+    this.absent = absent
+    this.remaining = remaining
+    this.forbidden = forbidden
+    this.code = error.code
+    Object.setPrototypeOf(this, GameDeletionError.prototype)
+  }
+}
+
+/** Whose game may be deleted: the caller's OWN player object must exist for it. */
+function assertCallerParticipated(players: readonly StoreObject[], ctx: LobbyContext, gameId: string): void {
+  const tag = playerTagFor(ctx.identity.id)
+  const mine = assertPlayerObjectName(gameId, tag)
+  if (!players.some((object) => object.name === mine)) {
+    throw new ServerStoreError(
+      'not_a_participant',
+      `you are not a participant in "${gameId}": its ${players.length} player object(s) do not include ${mine}`,
+      403,
+    )
+  }
+}
+
+/**
+ * Work out what deleting ONE game means, and refuse to plan it unless the caller
+ * is entitled to: they must have their OWN `player.<gameid>.<tag>` object, and
+ * the `game.<gameid>` record must be there and readable.
+ *
+ * THREE narrow listings (`snap.<gameid>.`, `player.<gameid>.`, `game.`) plus one
+ * point read of the record itself — never the whole store. The record is read
+ * rather than inferred because it is the object the plan treats specially (it goes
+ * last); a plan built from an unreadable record would delete around a game nobody
+ * can see.
+ */
+export async function deletionPlanFor(
+  ctx: LobbyContext,
+  gameId: string,
+): Promise<GameDeletionPlan> {
+  assertGameId(gameId)
+  const record = assertGameObjectName(gameId)
+  const [snapshots, players, games] = await Promise.all([
+    ctx.transport.list(ctx.store, snapshotObjectPrefixFor(gameId)),
+    ctx.transport.list(ctx.store, playerObjectsPrefixFor(gameId)),
+    ctx.transport.list(ctx.store, gameObjectsPrefix()),
+  ])
+  if (!games.some((object) => object.name === record)) {
+    throw new ServerStoreError(
+      'not_found',
+      `no game ${JSON.stringify(record)} in store ${JSON.stringify(ctx.store)}`,
+      404,
+    )
+  }
+  // LOUD on an unreadable record: the plan deletes THIS object last, so a body we
+  // cannot parse must stop the whole thing rather than be deleted blind.
+  parseGameObjectRecord(record, (await ctx.transport.get(ctx.store, record)).value)
+  assertCallerParticipated(players, ctx, gameId)
+  return { gameId, record, snapshots, players }
+}
+
+/**
+ * DELETE one game the caller was IN — the record, every player object and every
+ * snapshot of THAT game, and nothing else.
+ *
+ * The order is {@link deletionOrder}: snapshots, then players, then the record
+ * LAST. A failure stops the loop immediately (the game stays visible and
+ * deletable) and is reported as a {@link GameDeletionError} carrying the store's
+ * own refusal plus exactly what was removed.
+ *
+ * It takes a {@link LobbyContext} whose `transport` has already been wrapped in a
+ * retrier (see `requestRetry.ts`): "respect the rate limiter" is then true for
+ * every request here, and this module keeps its old promise of owning no timer of
+ * its own. A plain `ctx` still WORKS — it just does not retry, which is what a
+ * caller testing a refusal wants.
+ *
+ * `onProgress` is called BEFORE each attempt, so a 100-object delete says what it
+ * is doing instead of looking frozen.
+ */
+export async function deleteGames(
+  ctx: LobbyContext,
+  gameId: string,
+  options: {
+    readonly onProgress?: (progress: GameDeletionProgress) => void
+  } = {},
+): Promise<GameDeletionResult> {
+  const plan = await deletionPlanFor(ctx, gameId)
+  const order = deletionOrder(plan)
+  const deleted: string[] = []
+  const absent: string[] = []
+  for (const name of order) {
+    options.onProgress?.({ gameId, done: deleted.length, total: order.length, current: name, absent })
+    try {
+      await ctx.transport.remove(ctx.store, name)
+    } catch (error) {
+      // An object that is no longer there is not a failure: the goal state (gone)
+      // already holds, and saying otherwise would block the rest of the delete.
+      // It is NOT counted as removed — we did not remove it.
+      if (error instanceof ServerStoreError && error.code === 'not_found') {
+        absent.push(name)
+        continue
+      }
+      const refusal =
+        error instanceof ServerStoreError
+          ? error
+          : new ServerStoreError('unknown', error instanceof Error ? error.message : String(error))
+      const remaining = order.slice(deleted.length + absent.length)
+      // `forbidden` is the store saying THIS KEY may not delete. Every further
+      // request would be refused identically, so the loop stops here rather than
+      // hammering the store — and the message says so out loud.
+      throw new GameDeletionError(gameId, refusal, deleted, absent, remaining, refusal.code === 'forbidden')
+    }
+    deleted.push(name)
+  }
+  return { gameId, deleted, absent, total: order.length }
+}
+
+/**
+ * The ONE sentence a refused delete gets, wherever it is reported. It names the
+ * store's own code and message (the caller renders those verbatim beside it) and
+ * then says what to DO — because "forbidden" with no next step is what makes a
+ * permission problem look like a broken app.
+ *
+ * Worded HERE, once: the lobby panel and any future caller render THIS, so the
+ * same refusal cannot be explained two ways.
+ */
+export function deleteRefusalAdvice(error: GameDeletionError): string {
+  if (error.forbidden) {
+    return 'this key cannot delete: ask the operator to grant the delete permission — the key has read,write today, and nothing was removed'
+  }
+  return 'the store refused the delete; the game is still listed and still deletable once the store accepts it'
+}
+
+/**
+ * The same context, with every request retried through `retrier` (a `429` waits
+ * out its `Retry-After` instead of burning the window it was told to leave —
+ * `requestRetry.ts`). `deleteGames` is where this matters: a long game is ~100
+ * sequential DELETEs and the store's limiter is 600/60s per address.
+ *
+ * The retry seam is `transport` ALONE, because it is the only part of a
+ * {@link LobbyContext} that talks to the store. Kept here (rather than at the
+ * delete call site) so "which calls are retried" is one decision with one place
+ * to read.
+ */
+export function retryingContext(ctx: LobbyContext, retrier: RequestRetrier): LobbyContext {
+  const transport = ctx.transport
+  return {
+    ...ctx,
+    transport: {
+      list: (store, prefix) => retrier(() => transport.list(store, prefix)),
+      get: (store, name) => retrier(() => transport.get(store, name)),
+      put: (store, name, value) => retrier(() => transport.put(store, name, value)),
+      remove: (store, name) => retrier(() => transport.remove(store, name)),
+      whoami: () => retrier(() => transport.whoami()),
+    },
+  }
+}
+
+/** The default retrier a delete uses when a caller does not supply one. */
+export function deleteRetrier(): RequestRetrier {
+  return createRequestRetrier()
 }
 
 // ---------------------------------------------------------------------------

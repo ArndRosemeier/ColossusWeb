@@ -25,6 +25,7 @@ import type {
   EntrySide,
   GameState,
   Legion,
+  PlayerState,
 } from './types'
 
 export const MAX_BATTLE_TURNS = 7
@@ -811,67 +812,113 @@ function maybeAcquireAngel(
 }
 
 /**
+ * THE ONE ELIMINATION ENDING: remove every player whose Titan is gone (unless
+ * they RESIGNED — see `resigned`), score their leftovers, then decide whether the
+ * game is over.
+ *
  * @param slayerId player who gets half points for leftover unengaged stacks (Q8)
+ * @param resigned ids that leave with their Titan ALIVE, which is what giving up
+ *   is (`GameEngine.doResign`). Such a player is eliminated all the same — the
+ *   board effect is `PlayerServerSide.die`'s — but the sentence must not claim a
+ *   Titan was slain, so the reason is named here rather than invented inside.
+ * @returns `true` when this call set `winnerId`/`draw` — the game ENDED here, so
+ *   a caller must not carry on with the turn (`doResign` uses it for exactly
+ *   that). A game that was already over is not "ended here" and returns `false`.
  */
-export function checkTitanDeath(state: GameState, slayerId: string | null): void {
+export function checkTitanDeath(
+  state: GameState,
+  slayerId: string | null,
+  resigned?: ReadonlySet<string>,
+): boolean {
   for (const player of state.players) {
     if (player.dead) continue
     const hasTitan = state.legions.some(
       (l) => l.playerId === player.id && l.creatures.some((c) => c.type === 'Titan'),
     )
-    if (!hasTitan) {
-      player.dead = true
-      state.log.push(`${player.name} is eliminated (Titan slain)!`)
-      const leftovers = state.legions.filter((l) => l.playerId === player.id)
-      // Colossus PlayerServerSide.die: engaged leftovers → enemy on that hex;
-      // unengaged → slayer. No angels from leftover half-points.
-      for (const leg of leftovers) {
-        const enemy = state.legions.find(
-          (e) => e.hexLabel === leg.hexLabel && e.playerId !== leg.playerId,
-        )
-        const scorerId = enemy?.playerId ?? slayerId
-        const scorer = scorerId ? state.players.find((p) => p.id === scorerId) : undefined
-        if (!scorer) continue
-        let bonus = 0
-        for (const c of leg.creatures) {
-          const t = state.variant.creatures[c.type]
-          if (!t) continue
-          const power = c.type === 'Titan' ? (player.titanPower ?? 6) : t.power
-          bonus += Math.floor((power * t.skill) / 2)
-        }
-        if (bonus > 0) {
-          scorer.score += bonus
-          state.log.push(
-            `${scorer.name} scores ${bonus} half-points for ${player.name}'s ${leg.markerId} (no angels)`,
-          )
-        }
-      }
-      for (const leg of [...leftovers]) {
-        eliminateLegionToCaretaker(state, leg)
-      }
-      // After leftovers return their markers, transfer the entire free pool to the slayer
-      const slayer = slayerId ? state.players.find((p) => p.id === slayerId) : undefined
-      if (slayer && player.markersAvailable.length > 0) {
-        for (const m of player.markersAvailable) {
-          if (!slayer.markersAvailable.includes(m)) {
-            slayer.markersAvailable.push(m)
-          }
-        }
-        player.markersAvailable = []
-      }
+    if (!hasTitan || resigned?.has(player.id)) {
+      eliminatePlayer(state, player, slayerId, resigned?.has(player.id) === true)
     }
   }
   const alive = state.players.filter((p) => !p.dead)
   if (alive.length === 1) {
-    state.winnerId = alive[0].id
+    state.winnerId = alive[0]!.id
     state.draw = false
-    state.message = `${alive[0].name} wins!`
-  } else if (alive.length === 0) {
+    state.message = `${alive[0]!.name} wins!`
+    return true
+  }
+  if (alive.length === 0) {
     // Colossus GameServerSide.checkForVictory case 0 — Draw
     state.draw = true
     state.winnerId = null
     state.message = 'Draw — all Titans slain'
     state.log.push(state.message)
+    return true
+  }
+  return false
+}
+
+/**
+ * Eliminate ONE player and clean up after them — the body the Titan-death path
+ * and the resignation path share, so "what leaving the board does" has ONE
+ * implementation. Ported from `PlayerServerSide.die` (`:606-661`):
+ *
+ *  - every legion of the player's leaves the board (their creatures return to
+ *    the caretaker through `eliminateLegionToCaretaker`);
+ *  - a legion with an enemy on its hex gives that enemy HALF its value; a legion
+ *    with no enemy gives half to the `slayer` — and when there is no slayer
+ *    (a resignation, a mutual elimination) NOBODY scores for it;
+ *  - the markers of the dead player go to the slayer if there is one
+ *    (`handleSlaying`); with none they stay with the dead player, exactly as
+ *    Java leaves them.
+ */
+function eliminatePlayer(
+  state: GameState,
+  player: PlayerState,
+  slayerId: string | null,
+  byResignation: boolean,
+): void {
+  player.dead = true
+  state.log.push(
+    byResignation
+      ? `${player.name} is eliminated (gave up with the Titan still alive)!`
+      : `${player.name} is eliminated (Titan slain)!`,
+  )
+  const leftovers = state.legions.filter((l) => l.playerId === player.id)
+  // Colossus PlayerServerSide.die: engaged leftovers → enemy on that hex;
+  // unengaged → slayer. No angels from leftover half-points.
+  for (const leg of leftovers) {
+    const enemy = state.legions.find(
+      (e) => e.hexLabel === leg.hexLabel && e.playerId !== leg.playerId,
+    )
+    const scorerId = enemy?.playerId ?? slayerId
+    const scorer = scorerId ? state.players.find((p) => p.id === scorerId) : undefined
+    if (!scorer) continue
+    let bonus = 0
+    for (const c of leg.creatures) {
+      const t = state.variant.creatures[c.type]
+      if (!t) continue
+      const power = c.type === 'Titan' ? (player.titanPower ?? 6) : t.power
+      bonus += Math.floor((power * t.skill) / 2)
+    }
+    if (bonus > 0) {
+      scorer.score += bonus
+      state.log.push(
+        `${scorer.name} scores ${bonus} half-points for ${player.name}'s ${leg.markerId} (no angels)`,
+      )
+    }
+  }
+  for (const leg of [...leftovers]) {
+    eliminateLegionToCaretaker(state, leg)
+  }
+  // After leftovers return their markers, transfer the entire free pool to the slayer
+  const slayer = slayerId ? state.players.find((p) => p.id === slayerId) : undefined
+  if (slayer && player.markersAvailable.length > 0) {
+    for (const m of player.markersAvailable) {
+      if (!slayer.markersAvailable.includes(m)) {
+        slayer.markersAvailable.push(m)
+      }
+    }
+    player.markersAvailable = []
   }
 }
 

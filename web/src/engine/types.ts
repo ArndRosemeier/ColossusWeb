@@ -318,6 +318,22 @@ export type GameCommand =
   | { type: 'doneMuster' }
   | { type: 'pass' }
   /**
+   * GIVE UP: a player leaves the game OUTSIDE a battle, with their Titan alive.
+   * A SHARED command (never LOCAL_ONLY) — it changes the board every client
+   * shares. What it DOES is what Colossus does when a player withdraws
+   * (`PlayerServerSide.java:606-661`, `die`): every legion of the resigner
+   * leaves the board, and HALF the value of a legion that was in an engagement
+   * goes to the enemy legion on that hex — with no enemy there is no score, and
+   * with no `slayer` the resigner's markers are NOT inherited. Whether the GAME
+   * ends is not decided here: that stays the ONE elimination ending's job
+   * (`checkTitanDeath`, `battle.ts`).
+   *
+   * The id travels with the command so the engine can name WHO gives up; which
+   * CLIENT may send it is the UI's seat question (`GameControls`), and a
+   * command with no player id is refused.
+   */
+  | { type: 'resign'; playerId?: string }
+  /**
    * Finish `pendingDice`. With `values`, use those faces (physical throw).
    * Without `values`, roll via rng (instant AI / reduced motion / sims).
    */

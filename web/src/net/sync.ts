@@ -72,8 +72,8 @@ import {
   type SnapshotRef,
 } from './snapshot'
 import { serverStoreName } from './storeName'
+import { nextRetryDelayMs } from './requestRetry'
 import {
-  RATE_LIMITED_CODE,
   ServerStoreError,
   assertStoreName,
   type ServerStoreTransport,
@@ -653,44 +653,22 @@ export function browserVisibility(): VisibilitySource {
 }
 
 /**
- * The bounds on a `Retry-After` the loop will honour, in MILLISECONDS. The
- * service's window is 60s, so both are far away from a real value; they exist so
- * a malformed or hostile header cannot park the loop for ever (a stall no user
- * could distinguish from a hang) or spin it inside the window it was told to
- * leave. `FLOOR` is the poll's own base interval: obeying a *smaller* wait than
- * we would have used anyway is not obeying anything.
+ * The bounds on a `Retry-After` the loop will honour, in MILLISECONDS — re-exported
+ * from `requestRetry.ts`, which is where the rule LIVES, because a single request
+ * (a delete's many DELETEs) needs the same arithmetic this timer does. One
+ * definition, two callers: see that module's header.
  */
-export const RATE_LIMIT_DELAY_FLOOR_MS = 1000
-export const RATE_LIMIT_DELAY_CEILING_MS = 15 * 60 * 1000
-
-/** A `Retry-After` in whole seconds, as a bounded delay in milliseconds. */
-function retryDelayMs(seconds: number): number {
-  return Math.min(Math.max(seconds * 1000, RATE_LIMIT_DELAY_FLOOR_MS), RATE_LIMIT_DELAY_CEILING_MS)
-}
+export { RATE_LIMIT_DELAY_CEILING_MS, RATE_LIMIT_DELAY_FLOOR_MS } from './requestRetry'
 
 /**
- * When the next tick runs after a FAILED one — the ONE rule about retry timing,
- * exported so its arithmetic can be pinned directly (the loop that USES it is
- * pinned separately; a test that had to infer the delay from tick counts would
- * be testing the fake clock instead).
- *
- *  - **A rate limit OBEYS `Retry-After`.** The service told us how long to leave
- *    it alone, so the delay is that (bounded), NOT the doubling backoff — whose
- *    cap is `interval × 8` (16s in a game, 40s in the lobby) and would therefore
- *    retry INSIDE the 60-second window it was told to wait out, making the
- *    refusal worse. A `429` with no readable header falls back to the backoff,
- *    which is the old behaviour rather than an invented wait.
- *  - **Anything else keeps the existing doubling backoff**, unchanged.
+ * When the next tick runs after a FAILED one — this loop's use of the ONE retry
+ * rule (`requestRetry.ts`), kept as a named export because the loop's own timing
+ * is pinned through it. A rate limit obeys `Retry-After` (bounded, so a malformed
+ * header cannot park the loop for ever or spin it inside the window it was told
+ * to leave); anything else keeps the doubling backoff, unchanged.
  */
 export function nextPollDelayMs(error: unknown, intervalMs: number, failures: number): number {
-  if (
-    error instanceof ServerStoreError &&
-    error.code === RATE_LIMITED_CODE &&
-    error.retryAfterSeconds !== undefined
-  ) {
-    return retryDelayMs(error.retryAfterSeconds)
-  }
-  return Math.min(intervalMs * 2 ** failures, intervalMs * 8)
+  return nextRetryDelayMs(error, intervalMs, failures)
 }
 
 /**

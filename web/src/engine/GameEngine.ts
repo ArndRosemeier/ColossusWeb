@@ -317,6 +317,13 @@ function applyCommand(state: GameState, command: GameCommand, rng: () => number)
     commitPendingDice(state, rng, command.values)
     return
   }
+  // GIVE UP is answered BEFORE the battle/engagement/dispatch splits, because it
+  // is refused IN those states (see `resignRefusalReason`) — it must never be
+  // routed to a battle handler that would silently ignore it.
+  if (command.type === 'resign') {
+    doResign(state, command.playerId)
+    return
+  }
   if (state.pendingDice) {
     state.message = 'Waiting for dice to settle'
     return
@@ -1591,6 +1598,82 @@ function continueAfterEngagement(state: GameState): void {
     beginMusterPhase(state)
   } else {
     state.message = `Fight continues — ${state.pendingEngagements.length} engagement(s) left`
+  }
+}
+
+/**
+ * May this player GIVE UP right now, and if not, why not? `null` means yes.
+ *
+ * The rule the owner's scope states, and the one the written reference supports:
+ * giving up is a GAME action, not a battle one (Titan has no in-battle
+ * resignation — an Engagement can only be conceded, which the battle already
+ * has at `concedeEngagement`/`concedeBattle`). So this is refused, loudly, in
+ * exactly the states where a battle owns the turn: a running battle, the
+ * pre-battle engagement window, a pending physical throw, and a post-battle
+ * reinforcement.
+ *
+ * The words live HERE, once, so the UI's button and the engine's own refusal
+ * cannot drift.
+ */
+export function resignRefusalReason(state: GameState, playerId: string): string | null {
+  const player = state.players.find((p) => p.id === playerId)
+  if (!player) return `Unknown player ${JSON.stringify(playerId)} — cannot give up`
+  if (player.dead) return `${player.name} is already out of the game`
+  if (state.winnerId || state.draw) return 'The game is already over'
+  if (state.battle && !state.battle.done) {
+    return 'Cannot give up during a battle — concede the battle instead'
+  }
+  if (state.pendingDice) {
+    return 'Cannot give up while a throw is pending — settle the dice first'
+  }
+  if (state.pendingPostBattleReinforce) {
+    return 'Cannot give up while a post-battle reinforcement is pending'
+  }
+  if (state.activeEngagement && state.phase === 'Fight') {
+    return 'Cannot give up while an engagement is on the table — resolve it first'
+  }
+  return null
+}
+
+/** May `playerId` give up now? The predicate the UI's button renders from. */
+export function canResign(state: GameState, playerId: string): boolean {
+  return resignRefusalReason(state, playerId) === null
+}
+
+/**
+ * GIVE UP — the ONE command, and it reuses the ONE elimination ending.
+ *
+ * It does NOT invent a second game-over: it removes the resigner's legions and
+ * then calls {@link checkTitanDeath}, which is the same code that decides the
+ * game is over whenever a Titan dies, so "the game is over" has exactly one
+ * definition. `checkTitanDeath` is told WHY this player is leaving through the
+ * `resigned` set, so it does not invent a Titan-slain sentence for a player whose
+ * Titan never died — the board effect is otherwise identical, which is what the
+ * brief means by "reuse the existing ending".
+ *
+ * After it, the turn is handed on exactly as it is after an elimination mid-turn
+ * (`finishEngagementResolution` / `continueAfterEngagement` do the same two
+ * things): a dead active player is skipped to the next LIVING one, and a pending
+ * engagement naming a legion that no longer exists is dropped.
+ */
+function doResign(state: GameState, playerId: string | undefined): void {
+  if (playerId === undefined) throw new Error('Giving up needs a player id')
+  const refusal = resignRefusalReason(state, playerId)
+  if (refusal) throw new Error(refusal)
+  const player = state.players.find((p) => p.id === playerId)!
+
+  state.log.push(`${player.name} gives up the game`)
+  state.activeEngagement = null
+  const ended = checkTitanDeath(state, null, new Set([playerId]))
+  if (!ended && activePlayer(state).dead) {
+    advanceToNextLivingPlayer(state)
+  }
+  const liveLegionIds = new Set(state.legions.map((l) => l.id))
+  state.pendingEngagements = state.pendingEngagements.filter(
+    (e) => liveLegionIds.has(e.attackerId) && liveLegionIds.has(e.defenderId),
+  )
+  if (!state.winnerId && !state.draw) {
+    state.message = `${player.name} has given up the game`
   }
 }
 
