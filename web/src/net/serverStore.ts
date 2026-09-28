@@ -151,7 +151,16 @@ export class ServerStoreTransportHttp implements ServerStoreTransport {
 
   constructor(baseUrl: string = serverStoreBaseUrl(), fetchImpl?: typeof fetch) {
     this.baseUrl = baseUrl.replace(/\/+$/, '')
-    this.fetchImpl = fetchImpl ?? requireFetch()
+    // BOUND TO THE GLOBAL, and that is not decoration. A browser's `fetch` may only be
+    // invoked with the global as its receiver: hold a reference on an object and call it
+    // as `this.fetchImpl(...)` and the receiver becomes that object, which the platform
+    // refuses with
+    //   Failed to execute 'fetch' on 'Window': Illegal invocation
+    // That is not hypothetical — it is what a real browser did the first time a real key
+    // was entered, because every test until then supplied a receiver-insensitive stub.
+    // Binding ONCE here, where the implementation is adopted, makes the receiver
+    // irrelevant so no call site can reintroduce it. See the pin in serverStore.test.ts.
+    this.fetchImpl = (fetchImpl ?? requireFetch()).bind(globalThis)
   }
 
   private url(path: string): string {

@@ -155,4 +155,31 @@ describe('serverStore HTTP transport', () => {
     })
     await expect(transport.list(TEST_STORE)).rejects.toThrow(/no key presented/)
   })
+
+  it('calls fetch with a receiver the platform accepts, never the transport itself', async () => {
+    // A REAL browser refuses `fetch` invoked as a method of anything but the global:
+    //   Failed to execute 'fetch' on 'Window': Illegal invocation
+    // That is exactly what a browser did the first time a real key was entered, and no
+    // test could see it because every other stub here is receiver-insensitive — the
+    // transport held `window.fetch` on an instance and called it as `this.fetchImpl(...)`.
+    // This stub ENFORCES the platform's rule, so the defect cannot come back.
+    const receivers: unknown[] = []
+    const strictFetch = function (
+      this: unknown,
+      input: RequestInfo | URL,
+      init?: RequestInit,
+    ): Promise<Response> {
+      receivers.push(this)
+      if (this !== undefined && this !== globalThis) {
+        throw new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation")
+      }
+      return fake.fetch(input as RequestInfo, init)
+    } as unknown as typeof fetch
+
+    const transport = createServerStoreTransport('https://store.example.test', strictFetch)
+    await expect(transport.whoami()).resolves.toBeDefined()
+
+    expect(receivers).toHaveLength(1)
+    expect(receivers[0]).not.toBe(transport)
+  })
 })
