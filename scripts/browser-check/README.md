@@ -75,3 +75,31 @@ Three things are worth copying from this one:
     `(state.turnNumber, seq)`, so a fixture whose header and state disagree makes the
     app publish a name that sorts BEFORE the snapshot it just adopted.
 
+**S7's check, and the fourth method (`s7-move-gate.py`).** S7's symptom is what the
+board SHOWS with a non-active legion selected, so this check is the OWNER'S OWN data,
+not a generated fixture: the read-only probe's `fixture.json` (his 21 store objects,
+sha256-verified there) is COPIED to `s7-fixture.json` here — gitignored scratch, never
+committed — and served by a fake store on the same origin (the app is built with
+`VITE_SERVERSTORE_URL=/storeapi` and every request is answered by the script). The
+keys are made-up strings containing `testonly`; nothing leaves the box. Build and run:
+
+```
+(cd web && VITE_SERVERSTORE_URL=/storeapi npx vite build \
+    --outDir ../scripts/browser-check/s7-dist --emptyOutDir)
+python3 scripts/browser-check/s7-move-gate.py host    # his seat, his Move phase
+python3 scripts/browser-check/s7-move-gate.py guest   # seat 1 on the opponent's turn
+```
+
+It asserts the DOM, not a function: **host** (15 statements) that his own stack paints
+exactly the engine's roll-3 destinations, that an OPPONENT's stack paints no legal ring
+but does paint the preview, that a click on a previewed field **does not deselect**,
+**does not make the fields vanish**, **publishes nothing** and puts a sentence on the
+message surface, that a plain hex still deselects, and that a legal move still moves
+and publishes exactly one snapshot; **guest** (5 statements) that NO actionable field
+is painted and a click surfaces a reason. Two traps this one encodes: the lobby's
+**Enter game button is `disabled` while the lobby refreshes**, and `element.click()` on a
+disabled button is a silent no-op, so the check retries until the board renders; and the
+owner's snapshot chain must be seeded from his LAST snapshot for the host mode and only
+up to seat 1's turn (then served p0's snapshots) for the guest mode, or the seat under
+test is not the one the brief names.
+
