@@ -137,4 +137,17 @@ describe('the painted actionable set EQUALS the accepted set', () => {
     const oracle = listEnemyMovePreview(state, enemyLegion)
     expect([...preview.keys()].sort()).toEqual([...oracle.keys()].sort())
   })
+
+  it('a board that is not in the Move phase paints nothing a click could be refused for', () => {
+    // A pending BATTLE renders `BattleBoardView` (App.tsx), which owns its own
+    // clicks; the master board is not mounted. This phase guard is what makes the
+    // same true for Fight/Battle/Muster, so a master-board paint in any of them
+    // would be a field `boardClickVerdict` never accepts.
+    const base = movePhase(3)
+    const state: GameState = { ...base, phase: 'Fight', selectedLegionId: own(base).id }
+    const { legal, preview } = boardInteraction(state, true)
+    expect(legal.size).toBe(0)
+    expect(preview.size).toBe(0)
+    expect(boardClickVerdict(state, gate(true), '1').kind).toBe('ignore')
+  })
 })
