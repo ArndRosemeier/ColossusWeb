@@ -464,6 +464,7 @@ Each was **verified**, not assumed, on 2026-09-27 at the base commit.
   red). `docs/TESTING.md` already documents exactly this. **The rule:** commit the slice
   FIRST, or restore from an out-of-tree copy; and always compare the restored hash to the
   pre-arm hash rather than assuming the restore worked.
+- `TRAP` — **the masked exit code, made a SECOND time — and this time the RECONCILER caught it, not me.** `git branch -d feat/move-gate-seam | tail -1; echo $?` printed `0` while the delete had FAILED (again because `origin/master` had not yet received the merge), so the board CLAIMED a retirement that had not happened. `scripts/board.sh` refused to accept it: `STALE: branch 'feat/move-gate-seam' claimed retired but still exists`. The rule is not "be careful": **never pipe a command whose status you intend to quote, and never write a `retired_branch=` claim before the branch is actually gone** — and the reconciler is the thing that makes the claim checkable, which is why the claim is written as a parseable line rather than as prose.
 - `TRAP` — **a second `trap ... EXIT` REPLACES the first, so cleanup silently disappears.**
   A probe script set `trap restore EXIT` and later `trap cleanup EXIT`; the exit path ran
   only `cleanup`, so the gate lock was left held and a throwaway build dir survived. **The
