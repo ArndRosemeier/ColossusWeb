@@ -17,7 +17,7 @@ import { createElement } from 'react'
 import { createMemoryTransportBackend, createMemoryTransport } from '../memoryTransport'
 import { createServerStoreTransport } from '../serverStore'
 import { createGame, joinGame, joinBlockedReason, lobbyContext, startRefusal } from '../lobby'
-import { LobbyWatcher, LOBBY_POLL_INTERVAL_MS } from '../lobbyWatcher'
+import { LobbyStore, LobbyWatcher, LOBBY_POLL_INTERVAL_MS } from '../lobbyWatcher'
 import { formatFork, pollLoop, type PollStatus, type VisibilitySource } from '../sync'
 import {
   ServerStoreError,
@@ -110,7 +110,7 @@ function withCallLog(base: ServerStoreTransport): {
 
 /** Let every pending promise settle — the in-memory twin digests with `crypto.subtle`. */
 async function flush(): Promise<void> {
-  for (let i = 0; i < 50; i++) await Promise.resolve()
+  for (let i = 0; i < 200; i++) await Promise.resolve()
 }
 
 /** A poll tick, driven by hand: advance the clock, then let it finish. */
@@ -460,6 +460,78 @@ describe('the ONE loop, not two', () => {
     expect(lists(calls)).toHaveLength(2)
     expect(second.getData().listing).not.toBeNull()
     second.close()
+    await advance(0)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('tells a listener that subscribed BEFORE the watcher existed about every tick', async () => {
+    // The defect a real browser caught: React subscribes on its first render,
+    // before any watcher exists, and a no-op subscription there means the data
+    // NEVER reaches the component — the joiner never appears even though the loop
+    // polls correctly. The listener must be carried across to the watcher.
+    const shared = new SharedStore()
+    const store = new LobbyStore()
+    const seen: number[] = []
+    const unsubscribe = store.subscribe(() => {
+      seen.push(store.getSnapshot().listing === null ? -1 : 0)
+    })
+    expect(seen).toEqual([])
+    expect(store.current()).toBeNull()
+
+    const watcher = new LobbyWatcher({
+      transport: shared.for(CREATOR),
+      identity: CREATOR,
+      store: TEST_STORE,
+      intervalMs: 1000,
+    })
+    store.set(watcher)
+    watcher.start()
+    await flush()
+    await advance(0)
+    await flush()
+
+    expect(watcher.getData().listing).not.toBeNull()
+    expect(store.getSnapshot().listing).not.toBeNull()
+    // The listener that subscribed while the store was empty heard both the
+    // attach refresh and the first tick.
+    expect(seen.length).toBeGreaterThanOrEqual(2)
+    // The LAST thing the listener heard is the real listing: the update reached
+    // React even though the subscription predated the watcher.
+    expect(seen[seen.length - 1]).toBe(0)
+    unsubscribe()
+    store.clear()
+  })
+
+  it('CLOSES a watcher it replaces, so no orphaned loop keeps polling', async () => {
+    // Two cadences make the orphan visible: if the replaced watcher's loop were
+    // still alive, its 1s ticks would add list requests during the 3s waited
+    // after replacing it with a 10s one.
+    const shared = new SharedStore()
+    const { transport, calls } = withCallLog(shared.for(CREATOR))
+    const store = new LobbyStore()
+    const first = new LobbyWatcher({ transport, identity: CREATOR, store: TEST_STORE, intervalMs: 1000 })
+    const second = new LobbyWatcher({ transport, identity: CREATOR, store: TEST_STORE, intervalMs: 10_000 })
+
+    store.set(first)
+    first.start()
+    await flush()
+    await advance(0)
+    await flush()
+    const afterFirst = lists(calls).length
+    expect(afterFirst).toBe(1)
+
+    store.set(second)
+    second.start()
+    await flush()
+    await advance(0)
+    await flush()
+    expect(lists(calls)).toHaveLength(afterFirst + 1)
+
+    await advance(3000)
+    await flush()
+    // A live `first` would have added three ticks here. It did not.
+    expect(lists(calls)).toHaveLength(afterFirst + 1)
+    store.clear()
     await advance(0)
     expect(vi.getTimerCount()).toBe(0)
   })

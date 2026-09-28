@@ -635,6 +635,20 @@ run_source_arm "Z7-body-read-by-guess" "src/net/__tests__/bodyReadCache.test.ts"
   "s|        ? await cache.adopt(object.name, object.sha256)|        ? await cache.adopt(object.name + '.guess', object.sha256)|" \
   "reads ONLY the body that changed, and every read is by a name the listing gave" || FAILED=1
 
+# Z8 · The external store's subscription is a NO-OP until a watcher exists, so
+#      React never hears about a tick's data — the defect a real browser caught.
+run_source_arm "Z8-store-subscribe-noop" "src/net/__tests__/lobbyWatcher.test.ts" \
+  "web/src/net/lobbyWatcher.ts" \
+  "s|    this.listeners.add(listener)|    if (this.watcher === null) { return () => {} }\n    this.listeners.add(listener)|" \
+  "tells a listener that subscribed BEFORE the watcher existed about every tick" || FAILED=1
+
+# Z9 · A replaced watcher is detached but NOT closed, so its loop keeps polling a
+#      list nobody renders (the orphaned-loop failure mode).
+run_source_arm "Z9-replaced-loop-orphaned" "src/net/__tests__/lobbyWatcher.test.ts" \
+  "web/src/net/lobbyWatcher.ts" \
+  "s|    this.clear()\n    this.watcher = watcher|    this.detach?.()\n    this.watcher = watcher|" \
+  "never lets a START survive a STOP — the orphaned-loop guard" || FAILED=1
+
 echo
 echo "=================================================================="
 echo "arms done — FAILED=$FAILED (0 means every arm went RED as intended)"
