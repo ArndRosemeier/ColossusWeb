@@ -193,7 +193,7 @@ describe('the lobby refreshes on the poll while visible', () => {
   it('a game created by ANOTHER writer appears with no manual refresh', async () => {
     const store = new SharedStore()
     const { transport, calls } = withCallLog(store.for(CREATOR))
-    const watcher = new LobbyWatcher({ context: contextFor(transport, CREATOR) })
+    const watcher = new LobbyWatcher({ transport, identity: CREATOR, store: TEST_STORE })
     watcher.start()
     await advance(0)
     // The first read is the loop's own immediate tick, so the list is never a
@@ -214,7 +214,9 @@ describe('the lobby refreshes on the poll while visible', () => {
     const store = new SharedStore()
     const { transport, calls } = withCallLog(store.for(CREATOR))
     const watcher = new LobbyWatcher({
-      context: contextFor(transport, CREATOR),
+      transport,
+      identity: CREATOR,
+      store: TEST_STORE,
       intervalMs: 1000,
     })
     watcher.start()
@@ -234,7 +236,9 @@ describe('the lobby refreshes on the poll while visible', () => {
     const { transport, calls } = withCallLog(store.for(CREATOR))
     const visibility = new FakeVisibility()
     const watcher = new LobbyWatcher({
-      context: contextFor(transport, CREATOR),
+      transport,
+      identity: CREATOR,
+      store: TEST_STORE,
       intervalMs: 1000,
       visibility,
     })
@@ -264,7 +268,9 @@ describe('the lobby refreshes on the poll while visible', () => {
     )
     const { transport, calls } = withCallLog(store.for(CREATOR))
     const watcher = new LobbyWatcher({
-      context: contextFor(transport, CREATOR),
+      transport,
+      identity: CREATOR,
+      store: TEST_STORE,
       intervalMs: 1000,
     })
     watcher.start()
@@ -306,7 +312,7 @@ describe("the owner's exact scenario: a join reaches the creator", () => {
   it('the creator sees the second player within one tick, and Start becomes possible', async () => {
     const store = new SharedStore()
     const contextA = contextFor(store.for(CREATOR), CREATOR)
-    const watcher = new LobbyWatcher({ context: contextA, intervalMs: 1000 })
+    const watcher = new LobbyWatcher({ transport: contextA.transport, identity: CREATOR, store: TEST_STORE, intervalMs: 1000 })
     watcher.start()
     await advance(0)
     await watcher.create({ displayName: 'Toms game', variant: 'Default', maxPlayers: 6 })
@@ -426,12 +432,80 @@ describe('the freshness signal', () => {
 })
 
 describe('the ONE loop, not two', () => {
+  it('survives a StrictMode mount → unmount → remount without leaking a timer', async () => {
+    // React runs an effect, its cleanup, and the effect again on mount, and
+    // `main.tsx` keeps StrictMode ON in production. TWO things must hold, and
+    // BOTH were violated by a first version of this slice that a real browser
+    // caught: the first watcher must be CLOSED (or an orphaned live loop keeps
+    // polling a list nobody renders — the bug the owner actually saw), and a
+    // SECOND watcher must be able to start after it (or the lobby is silently
+    // dead for the life of the screen).
+    const store = new SharedStore()
+    const { transport, calls } = withCallLog(store.for(CREATOR))
+    const context = contextFor(transport, CREATOR)
+
+    const first = new LobbyWatcher({ transport: context.transport, identity: CREATOR, store: TEST_STORE, intervalMs: 1000 })
+    first.start()
+    await advance(0)
+    expect(vi.getTimerCount()).toBe(1)
+    expect(lists(calls)).toHaveLength(1)
+    first.close()
+    await advance(0)
+    expect(vi.getTimerCount()).toBe(0)
+
+    const second = new LobbyWatcher({ transport: context.transport, identity: CREATOR, store: TEST_STORE, intervalMs: 1000 })
+    second.start()
+    await advance(0)
+    expect(vi.getTimerCount()).toBe(1)
+    expect(lists(calls)).toHaveLength(2)
+    expect(second.getData().listing).not.toBeNull()
+    second.close()
+    await advance(0)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('never lets a START survive a STOP — the orphaned-loop guard', async () => {
+    // The measured failure mode: a component effect ran with a `null` watcher
+    // while SOME watcher was live and never stopped. This pin makes that
+    // imbalance visible at the seam the component uses: every `start()` of the
+    // watcher the panel holds is followed by its `close()`, and no second
+    // instance is left running.
+    const store = new SharedStore()
+    const context = contextFor(store.for(CREATOR), CREATOR)
+    const watcher = new LobbyWatcher({ transport: context.transport, identity: CREATOR, store: TEST_STORE, intervalMs: 1000 })
+    let starts = 0
+    const originalStart = watcher.start.bind(watcher)
+    watcher.start = () => {
+      starts += 1
+      originalStart()
+    }
+    let stops = 0
+    const originalClose = watcher.close.bind(watcher)
+    watcher.close = () => {
+      stops += 1
+      originalClose()
+    }
+    const handle = (() => {
+      watcher.start()
+      return { stop: () => watcher.close() }
+    })()
+    handle.stop()
+    watcher.start()
+    watcher.close()
+    await advance(0)
+    expect(starts).toBe(2)
+    expect(stops).toBe(2)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it('registers the lobby as a tick on `pollLoop` rather than owning a timer', async () => {
     // A second timer would be a second `setTimeout` chain. Count the pending
     // timers inside a lobby interval: the lobby must contribute exactly ONE.
     const store = new SharedStore()
     const watcher = new LobbyWatcher({
-      context: contextFor(store.for(CREATOR), CREATOR),
+      transport: store.for(CREATOR),
+      identity: CREATOR,
+      store: TEST_STORE,
       intervalMs: 1000,
     })
     watcher.start()
@@ -475,7 +549,7 @@ describe('the ONE loop, not two', () => {
     const transport = createServerStoreTransport('https://store.example.test', async () => {
       throw new Error('the watcher must not call the network from its constructor')
     })
-    const watcher = new LobbyWatcher({ context: contextFor(transport, CREATOR) })
+    const watcher = new LobbyWatcher({ transport, identity: CREATOR, store: TEST_STORE })
     expect(watcher.getData().listing).toBeNull()
     watcher.close()
   })

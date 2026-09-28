@@ -42,7 +42,7 @@
  * See `snapshot.ts`'s header for the measurement.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { NewGameOptions, GameCommand, GameState, PlayerKind } from '../engine/types'
 import { PLAYER_COLORS } from '../engine/types'
 import { deserializeGame, serializeGame, type SavedGameBlob } from '../persistence/saveGame'
@@ -813,19 +813,21 @@ export function usePolledStatus(
 ): PolledStatus {
   const [status, setStatus] = useState<PollStatus | null>(null)
   const [failure, setFailure] = useState<FailureDescription | null>(null)
-  const startRef = useRef(start)
-  startRef.current = start
 
   useEffect(() => {
     let handle: PollHandle | null | void = null
     try {
-      handle = startRef.current(setStatus)
+      handle = start(setStatus)
     } catch (error) {
       setFailure(describeFailure(error))
       return
     }
+    // ONE loop per call site, always: a re-run (a new identity, say) stops the
+    // previous session BEFORE the next starts, so two loops can never overlap.
+    // `start` IS the dependency — a caller must memoise it (both callers memoise
+    // one arrow over values that only change when the session does).
     return () => handle?.stop()
-  }, [])
+  }, [start])
 
   return { status, failure }
 }

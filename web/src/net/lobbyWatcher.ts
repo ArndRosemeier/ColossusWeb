@@ -44,6 +44,7 @@ import {
   joinGame,
   leaveGame,
   listGamesFrom,
+  lobbyContext,
   readLobby,
   startGame,
   type ActiveLobby,
@@ -52,6 +53,7 @@ import {
   type LobbyContext,
 } from './lobby'
 import { pollLoop, type PollHandle, type PollStatus, type VisibilitySource } from './sync'
+import type { ServerStoreTransport, StoreIdentity } from './transport'
 
 /**
  * ~5s in the lobby — a judgement call, justified rather than decreed.
@@ -83,7 +85,12 @@ export interface LobbyData {
 }
 
 export interface LobbyWatcherOptions {
-  readonly context: LobbyContext
+  /** The store client, the caller's identity and the store name — the watcher
+   * builds its OWN `LobbyContext` from these, so no caller can hand it a stale or
+   * half-built one (see the constructor's note). */
+  readonly transport: ServerStoreTransport
+  readonly identity: StoreIdentity
+  readonly store: string
   /** Defaults to {@link LOBBY_POLL_INTERVAL_MS}. */
   readonly intervalMs?: number
   /** Defaults to the browser's `document.visibilityState`. */
@@ -93,6 +100,82 @@ export interface LobbyWatcherOptions {
    * `usePolledStatus` handed it, so the status lives in ONE place.
    */
   readonly onStatus?: (status: PollStatus) => void
+}
+
+/**
+ * A holder the React panel reads through, so `subscribe` and `getSnapshot` can
+ * be STABLE before any watcher exists.
+ *
+ * This is not tidiness — it is the difference between a live lobby and a dead
+ * one, measured in a real browser. The panel's first render happens before the
+ * effect that builds the watcher, so `useSyncExternalStore` subscribes while the
+ * holder is still empty. Returning a no-op subscription there (the obvious
+ * implementation) means React NEVER learns about a later change and every tick's
+ * data is dropped on the floor: the list stays empty and the creator never sees
+ * the joiner — the exact defect this slice exists to remove. So the holder
+ * collects listeners until a watcher arrives, hands them over the moment it
+ * does, and dispatches every later change itself.
+ *
+ * The same shape makes a StrictMode mount → unmount → remount safe: each effect
+ * pass sets one watcher and detaches it on cleanup, and the rendered value is
+ * always the store's, never a reference a render could lose.
+ */
+export class LobbyStore {
+  private watcher: LobbyWatcher | null = null
+  private detach: (() => void) | null = null
+  private readonly listeners = new Set<() => void>()
+  private data: LobbyData = { listing: null, active: null, failure: null, status: null }
+
+  /** The watcher this store speaks for, for the panel's actions. */
+  current(): LobbyWatcher | null {
+    return this.watcher
+  }
+
+  /** The ONE `useSyncExternalStore` subscribe — stable for the component's life. */
+  subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener)
+    return () => {
+      this.listeners.delete(listener)
+    }
+  }
+
+  /** The ONE `useSyncExternalStore` snapshot. Stable until `set` or a tick. */
+  getSnapshot = (): LobbyData => this.data
+
+  /**
+   * Attach a freshly built watcher (the effect's start), taking over any
+   * listeners that subscribed before it existed. Idempotent per watcher: a
+   * StrictMode remount may call `set` again with the same instance.
+   */
+  set(watcher: LobbyWatcher): void {
+    if (this.watcher === watcher) return
+    // Replace, never abandon: the previous watcher's loop is CLOSED here, so a
+    // re-created instance cannot leave a live poll nobody renders (the defect a
+    // real browser caught in this slice).
+    this.clear()
+    this.watcher = watcher
+    this.detach = watcher.subscribe(() => this.refresh())
+    this.refresh()
+  }
+
+  /**
+   * Detach the watcher this store holds, if it is still the current one, CLOSING
+   * its loop. Omitted, it drops whatever it holds — which is what a replace does.
+   */
+  clear(watcher?: LobbyWatcher): void {
+    if (watcher !== undefined && this.watcher !== watcher) return
+    this.detach?.()
+    this.detach = null
+    this.watcher?.close()
+    this.watcher = null
+  }
+
+  /** Re-read the watcher and tell every listener — the ONE dispatch. */
+  refresh(): void {
+    const watcher = this.watcher
+    this.data = watcher === null ? this.data : watcher.getData()
+    for (const listener of [...this.listeners]) listener()
+  }
 }
 
 /**
@@ -124,14 +207,20 @@ export class LobbyWatcher {
   private data: LobbyData
 
   constructor(options: LobbyWatcherOptions) {
-    this.context = options.context
+    // Built HERE, from the three values, never handed in: `lobbyContext` VALIDATES
+    // (a null identity would throw), and a caller that passed a memoised context
+    // could pass one whose identity had since become null — measured in a real
+    // browser as a loop that ticked while every read threw, so the list never
+    // refreshed. Rebuilding makes a stale caller unable to break the reader.
+    this.context = lobbyContext({
+      transport: options.transport,
+      identity: options.identity,
+      store: options.store,
+    })
     this.intervalMs = options.intervalMs ?? LOBBY_POLL_INTERVAL_MS
     this.visibility = options.visibility
     this.onStatus = options.onStatus
-    this.cache = createContentCache({
-      transport: options.context.transport,
-      store: options.context.store,
-    })
+    this.cache = createContentCache({ transport: options.transport, store: options.store })
     // The resume pointer is read ONCE, here, and never inside `refresh`: the user
     // can press "Back to games" (which closes the game view without leaving the
     // game), and a poll must not undo that by re-reading the pointer. A CORRUPT

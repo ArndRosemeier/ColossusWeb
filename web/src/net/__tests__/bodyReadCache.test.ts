@@ -127,7 +127,9 @@ describe('the lobby listing reads bodies only when their hash changed', () => {
     await seedGame(shared.for(CREATOR))
     const { transport, calls } = logged(shared.for(CREATOR))
     const watcher = new LobbyWatcher({
-      context: lobbyContext({ transport, identity: CREATOR, store: TEST_STORE }),
+      transport,
+      identity: CREATOR,
+      store: TEST_STORE,
       intervalMs: 1000,
     })
     watcher.start()
@@ -164,7 +166,9 @@ describe('the lobby listing reads bodies only when their hash changed', () => {
     await seedGame(shared.for(CREATOR), { gameId: 'cache-bbbb2222', displayName: 'Second game' })
     const { transport, calls } = logged(shared.for(CREATOR))
     const watcher = new LobbyWatcher({
-      context: lobbyContext({ transport, identity: CREATOR, store: TEST_STORE }),
+      transport,
+      identity: CREATOR,
+      store: TEST_STORE,
       intervalMs: 1000,
     })
     watcher.start()
@@ -197,7 +201,9 @@ describe('the lobby listing reads bodies only when their hash changed', () => {
     const record = await seedGame(shared.for(CREATOR))
     const { transport, calls } = logged(shared.for(CREATOR))
     const watcher = new LobbyWatcher({
-      context: lobbyContext({ transport, identity: CREATOR, store: TEST_STORE }),
+      transport,
+      identity: CREATOR,
+      store: TEST_STORE,
       intervalMs: 1000,
     })
     watcher.start()
@@ -367,7 +373,7 @@ describe('joining a game leaves the cache consistent', () => {
     const shared = store()
     const context = lobbyContext({ transport: shared.for(CREATOR), identity: CREATOR, store: TEST_STORE })
     const record = await seedGame(shared.for(CREATOR))
-    const watcher = new LobbyWatcher({ context, intervalMs: 1000 })
+    const watcher = new LobbyWatcher({ transport: context.transport, identity: CREATOR, store: TEST_STORE, intervalMs: 1000 })
     watcher.start()
     await vi.advanceTimersByTimeAsync(0)
     for (let i = 0; i < 50; i++) await Promise.resolve()

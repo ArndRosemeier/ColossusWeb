@@ -30,20 +30,19 @@
  * that has not changed does not look dead, and a failed read is loud, not silent.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { forgetActiveGame, rememberActiveGame } from '../net/activeGame'
 import type { FailureDescription } from '../net/failure'
 import { seatIndexOf } from '../net/gameRecord'
 import {
   joinBlockedReason,
-  lobbyContext,
   startRefusal,
   type ActiveLobby,
   type GameListing,
-  type LobbyContext,
 } from '../net/lobby'
-import { LobbyWatcher, type LobbyData } from '../net/lobbyWatcher'
+import { LobbyStore, LobbyWatcher, type LobbyData } from '../net/lobbyWatcher'
 import { createServerStoreTransport } from '../net/serverStore'
+import { serverStoreName } from '../net/storeName'
 import {
   browserVisibility,
   usePolledStatus,
@@ -369,72 +368,92 @@ interface Props {
 
 export function LobbyPanel({ connection, variantName, maxPlayers, onStarted }: Props) {
   const identity = connection.identity
-  const transport: ServerStoreTransport = useMemo(() => createServerStoreTransport(), [])
-  const ctx = useMemo<LobbyContext | null>(
-    () => (identity === null ? null : lobbyContext({ transport, identity })),
-    [identity, transport],
-  )
+  /**
+   * The connected id as a PRIMITIVE, and the watcher's inputs are primitives
+   * only. A `useMemo` does not guarantee a stable identity (React may discard a
+   * result and recompute it — measured here under `StrictMode`, which `main.tsx`
+   * keeps ON in production), and a starter depending on such an object would be
+   * a new function after every recomputation: the effect would restart the loop
+   * and abandon a live one. A string cannot be recomputed into a different
+   * identity, so the loop starts exactly once per real connection.
+   */
+  const identityId = identity?.id ?? null
+  const identityLabel = identity?.label ?? ''
+  // `useState`, not `useMemo`, for the same reason: ONE store client, and ONE
+  // external store whose subscribe/getSnapshot are stable from the first render.
+  const [transport] = useState<ServerStoreTransport>(() => createServerStoreTransport())
+  const [store] = useState(() => new LobbyStore())
 
   const [displayName, setDisplayName] = useState('')
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  // The hook that owns the live status hands it a reporter; the watcher (built
-  // before that hook can run) writes through this ref, so the loop's health has
-  // exactly ONE consumer — the hook's state — and the panel only renders it.
-  const statusReporter = useRef<((status: PollStatus) => void) | null>(null)
-  // ONE watcher per connection; it owns every read, and the loop's stop handle
-  // lives with the hook below. The panel never touches a timer.
-  const watcher = useMemo(
-    () =>
-      ctx === null
-        ? null
-        : new LobbyWatcher({
-            context: ctx,
-            onStatus: (status) => statusReporter.current?.(status),
-          }),
-    [ctx],
-  )
 
-  // The panel renders the watcher's snapshot; the watcher owns every read.
-  const data: LobbyData = useSyncExternalStore(
-    watcher?.subscribe ?? noopSubscribe,
-    watcher?.getData ?? emptyLobbyData,
-  )
-  const listing = watcher === null ? null : data.listing
-  const active = watcher === null ? null : data.active
+  // The panel renders the STORE's snapshot; the watcher does every read.
+  const data: LobbyData = useSyncExternalStore(store.subscribe, store.getSnapshot)
+  const listing = identityId === null ? null : data.listing
+  const active = identityId === null ? null : data.active
+
   const polled = usePolledStatus(
     useCallback(
       (report: (status: PollStatus) => void): PollHandle | null => {
-        statusReporter.current = report
-        if (watcher === null) return null
+        if (identityId === null) return null
+        const watcher = new LobbyWatcher({
+          transport,
+          // The identity built from the PRIMITIVES this callback depends on, so
+          // the reader can never be handed one whose id went null — and this
+          // callback cannot change identity under a live loop.
+          identity: {
+            id: identityId,
+            label: identityLabel,
+            // The watcher's own reads never consult these, and a key may be
+            // scoped to many stores; the ONE store this panel uses is `store`.
+            stores: [serverStoreName()],
+            perms: ['read', 'write'],
+          },
+          store: serverStoreName(),
+          onStatus: (status) => report(status),
+        })
+        // Attach BEFORE the first tick, so the first read reaches React.
+        store.set(watcher)
         watcher.start()
-        return { stop: () => watcher.close() }
+        return {
+          stop: () => {
+            watcher.close()
+            store.clear(watcher)
+          },
+        }
       },
-      [watcher],
+      // PRIMITIVES only: see the note above.
+      [identityId, identityLabel, transport, store],
     ),
   )
-  // A watcher that cannot read its own local pointer refuses to start, loudly
-  // (the hook caught it); a poll or action refusal is the watcher's own.
-  const failure = watcher === null ? polled.failure : data.failure
+  // A refusal the watcher could not even start on is the hook's; anything the
+  // watcher read or an action produced is on the store.
+  const failure = identityId === null ? polled.failure : data.failure
   const pollStatus = polled.status
 
   useEffect(() => {
-    if (watcher === null || ctx === null) {
+    if (identityId === null || identity === null) {
       setNotice(null)
       setDisplayName('')
       return
     }
-    setDisplayName((current) => (current.length > 0 ? current : `${ctx.identity.label}'s game`))
-    // RESUME: the watcher read the resume pointer at construction and its FIRST
-    // tick is already reading that game back, so a game this client was in
+    const label = identity.label
+    setDisplayName((current) => (current.length > 0 ? current : `${label}'s game`))
+    // RESUME: the store's watcher read the resume pointer at construction and its
+    // FIRST tick is already reading that game back, so a game this client was in
     // before a reload is offered instead of starting a fresh local one. A pointer
     // to a game that is gone reports `not_found`, which is forgotten here rather
     // than re-read; anything else is already on the error surface.
     void (async () => {
+      const watcher = store.current()
+      if (watcher === null) return
       await watcher.refresh()
+      store.refresh()
       if (watcher.getData().failure?.code === 'not_found') {
         forgetActiveGame()
         await watcher.setActiveGame(null)
+        store.refresh()
         return
       }
       const resumed = watcher.getData().active
@@ -442,10 +461,13 @@ export function LobbyPanel({ connection, variantName, maxPlayers, onStarted }: P
         setNotice(`Resuming "${resumed.record.displayName}" — press Enter game.`)
       }
     })()
-  }, [watcher, ctx])
+    // The ID, not the memoised ctx: a memo may be recomputed with equal contents,
+    // and re-running this effect on that would re-issue the notice for nothing.
+  }, [identityId, identity, store])
 
   const run = useCallback(
     async (action: (target: LobbyWatcher) => Promise<void>) => {
+      const watcher = store.current()
       if (watcher === null) return
       setBusy(true)
       setNotice(null)
@@ -456,9 +478,11 @@ export function LobbyPanel({ connection, variantName, maxPlayers, onStarted }: P
         // stop being busy. Nothing is swallowed — `data.failure` renders it.
       } finally {
         setBusy(false)
+        // An action's own read has landed; show it even if a tick is in flight.
+        store.refresh()
       }
     },
-    [watcher],
+    [store],
   )
 
   const onCreate = useCallback(() => {
@@ -524,9 +548,10 @@ export function LobbyPanel({ connection, variantName, maxPlayers, onStarted }: P
   }, [run])
 
   const onClose = useCallback(() => {
-    watcher?.back()
+    store.current()?.back()
+    store.refresh()
     setNotice(null)
-  }, [watcher])
+  }, [store])
 
   return (
     <LobbyPanelView
@@ -552,11 +577,3 @@ export function LobbyPanel({ connection, variantName, maxPlayers, onStarted }: P
   )
 }
 
-const NOOP = (): void => undefined
-function noopSubscribe(): () => void {
-  return NOOP
-}
-const EMPTY_LOBBY: LobbyData = { listing: null, active: null, failure: null, status: null }
-function emptyLobbyData(): LobbyData {
-  return EMPTY_LOBBY
-}
