@@ -646,8 +646,8 @@ run_source_arm "Z8-store-subscribe-noop" "src/net/__tests__/lobbyWatcher.test.ts
 #      list nobody renders (the orphaned-loop failure mode).
 run_source_arm "Z9-replaced-loop-orphaned" "src/net/__tests__/lobbyWatcher.test.ts" \
   "web/src/net/lobbyWatcher.ts" \
-  "s|    this.clear()\n    this.watcher = watcher|    this.detach?.()\n    this.watcher = watcher|" \
-  "never lets a START survive a STOP — the orphaned-loop guard" || FAILED=1
+  "s|    this.clear()$|    this.detach?.()|" \
+  "CLOSES a watcher it replaces, so no orphaned loop keeps polling" || FAILED=1
 
 echo
 echo "=================================================================="
