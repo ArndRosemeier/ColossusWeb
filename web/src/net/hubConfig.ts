@@ -10,7 +10,7 @@
  * | --- | --- |
  * | `VITE_GAMEHUB_URL` | `https://games.futuremagic.de` |
  * | `VITE_GAMEHUB_APP` | `colossusweb` |
- * | `VITE_GAMEHUB_KEY` | none — required for a `key`-mode app |
+ * | `VITE_GAMEHUB_KEY` | set in `web/.env` (committed) |
  * | `VITE_GAMEHUB_ACCESS` | unset; `1` routes through Cloudflare Access instead of a key |
  *
  * A build with neither a key nor Access is a LOUD `hub_not_configured` the
@@ -44,7 +44,7 @@ export function hubConfigFrom(env: Env): HubConfig {
   if (!access && appKey === undefined) {
     throw new NetError(
       'hub_not_configured',
-      `no GameHub app key for "${app}" — set VITE_GAMEHUB_KEY at build time (see web/.env.example)`,
+      `no GameHub app key for "${app}" — set VITE_GAMEHUB_KEY at build time (see web/.env)`,
     )
   }
   return access ? { url, app, access } : { url, app, appKey, access }

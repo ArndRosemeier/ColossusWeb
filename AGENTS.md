@@ -49,9 +49,8 @@ apps. `Migration/tools/publish.mjs` owns that root: **do not repoint the symlink
 The full procedure is the `apps-publish` skill; this is the binding summary.
 
 1. **Build for the subpath** — `cd web && npx tsc -b && COLOSSUS_BASE=/ColossusWeb/ npx vite build`.
-   Online play needs the GameHub app key at build time: `web/.env.local` must hold
-   `VITE_GAMEHUB_KEY=ghk_colossusweb_…` (not committed; see `docs/design/multiplayer.md` §5).
-   A build without it still runs, but the lobby says `hub_not_configured`.
+   The GameHub app key is committed in `web/.env` (not a secret; see
+   `docs/design/multiplayer.md` §5), so a plain build carries it.
    `web/vite.config.ts:33` defaults the base to `/`, and a default-base build served under the
    subpath renders a **BLANK page**. The gate does not cover this (see `docs/ARCHITECTURE.md`).
 2. **Prove the base is baked in before publishing** —
