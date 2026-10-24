@@ -86,10 +86,9 @@ for it (`docs/LOBBY.md` in the gameserver repo). The app honours its Join link,
 1. The app is registered on the box as `colossusweb` and its key was minted
    (2026-10-24). If it is ever re-registered, use `--max-players 13` or more: the
    largest variant has 9 seats and the client asks for 4 spare connections.
-2. **The key is not committed** (this repo is public; the gameserver README says app
-   keys are not secrets, but the owner decides whether to commit one). Put it in
-   `web/.env.local` on the build box — `VITE_GAMEHUB_KEY=ghk_colossusweb_…` — before
-   building for publish. Without it the lobby says `hub_not_configured`.
+2. The key is committed in `web/.env` (the owner's call, 2026-10-24: the gameserver
+   README says app keys are not secrets, since the bundle ships them anyway). Override
+   it in `web/.env.local`. A build without any key shows `hub_not_configured`.
 3. Optional: add the `gamehub` block to ColossusWeb's entry in `apps.json` —
    `{"app": "colossusweb", "key": "<the key>", "join": "?room={code}"}` — so the game
    shows on `apps.futuremagic.de/lobby/`.
