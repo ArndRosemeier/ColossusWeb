@@ -44,7 +44,9 @@ poll, keys to paste, a rate limiter to wait out, games to delete by hand — goe
   `leave` (lobby only), `commit {base, game}`, `backup`. The host replies to one player
   with `rejected {code, message}` or `send-backup`.
 - **The host's rules are pure** (`web/src/net/room.ts`): `game_full`, `not_seated`,
-  `not_your_turn`, `stale_move`, `bad_world`.
+  `not_your_turn`, `stale_move`, `bad_world`. A move is checked against its TOKEN, not
+  the connection it came on: two tabs of one browser share the token, and whichever
+  tab moves holds the seat's connection from then on.
 
 ### Quick moves
 A player may make several moves before the first comes back. Each `commit` names the

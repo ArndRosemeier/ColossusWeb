@@ -85,14 +85,24 @@ describe('moves', () => {
     expect(outcome.world.lastBy).toBe(A)
   })
 
-  it('refuses out of turn, out of date, unseated, and from the wrong connection', () => {
+  it('refuses out of turn, out of date, and unseated', () => {
     const world = started()
     const code = (token: string, base: number, from: number) =>
       (hostHandle(world, { t: 'commit', token, base, game: world.game! }, from).reply as { code?: string } | null)?.code
     expect(code(B, world.rev, 2)).toBe('not_your_turn')
     expect(code(A, world.rev - 1, 1)).toBe('stale_move')
     expect(code(newToken(), world.rev, 5)).toBe('not_seated')
-    expect(code(A, world.rev, 2)).toBe('not_seated')
+  })
+
+  it('a seat moves from ANY tab of its browser: a second tab took the conn, the first still moves', () => {
+    // Tab 2 of A's browser (same token) says hello on conn 7 and takes the seat's conn.
+    const world = hostHandle(started(), { t: 'hello', token: A, name: 'A', heldRev: null, gameId: null }, 7).world
+    expect(world.members.find((m) => m.token === A)!.conn).toBe(7)
+    // Tab 1 (conn 1) splits: accepted, and the seat is bound to the tab that moved.
+    const outcome = hostHandle(world, { t: 'commit', token: A, base: world.rev, game: world.game! }, 1)
+    expect(outcome.reply).toBeNull()
+    expect(outcome.world.rev).toBe(world.rev + 1)
+    expect(outcome.world.members.find((m) => m.token === A)!.conn).toBe(1)
   })
 
   it('refuses a game of another variant', () => {

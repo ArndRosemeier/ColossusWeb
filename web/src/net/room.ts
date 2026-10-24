@@ -292,10 +292,13 @@ function hostCommit(
   if (world.status !== 'started' || world.game === null) {
     return reject(world, 'not_started', 'the game has not started')
   }
-  const member = memberOf(world, intent.token)
+  // The token IS the player (the honour system of `identity.ts`), exactly as in
+  // `hello`. The connection it arrives on is NOT checked: a second tab of the same
+  // browser shares the token and takes the seat's `conn` with its `hello`, and the
+  // first tab must still be able to move. The move rebinds the seat to its sender.
   const seat = seatOf(world, intent.token)
-  if (member === null || member.conn !== from || seat < 0) {
-    return reject(world, 'not_seated', 'only a seated player may move')
+  if (memberOf(world, intent.token) === null || seat < 0) {
+    return reject(world, 'not_seated', 'this browser has no seat in this game')
   }
   if (intent.base !== world.rev) {
     return reject(
@@ -313,7 +316,10 @@ function hostCommit(
   } catch (error) {
     return reject(world, 'bad_world', error instanceof Error ? error.message : String(error))
   }
-  return unchanged({ ...world, rev: world.rev + 1, lastBy: intent.token, game: intent.game })
+  const members = world.members.map((m) =>
+    m.token === intent.token ? { ...m, conn: from } : m.conn === from ? { ...m, conn: null } : m,
+  )
+  return unchanged({ ...world, members, rev: world.rev + 1, lastBy: intent.token, game: intent.game })
 }
 
 /** A connection left: its member is away (seats are kept — they come back). */
