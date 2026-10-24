@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { readActiveGame, forgetActiveGame, type ActiveGame } from '../net/activeGame'
 import { describeFailure, type FailureDescription } from '../net/failure'
+import { cuedPlayerName, cuedRoom, type CuedPlayer } from '../net/cuedPlayer'
 import { cleanName, saveLocalPlayerName, type LocalPlayer } from '../net/identity'
 import { seatOf, startRefusal, type RoomWorld } from '../net/room'
 import type { ConnectionPhase, HubSession, LobbyRoom } from '../net/session'
@@ -39,6 +40,10 @@ export interface LobbyPanelViewProps {
   connection: ConnectionPhase
   playerName: string
   onPlayerNameChange: (value: string) => void
+  /** The name comes from cued and cannot be edited here. */
+  nameFromCued: boolean
+  /** Opened from a cued invitation whose game is not open yet. */
+  awaitingCuedGame: boolean
   myToken: string
   variantName: string
   maxPlayers: number
@@ -92,9 +97,16 @@ export function LobbyPanelView(props: LobbyPanelViewProps) {
           aria-label="Your name"
           placeholder="Your name"
           maxLength={32}
+          readOnly={props.nameFromCued}
+          title={props.nameFromCued ? 'Your name on cued' : undefined}
           onChange={(event) => props.onPlayerNameChange(event.target.value)}
         />
       </div>
+      {props.awaitingCuedGame && !room && (
+        <p className="hint cued-waiting" role="status">
+          Opened from a cued invitation — you will join your friend&apos;s game as soon as it is created here (or create it yourself).
+        </p>
+      )}
 
       {room ? (
         <RoomView {...props} room={room} />
@@ -301,6 +313,7 @@ function RoomView(props: LobbyPanelViewProps & { room: NonNullable<LobbyPanelVie
 
 interface Props {
   session: HubSession
+  cued: CuedPlayer
   player: LocalPlayer
   onPlayerChange: (player: LocalPlayer) => void
   variantName: string
@@ -309,7 +322,7 @@ interface Props {
   onEnter: () => void
 }
 
-export function LobbyPanel({ session, player, onPlayerChange, variantName, maxPlayers, onEnter }: Props) {
+export function LobbyPanel({ session, cued, player, onPlayerChange, variantName, maxPlayers, onEnter }: Props) {
   const snap = useSyncExternalStore(session.subscribe, session.getSnapshot)
   const [gameName, setGameName] = useState(() => (player.name ? `${player.name}'s game` : ''))
   const [busy, setBusy] = useState(false)
@@ -323,6 +336,8 @@ export function LobbyPanel({ session, player, onPlayerChange, variantName, maxPl
     }
   })
   const autoEntered = useRef(false)
+  const raum = cuedRoom(cued)
+  const cuedJoinTried = useRef(false)
   /** The copy as it was when the panel opened: where a resume starts from. */
   const initialCopy = useRef(copy)
 
@@ -359,6 +374,17 @@ export function LobbyPanel({ session, player, onPlayerChange, variantName, maxPl
       }
     })
   }, [session, run])
+
+  // Opened from a cued invitation: join the game made for that cued room as soon
+  // as it is listed — once, and only when this browser is not in a game already.
+  useEffect(() => {
+    if (raum === null || cuedJoinTried.current || busy) return
+    if (snap.connection !== 'online' || snap.code !== null) return
+    const target = session.findRoomForCued(raum)
+    if (target === null) return
+    cuedJoinTried.current = true
+    void run(() => session.join(target.code))
+  }, [raum, busy, snap.connection, snap.code, snap.rooms, session, run])
 
   // Keep the remembered copy in step with the live world.
   useEffect(() => {
@@ -400,6 +426,8 @@ export function LobbyPanel({ session, player, onPlayerChange, variantName, maxPl
       connection={snap.connection}
       playerName={player.name}
       onPlayerNameChange={onPlayerNameChange}
+      nameFromCued={cuedPlayerName(cued) !== null}
+      awaitingCuedGame={raum !== null && session.findRoomForCued(raum) === null}
       myToken={player.token}
       variantName={variantName}
       maxPlayers={maxPlayers}
@@ -411,7 +439,9 @@ export function LobbyPanel({ session, player, onPlayerChange, variantName, maxPl
       failure={localFailure ?? snap.failure}
       busy={busy}
       onCreate={() =>
-        void run(() => session.create({ displayName: gameName, variant: variantName, maxPlayers }))
+        void run(() =>
+          session.create({ displayName: gameName, variant: variantName, maxPlayers, cuedRaum: raum }),
+        )
       }
       onJoin={(code) => void run(() => session.join(code))}
       onStart={() => {

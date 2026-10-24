@@ -290,13 +290,24 @@ export class HubSession implements MoveSink {
     return candidates.sort((a, b) => b.rev - a.rev)[0] ?? null
   }
 
+  /** A live room created for this cued invitation room (`raum`), if any. */
+  findRoomForCued(raum: string): LobbyRoom | null {
+    return this.snapshot.rooms.find((room) => room.meta.cuedRaum === raum) ?? null
+  }
+
   /** A live room holding this game (it was re-opened under a new code). */
   findRoomFor(gameId: string): LobbyRoom | null {
     return this.snapshot.rooms.find((room) => room.meta.gameId === gameId) ?? null
   }
 
   /** Create a game; this browser becomes its host and first player. */
-  async create(options: { displayName: string; variant: string; maxPlayers: number }): Promise<void> {
+  async create(options: {
+    displayName: string
+    variant: string
+    maxPlayers: number
+    /** The cued invitation room this game is for (`cued.ts` `room`), if any. */
+    cuedRaum?: string | null
+  }): Promise<void> {
     await this.start()
     const hub = this.requireHub()
     const world = createWorld({
@@ -305,6 +316,7 @@ export class HubSession implements MoveSink {
       maxPlayers: options.maxPlayers,
       creator: this.player,
       conn: hub.you,
+      cuedRaum: options.cuedRaum ?? null,
     })
     await this.openRoom(world)
   }

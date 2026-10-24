@@ -10,7 +10,8 @@ import { battleLand } from '../engine/battle'
 import { listStrikeRaiseOptions } from '../engine/battleStrike'
 import type { GameCommand, GameState, NewGameOptions } from '../engine/types'
 import { NetError } from '../net/failure'
-import { loadLocalPlayer, type LocalPlayer } from '../net/identity'
+import { cuedPlayerName, readCuedPlayer } from '../net/cuedPlayer'
+import { loadLocalPlayer, saveLocalPlayerName, type LocalPlayer } from '../net/identity'
 import { HubSession } from '../net/session'
 import {
   actingPlayerId,
@@ -51,6 +52,7 @@ import { GameControls } from './GameControls'
 import { phaseEndCommand, applyEnterKeyPhaseEnd } from './LegionActions'
 import { MasterBoardView } from './MasterBoardView'
 import { BackgroundAtmosphereSelect } from './BackgroundAtmosphere'
+import { CuedBadge } from './CuedBadge'
 import { MultiplayerStatus } from './MultiplayerStatus'
 import { SetupScreen } from './SetupScreen'
 
@@ -84,7 +86,14 @@ export default function App() {
   const [aiSpeed, setAiSpeed] = useState<AiSpeedId>('normal')
   const [moveAnim, setMoveAnim] = useState<MoveAnim | null>(null)
   const [pendingStrike, setPendingStrike] = useState<PendingStrikeAnnounce | null>(null)
-  const [player, setPlayer] = useState<LocalPlayer>(() => loadLocalPlayer())
+  /** The cued.de player, read ONCE (it strips the pass from the address bar). */
+  const [cued] = useState(() => readCuedPlayer())
+  // Opened from cued: friends see each other under their cued names online.
+  const [player, setPlayer] = useState<LocalPlayer>(() => {
+    const stored = loadLocalPlayer()
+    const name = cuedPlayerName(cued)
+    return name !== null && name !== stored.name ? saveLocalPlayerName(stored, name) : stored
+  })
   /** The ONE online connection; it outlives the setup screen. No socket until used. */
   const [session] = useState(() => new HubSession({ player }))
   const hub = useSyncExternalStore(session.subscribe, session.getSnapshot)
@@ -633,6 +642,7 @@ export default function App() {
       <SetupScreen
         onStart={start}
         session={session}
+        cued={cued}
         player={player}
         onPlayerChange={setPlayer}
         onOnlineEnter={() => void enterOnline()}
@@ -666,6 +676,7 @@ export default function App() {
     <div className="app-shell">
       <header className="topbar">
         <span className="brand-inline">Colossus</span>
+        <CuedBadge cued={cued} compact />
         <span className="muted">
           {state.variant.data.name} · {online ? 'online' : 'local'}
         </span>
