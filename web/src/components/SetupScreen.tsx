@@ -1,21 +1,24 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { AiProfileId } from '../ai/profiles'
 import { AI_PROFILE_CHOICES } from '../ai/profiles'
 import type { NewGameOptions, PlayerKind } from '../engine/types'
 import { PLAYER_COLORS } from '../engine/types'
-import { useConnection } from '../net/useConnection'
-import type { MultiplayerHandoff } from '../net/sync'
+import type { LocalPlayer } from '../net/identity'
+import type { HubSession } from '../net/session'
 import type { SavedGameMeta } from '../persistence/saveGame'
 import { KNOWN_VARIANTS } from '../variant/loadVariant'
 import { BackgroundAtmosphereSelect } from './BackgroundAtmosphere'
-import { ConnectPanel } from './ConnectPanel'
 import { LobbyPanel } from './LobbyPanel'
 import { MarkerChit } from './MarkerChit'
 
 interface Props {
   onStart: (options: NewGameOptions) => void
-  /** Open a started multiplayer game (host publishes, everyone else adopts). */
-  onMultiplayerStart: (handoff: MultiplayerHandoff) => void
+  /** The ONE online connection (owned by `App`, so it outlives this screen). */
+  session: HubSession
+  player: LocalPlayer
+  onPlayerChange: (player: LocalPlayer) => void
+  /** Open the online game this browser is in (the host starts it first). */
+  onOnlineEnter: () => void
   onContinue?: () => void
   savedGame?: SavedGameMeta | null
 }
@@ -58,34 +61,24 @@ function formatSavedAt(iso: string): string {
   }
 }
 
-export function SetupScreen({ onStart, onMultiplayerStart, onContinue, savedGame }: Props) {
+export function SetupScreen({
+  onStart,
+  session,
+  player,
+  onPlayerChange,
+  onOnlineEnter,
+  onContinue,
+  savedGame,
+}: Props) {
   const [variantName, setVariantName] = useState('Default')
   const meta = VARIANT_META[variantName] ?? VARIANT_META.Default!
   const maxPlayers = meta.maxPlayers
-
-  // ONE connection state for the whole screen: the connect panel and the lobby
-  // must agree on who `whoami` says we are (two hook calls would be two
-  // identities and two stored-key re-validations).
-  const connection = useConnection()
 
   const [rows, setRows] = useState<Row[]>([
     { name: 'Player 1', kind: 'human', colorId: 'Red', aiProfileId: 'random' },
     { name: 'CPU 1', kind: 'ai', colorId: 'Blue', aiProfileId: 'random' },
     { name: 'CPU 2', kind: 'ai', colorId: 'Green', aiProfileId: 'random' },
   ])
-
-  /**
-   * Hand-off (S2's last step, completed by S3): a started lobby becomes a LOCAL
-   * game whose seats come from the record's explicit seat order, all human, and
-   * the App then publishes or adopts the opening snapshot. The handoff carries
-   * `mode`, so the creator writes the first snapshot and everyone else reads it.
-   */
-  const onMultiplayerStarted = useCallback(
-    (handoff: MultiplayerHandoff) => {
-      onMultiplayerStart(handoff)
-    },
-    [onMultiplayerStart],
-  )
 
   const cappedRows = useMemo(() => rows.slice(0, maxPlayers), [rows, maxPlayers])
 
@@ -142,7 +135,7 @@ export function SetupScreen({ onStart, onMultiplayerStart, onContinue, savedGame
         </svg>
         <h1>Masterboard awaits</h1>
         <p className="lede">
-          Raise your Titan. Split, march, and clash — local hotseat and AI, all in the browser.
+          Raise your Titan. Split, march, and clash — hotseat, AI, or online with friends, all in the browser.
         </p>
       </header>
 
@@ -168,13 +161,13 @@ export function SetupScreen({ onStart, onMultiplayerStart, onContinue, savedGame
         <BackgroundAtmosphereSelect showBlurb className="bg-atmosphere-select setup-bg" />
       </section>
 
-      <ConnectPanel connection={connection} />
-
       <LobbyPanel
-        connection={connection}
+        session={session}
+        player={player}
+        onPlayerChange={onPlayerChange}
         variantName={variantName}
         maxPlayers={maxPlayers}
-        onStarted={onMultiplayerStarted}
+        onEnter={onOnlineEnter}
       />
       <section className="setup-panel" aria-label="Game setup">
         <h2>Variant</h2>

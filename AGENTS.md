@@ -1,6 +1,6 @@
 # ColossusWeb — agent/workspace rules
 
-A **TypeScript browser port of Colossus** (the board game *Titan*): hotseat + AI play.
+A **TypeScript browser port of Colossus** (the board game *Titan*): hotseat, AI, and online play over GameHub.
 `web/` is the product — React 19 · Vite · Vitest · oxlint, Node 24. `Colossus/` is the
 original **Java** implementation, kept as the behavioural reference; it is **not** built
 or shipped here.
@@ -49,6 +49,9 @@ apps. `Migration/tools/publish.mjs` owns that root: **do not repoint the symlink
 The full procedure is the `apps-publish` skill; this is the binding summary.
 
 1. **Build for the subpath** — `cd web && npx tsc -b && COLOSSUS_BASE=/ColossusWeb/ npx vite build`.
+   Online play needs the GameHub app key at build time: `web/.env.local` must hold
+   `VITE_GAMEHUB_KEY=ghk_colossusweb_…` (not committed; see `docs/design/multiplayer.md` §5).
+   A build without it still runs, but the lobby says `hub_not_configured`.
    `web/vite.config.ts:33` defaults the base to `/`, and a default-base build served under the
    subpath renders a **BLANK page**. The gate does not cover this (see `docs/ARCHITECTURE.md`).
 2. **Prove the base is baked in before publishing** —

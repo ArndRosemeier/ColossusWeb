@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { isAiActing, pickAiCommand } from '../ai/simpleAi'
 import {
   activePlayer,
@@ -9,26 +9,17 @@ import {
 import { battleLand } from '../engine/battle'
 import { listStrikeRaiseOptions } from '../engine/battleStrike'
 import type { GameCommand, GameState, NewGameOptions } from '../engine/types'
-import { forgetActiveGame, rememberActiveGame } from '../net/activeGame'
-import type { FailureDescription } from '../net/failure'
-import { seatIndexOf } from '../net/gameRecord'
-import { createServerStoreTransport } from '../net/serverStore'
+import { NetError } from '../net/failure'
+import { loadLocalPlayer, type LocalPlayer } from '../net/identity'
+import { HubSession } from '../net/session'
 import {
   actingPlayerId,
   adopt,
   assertHumanSeats,
   createCommitPath,
-  createSyncSession,
-  fetchLatest,
   isMyTurn,
   multiplayerSeatOptions,
-  pollLatest,
-  usePolledStatus,
   type CommitPath,
-  type MultiplayerHandoff,
-  type PollHandle,
-  type PollStatus,
-  type SyncSession,
 } from '../net/sync'
 import {
   loadGameFromLocalStorage,
@@ -65,14 +56,6 @@ import { SetupScreen } from './SetupScreen'
 
 export type { AiSpeedId }
 
-/** The open multiplayer game, as the UI needs it. */
-interface MultiplayerSeatInfo {
-  readonly gameId: string
-  /** This client's seat index, or -1 for a spectator. */
-  readonly seat: number
-  readonly seatCount: number
-}
-
 function stepAi(state: GameState, batch: number): GameState {
   let s = state
   for (let i = 0; i < batch; i++) {
@@ -101,15 +84,18 @@ export default function App() {
   const [aiSpeed, setAiSpeed] = useState<AiSpeedId>('normal')
   const [moveAnim, setMoveAnim] = useState<MoveAnim | null>(null)
   const [pendingStrike, setPendingStrike] = useState<PendingStrikeAnnounce | null>(null)
-  const [multiplayer, setMultiplayer] = useState<MultiplayerSeatInfo | null>(null)
-  const [syncFailureState, setSyncFailureState] = useState<FailureDescription | null>(null)
+  const [player, setPlayer] = useState<LocalPlayer>(() => loadLocalPlayer())
+  /** The ONE online connection; it outlives the setup screen. No socket until used. */
+  const [session] = useState(() => new HubSession({ player }))
+  const hub = useSyncExternalStore(session.subscribe, session.getSnapshot)
+  /** True while the open game is the online one. */
+  const [online, setOnline] = useState(false)
+  const onlineRef = useRef(false)
   const pendingCmdRef = useRef<GameCommand | null>(null)
   const animatingRef = useRef(false)
   /** The game state as of NOW, so a command never acts on a stale render. */
   const stateRef = useRef<GameState | null>(null)
   const variantRef = useRef<LoadedVariant | null>(null)
-  const sessionRef = useRef<SyncSession | null>(null)
-  const pollRef = useRef<PollHandle | null>(null)
 
   /**
    * The ONE writer of the game state. Everything — a local command, an adopted
@@ -123,71 +109,43 @@ export default function App() {
 
   /**
    * THE commit path. Every local reducer runs through `commitPath.local`, which
-   * both updates the state and publishes exactly one snapshot when a
-   * multiplayer session is open; every remote snapshot runs through
-   * `commitPath.remote`, which never publishes. There is no other way for this
-   * component to change the game state — `setState` is reachable only through
-   * `putState`, and `putState` only from here, `start`, `continueSaved` and
-   * `startMultiplayer`.
+   * both updates the state and sends it as this client's move when an online
+   * game is open; every remote state runs through `commitPath.remote`, which
+   * never sends. There is no other way for this component to change the game
+   * state — `setState` is reachable only through `putState`, and `putState` only
+   * from here, `start`, `continueSaved` and `enterOnline`.
    */
   const commitPath = useMemo<CommitPath>(
     () =>
       createCommitPath({
         getState: () => stateRef.current,
         setState: putState,
-        getSession: () => sessionRef.current,
-        onFailure: (failure) => setSyncFailureState(failure),
+        getSink: () => (onlineRef.current ? session : null),
       }),
-    [putState],
+    [putState, session],
   )
 
-  const stopSession = useCallback(() => {
-    pollRef.current?.stop()
-    pollRef.current = null
-    sessionRef.current = null
-    setMultiplayer(null)
-    setSyncFailureState(null)
+  const stopOnline = useCallback(() => {
+    onlineRef.current = false
+    setOnline(false)
   }, [])
 
-  /**
-   * Start the session's poll loop for one open game — the SAME loop the lobby
-   * runs (`sync.ts`'s `pollLoop`), here carrying the game's snapshot job at the
-   * game's cadence. `pollLatest` is that job; nothing else in this component
-   * owns a timer.
-   *
-   * The optional `report` is what `usePolledStatus` hands its starter: the poll's
-   * own status goes into the hook's state through it, so the status line reads
-   * ONE status from ONE loop.
-   */
-  const startGameLoop = useCallback(
-    (session?: SyncSession, report?: (status: PollStatus) => void): PollHandle | null => {
-      // The hook starts this component's app life with no session — there is
-      // nothing to poll until `startMultiplayer` runs. A later call REPLACES the
-      // loop rather than stacking a second one on it.
-      if (session === undefined) return null
-      pollRef.current?.stop()
-      const handle = pollLatest(session, {
-        onAdopt: (body) => {
-          const current = variantRef.current
-          if (current !== null) commitPath.remote(body, current)
-        },
-        onStatus: (status) => report?.(status),
-      })
-      pollRef.current = handle
-      return handle
-    },
-    [commitPath],
-  )
-
-  // ONE loop for the whole session: this hook carries the loop's status into
-  // React, and the unmount effect below stops whatever `startGameLoop` created.
-  const polled = usePolledStatus((report) => startGameLoop(undefined, report))
-  const syncStatus = polled.status
-  // The failure the player sees: the loop's own last refusal, OR a publish that
-  // failed on the commit path (`onFailure` above). Both are the app's ONE error
-  // surface on the status line, and a later healthy poll does not erase a publish
-  // refusal — that one is cleared by the next successful publish or a new game.
-  const syncFailure = polled.failure ?? syncFailureState
+  // The online game ADOPTS every state the host publishes that this client does
+  // not already show (a move by someone else, or the refusal of our own).
+  const adoptedSeq = useRef(0)
+  useEffect(() => {
+    if (!online) return
+    if (hub.adoptSeq === adoptedSeq.current) return
+    adoptedSeq.current = hub.adoptSeq
+    const game = hub.world?.game ?? null
+    const variant = variantRef.current
+    if (game === null || variant === null) return
+    try {
+      commitPath.remote(game, variant)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }, [online, hub.adoptSeq, hub.world, commitPath])
 
   useEffect(() => {
     Promise.all([loadVariant('Default'), loadAssetManifest('Default')])
@@ -201,15 +159,13 @@ export default function App() {
       })
   }, [])
 
-  // Tear the poll loop down with the app: nothing outlives the component. (The
-  // loop's own start/stop pair is `usePolledStatus` above; this is the unmount
-  // half, which is why `startGameLoop` is the ONE place a loop is created.)
-  useEffect(() => () => pollRef.current?.stop(), [])
+  // The socket goes with the app: nothing outlives the component.
+  useEffect(() => () => session.close(), [session])
 
   const start = useCallback(
     async (options: NewGameOptions) => {
       try {
-        stopSession()
+        stopOnline()
         const name = options.variantName ?? 'Default'
         const variant = await loadVariant(name)
         await loadAssetManifest(name)
@@ -227,83 +183,51 @@ export default function App() {
         setError(e instanceof Error ? e.message : String(e))
       }
     },
-    [stopSession, putState],
+    [stopOnline, putState],
   )
 
   /**
-   * Open a started multiplayer game. The creator's client (`host`) publishes the
-   * opening snapshot; everyone else's (`adopt`) reads the newest one FIRST and
-   * only falls back to the freshly built board if the host has not published
-   * yet. Both builds are identical (`multiplayerSeatOptions` seeds `createGame`
-   * from the game id), so a fallback can never show a different position.
+   * Open the online game this browser is in. In a lobby the HOST starts it: it
+   * builds the opening board (`multiplayerSeatOptions` — the same seats and seed
+   * on every client) and publishes it. Everyone else adopts the host's state.
    */
-  const startMultiplayer = useCallback(
-    async (handoff: MultiplayerHandoff) => {
-      try {
-        stopSession()
-        const name = handoff.record.variant
-        const variant = await loadVariant(name)
-        await loadAssetManifest(name)
-        variantRef.current = variant
-
-        const transport = createServerStoreTransport()
-        const session = createSyncSession({
-          transport,
-          identity: handoff.identity,
-          record: handoff.record,
-        })
-        sessionRef.current = session
-
-        let initial: GameState | null = null
-        if (handoff.mode === 'adopt') {
-          const latest = await fetchLatest(transport, handoff.record.gameId, {
-            store: session.store,
-            heldName: null,
-          })
-          if (latest !== null) {
-            initial = adopt(latest.body, null, variant)
-            session.tracker.last = latest.body.header.name
-            session.tracker.turn = latest.body.header.turn
-            session.tracker.seq = latest.body.header.seq
-          }
-        }
-        if (initial === null) {
-          initial = createGame(variant, {
-            ...multiplayerSeatOptions(handoff.record, handoff.players),
-            variantName: name,
-          })
-        }
-        // A multiplayer seat is a human holding a key. An AI seat here would be
-        // driven by every client at once — refuse it loudly, never play it.
+  const enterOnline = useCallback(async () => {
+    try {
+      const snap = session.getSnapshot()
+      const world = snap.world
+      if (world === null) throw new NetError('not_in_room', 'not in an online game')
+      const variant = await loadVariant(world.variant)
+      await loadAssetManifest(world.variant)
+      variantRef.current = variant
+      let initial: GameState
+      if (world.status === 'lobby') {
+        if (!snap.isHost) throw new NetError('not_host', 'only the host can start the game')
+        initial = createGame(variant, { ...multiplayerSeatOptions(world), variantName: world.variant })
         assertHumanSeats(initial)
-
-        setMultiplayer({
-          gameId: handoff.record.gameId,
-          seat: seatIndexOf(handoff.record, handoff.identity.id),
-          seatCount: handoff.record.seatOrder.length,
-        })
-        rememberActiveGame(handoff.record.gameId)
-        setSaveFlash(null)
-        setMoveAnim(null)
-        setPendingStrike(null)
-        pendingCmdRef.current = null
-        animatingRef.current = false
-        setAiSpeed('fast')
-        putState(initial)
-
-        if (handoff.mode === 'host') commitPath.publishCurrent()
-        startGameLoop(session)
-      } catch (e: unknown) {
-        stopSession()
-        putState(null)
-        setError(e instanceof Error ? e.message : String(e))
+        session.startGame(initial)
+      } else {
+        initial = adopt(world.game!, null, variant)
+        assertHumanSeats(initial)
       }
-    },
-    [stopSession, putState, commitPath, startGameLoop],
-  )
+      adoptedSeq.current = session.getSnapshot().adoptSeq
+      onlineRef.current = true
+      setOnline(true)
+      setSaveFlash(null)
+      setMoveAnim(null)
+      setPendingStrike(null)
+      pendingCmdRef.current = null
+      animatingRef.current = false
+      setAiSpeed('fast')
+      putState(initial)
+    } catch (e: unknown) {
+      stopOnline()
+      putState(null)
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }, [session, stopOnline, putState])
 
   const continueSaved = useCallback(async () => {
-    stopSession()
+    stopOnline()
     const meta = peekSavedGameMeta()
     const name = meta?.variantName ?? 'Default'
     const variant = await loadVariant(name)
@@ -326,7 +250,7 @@ export default function App() {
     setPendingStrike(null)
     pendingCmdRef.current = null
     animatingRef.current = false
-  }, [stopSession, putState])
+  }, [stopOnline, putState])
 
   const save = useCallback(() => {
     if (!state) return
@@ -341,16 +265,19 @@ export default function App() {
     return () => window.clearTimeout(t)
   }, [saveFlash])
 
-  // Autosave — skip while dice are in the air so localStorage I/O can't stall the throw
+  // Autosave — skip while dice are in the air so localStorage I/O can't stall the
+  // throw. An online game is not written to the hotseat slot: its copy is kept by
+  // the session (`net/activeGame.ts`).
   useEffect(() => {
     if (!state) return
+    if (online) return
     if (state.pendingDice) return
     const t = window.setTimeout(() => {
       saveGameToLocalStorage(state)
       setSaveMeta(peekSavedGameMeta())
     }, 0)
     return () => window.clearTimeout(t)
-  }, [state])
+  }, [state, online])
 
   const onMoveAnimDone = useCallback(() => {
     const cmd = pendingCmdRef.current
@@ -426,12 +353,11 @@ export default function App() {
    * physical roll. A spectator (seat -1) is read-only. The engine's own refusal
    * inside `applyCommand` is the backstop, not the mechanism.
    */
+  const mySeat = online && hub.world !== null ? hub.world.seats.indexOf(player.token) : -1
   const myPlayerId =
-    multiplayer !== null && state !== null && multiplayer.seat >= 0
-      ? (state.players[multiplayer.seat]?.id ?? null)
-      : null
+    online && state !== null && mySeat >= 0 ? (state.players[mySeat]?.id ?? null) : null
   const myTurn =
-    multiplayer === null ? true : state !== null && myPlayerId !== null && isMyTurn(state, myPlayerId)
+    !online ? true : state !== null && myPlayerId !== null && isMyTurn(state, myPlayerId)
   const interactive = Boolean(state) && !aiActing && !busy && !gameOver && myTurn
   /**
    * THE board authority for this client: whether it may act, and what the ONE
@@ -471,7 +397,7 @@ export default function App() {
   // diverge from every other client).
   useEffect(() => {
     if (!state) return
-    if (multiplayer !== null) return
+    if (online) return
     if (moveAnim || animatingRef.current) return
     if (state.pendingDice) return
     if (state.winnerId || state.draw) return
@@ -508,7 +434,7 @@ export default function App() {
       })
     }, cfg.delayMs)
     return () => window.clearTimeout(id)
-  }, [state, aiSpeed, moveAnim, multiplayer, commitPath])
+  }, [state, aiSpeed, moveAnim, online, commitPath])
 
   const stepOnce = useCallback(() => {
     if (animatingRef.current) return
@@ -706,7 +632,10 @@ export default function App() {
     return (
       <SetupScreen
         onStart={start}
-        onMultiplayerStart={startMultiplayer}
+        session={session}
+        player={player}
+        onPlayerChange={setPlayer}
+        onOnlineEnter={() => void enterOnline()}
         onContinue={saveMeta ? continueSaved : undefined}
         savedGame={saveMeta}
       />
@@ -738,17 +667,20 @@ export default function App() {
       <header className="topbar">
         <span className="brand-inline">Colossus</span>
         <span className="muted">
-          {state.variant.data.name} · {multiplayer === null ? 'local' : 'multiplayer'}
+          {state.variant.data.name} · {online ? 'online' : 'local'}
         </span>
-        {multiplayer !== null && (
+        {online && hub.world !== null && (
           <MultiplayerStatus
-            seat={multiplayer.seat}
-            seatCount={multiplayer.seatCount}
+            seat={mySeat}
+            seatCount={hub.world.seats.length}
+            roomCode={hub.code}
+            isHost={hub.isHost}
+            away={hub.world.members.filter((m) => m.conn === null && hub.world!.seats.includes(m.token)).map((m) => m.name)}
             turnLabel={turnLabel}
             myTurn={myTurn}
             gameOver={gameOver}
-            status={syncStatus}
-            failure={syncFailure}
+            connection={hub.connection}
+            failure={hub.failure}
           />
         )}
         {state.winnerId && (
@@ -760,7 +692,7 @@ export default function App() {
         <span className="topbar-spacer" />
         {saveFlash && <span className="save-flash">{saveFlash}</span>}
         <BackgroundAtmosphereSelect className="ai-speed bg-atmosphere-select" />
-        {!gameOver && multiplayer === null && (
+        {!gameOver && !online && (
           <label className="ai-speed">
             <span className="muted">AI speed</span>
             <select
@@ -788,12 +720,12 @@ export default function App() {
           type="button"
           className="ghost"
           onClick={() => {
-            stopSession()
-            forgetActiveGame()
+            if (online) void session.leave()
+            stopOnline()
             putState(null)
           }}
         >
-          New game
+          {online ? 'Leave game' : 'New game'}
         </button>
       </header>
       <main className="play">

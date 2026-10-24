@@ -1,270 +1,111 @@
 /**
- * The lobby UI pins — the parts that are a RULE rather than a rendering detail:
- * **Start appears only for the creator**, **the creator is told WHY Start is
- * blocked rather than only shown a greyed button**, and a refusal is shown with
- * the service's own code and message, never as a blank or a silent reset.
- *
- * `LobbyPanelView` is presentational, so it renders server-side with no browser
- * and no store: every assertion below is about the props-to-markup rule, which is
- * exactly where "only the creator" lives. The LIVE behaviour — a joiner reaching
- * the creator's list within one tick — is `net/__tests__/lobbyWatcher.test.ts`.
+ * The lobby's props-to-markup rules, rendered with `react-dom/server` (no
+ * browser, no server): Start only for the host and its refusal in words, the
+ * resume card, and invite links.
  */
-
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { LobbyPanelView, type LobbyPanelViewProps } from '../LobbyPanel'
-import type { FailureDescription } from '../../net/failure'
-import type { GameRecord, PlayerRecord } from '../../net/gameRecord'
-import type { ActiveLobby, GameListing } from '../../net/lobby'
-import type { StoreIdentity } from '../../net/transport'
+import { LobbyPanelView, roomCodeFromUrl, roomLink, type LobbyPanelViewProps } from '../LobbyPanel'
+import { newToken } from '../../net/identity'
+import { createWorld, hostHandle, type RoomWorld } from '../../net/room'
 
-const CREATOR: StoreIdentity = {
-  id: 'key_5e1a1d3f',
-  label: 'tom',
-  stores: ['colossus'],
-  perms: ['read', 'write'],
-}
-const OTHER: StoreIdentity = {
-  id: 'AAAAbbbb1111',
-  label: 'bob',
-  stores: ['colossus'],
-  perms: ['read', 'write'],
-}
+const ME = newToken()
+const OTHER = newToken()
+const noop = () => {}
 
-function game(overrides: Partial<GameRecord> = {}): GameRecord {
+function props(over: Partial<LobbyPanelViewProps> = {}): LobbyPanelViewProps {
   return {
-    version: 2,
-    gameId: 'toms-game-1234abcd',
-    displayName: "Tom's Game!",
-    variant: 'Default',
-    creator: { id: CREATOR.id, label: CREATOR.label },
-    status: 'lobby',
-    maxPlayers: 6,
-    seatOrder: [],
-    createdAt: '2026-09-28T10:00:00.000Z',
-    ...overrides,
-  }
-}
-
-function player(id: string, label: string): PlayerRecord {
-  return {
-    version: 1,
-    gameId: 'toms-game-1234abcd',
-    playerId: id,
-    label,
-    joinedAt: '2026-09-28T10:01:00.000Z',
-  }
-}
-
-function listing(overrides: Partial<GameListing> = {}): GameListing {
-  return { games: [], unreadable: [], ...overrides }
-}
-
-function active(record: GameRecord, players: PlayerRecord[]): ActiveLobby {
-  return { record, players }
-}
-
-function render(overrides: Partial<LobbyPanelViewProps> = {}): string {
-  const props: LobbyPanelViewProps = {
-    identity: CREATOR,
+    connection: 'online',
+    playerName: 'Arnd',
+    onPlayerNameChange: noop,
+    myToken: ME,
     variantName: 'Default',
     maxPlayers: 6,
-    displayName: 'My game',
-    onDisplayNameChange: () => undefined,
-    listing: null,
-    active: null,
+    gameName: "Arnd's game",
+    onGameNameChange: noop,
+    rooms: [],
+    room: null,
+    resume: null,
     failure: null,
-    notice: null,
-    pollStatus: null,
     busy: false,
-    onCreate: () => undefined,
-    onJoin: () => undefined,
-    onStart: () => undefined,
-    onEnter: () => undefined,
-    onLeave: () => undefined,
-    onRefresh: () => undefined,
-    onClose: () => undefined,
-    ...overrides,
+    onCreate: noop,
+    onJoin: noop,
+    onStart: noop,
+    onEnter: noop,
+    onLeave: noop,
+    onReopen: noop,
+    onForget: noop,
+    ...over,
   }
-  return renderToStaticMarkup(createElement(LobbyPanelView, props))
 }
 
-/** The opening tag of the first button whose text is `label`. */
-function buttonTagFor(markup: string, label: string): string {
-  const match = new RegExp(`<button[^>]*>${label}</button>`).exec(markup)
-  if (match === null) throw new Error(`no button labelled ${JSON.stringify(label)} in markup`)
-  return match[0]
+const render = (p: LobbyPanelViewProps) => renderToStaticMarkup(createElement(LobbyPanelView, p))
+
+function lobbyWorld(creator: string, players = 1): RoomWorld {
+  let world = createWorld({ displayName: 'Friday', variant: 'Default', maxPlayers: 4, creator: { token: creator, name: 'C' }, conn: 1 })
+  if (players > 1) {
+    const joiner = creator === ME ? OTHER : ME
+    world = hostHandle(world, { t: 'hello', token: joiner, name: 'J', heldRev: null, gameId: null }, 2).world
+  }
+  return world
 }
 
-describe('the lobby panel is reachable only once a key is connected', () => {
-  it('asks for a connection instead of showing dead actions', () => {
-    const markup = render({ identity: null })
-    expect(markup).toContain('Connect a ServerStore key')
-    expect(markup).not.toContain('Create Multiplayer')
-    expect(markup).not.toContain('Join Multiplayer')
-    expect(markup).not.toContain('Start Multiplayer')
+describe('the lobby view', () => {
+  it('the host alone sees Start, disabled, with the reason in words', () => {
+    const html = render(props({ room: { code: 'K7Q2ZP', world: lobbyWorld(ME), isHost: true, link: 'x' } }))
+    expect(html).toContain('Start game')
+    expect(html).toContain('disabled')
+    expect(html).toContain('not_enough_players')
+  })
+
+  it('with two players the host may Start; a joiner sees no Start at all', () => {
+    const host = render(props({ room: { code: 'K7Q2ZP', world: lobbyWorld(ME, 2), isHost: true, link: 'x' } }))
+    expect(host).toContain('Start game')
+    expect(host).not.toContain('not_enough_players')
+    const joiner = render(props({ room: { code: 'K7Q2ZP', world: lobbyWorld(OTHER, 2), isHost: false, link: 'x' } }))
+    expect(joiner).not.toContain('Start game')
+    expect(joiner).toContain('Waiting for the host')
+    expect(joiner).toContain('(you)')
+  })
+
+  it('a closed game is offered for re-opening; a live one for rejoining', () => {
+    const world = lobbyWorld(ME, 2)
+    const closed = render(props({ resume: { copy: { code: 'OLD', world }, live: null } }))
+    expect(closed).toContain('Re-open game')
+    const live = render(
+      props({
+        resume: {
+          copy: { code: 'OLD', world },
+          live: { code: 'NEW123', name: 'Friday', connected: 1, meta: { kind: 'colossus', v: 1, gameId: world.gameId, variant: 'Default', status: 'started', maxPlayers: 4, members: 2 } },
+        },
+      }),
+    )
+    expect(live).toContain('Rejoin')
+    expect(live).toContain('NEW123')
+  })
+
+  it('a failure is shown with its code and message', () => {
+    const html = render(
+      props({ failure: { title: 'Online play is not set up in this build.', code: 'hub_not_configured', message: 'set VITE_GAMEHUB_KEY' } }),
+    )
+    expect(html).toContain('hub_not_configured')
+    expect(html).toContain('set VITE_GAMEHUB_KEY')
+  })
+
+  it('Create needs a name', () => {
+    const html = render(props({ playerName: '' }))
+    expect(html).toContain('Enter your name first.')
   })
 })
 
-describe('Create and Join', () => {
-  it('offers Create with the selected variant and its player cap', () => {
-    const markup = render({ variantName: 'Abyssal3', maxPlayers: 3 })
-    expect(markup).toContain('Create Multiplayer')
-    expect(markup).toContain('Abyssal3')
-    expect(markup).toContain('up to 3 players')
-  })
-
-  it('lists a joinable game with its creator, variant and player count', () => {
-    const markup = render({
-      listing: listing({
-        games: [
-          {
-            objectName: 'g.toms-game-1234abcd.game',
-            gameId: 'toms-game-1234abcd',
-            record: game(),
-            playerCount: 2,
-            alreadyJoined: false,
-          },
-        ],
-      }),
-    })
-    expect(markup).toContain("Tom&#x27;s Game!")
-    expect(markup).toContain('Join Multiplayer')
-    expect(markup).toContain('2/6')
-    expect(markup).toContain('tom')
-  })
-
-  it('marks a started game and a full game as Unavailable, with the reason', () => {
-    const markup = render({
-      listing: listing({
-        games: [
-          {
-            objectName: 'g.started-1111aaaa.game',
-            gameId: 'started-1111aaaa',
-            record: game({ gameId: 'started-1111aaaa', status: 'started' }),
-            playerCount: 2,
-            alreadyJoined: false,
-          },
-          {
-            objectName: 'g.full-2222bbbb.game',
-            gameId: 'full-2222bbbb',
-            record: game({ gameId: 'full-2222bbbb', maxPlayers: 2 }),
-            playerCount: 2,
-            alreadyJoined: false,
-          },
-        ],
-      }),
-    })
-    expect(markup.match(/Unavailable/g)).toHaveLength(2)
-    expect(markup).toContain('game_started')
-    expect(markup).toContain('game_full')
-  })
-
-  it('offers Open for a game the caller is already in, not Join', () => {
-    const markup = render({
-      listing: listing({
-        games: [
-          {
-            objectName: 'g.toms-game-1234abcd.game',
-            gameId: 'toms-game-1234abcd',
-            record: game(),
-            playerCount: 1,
-            alreadyJoined: true,
-          },
-        ],
-      }),
-    })
-    expect(markup).toContain('Open')
-    expect(markup).not.toContain('>Join Multiplayer</button>')
-  })
-
-  it('surfaces an unreadable game record with the service code and message', () => {
-    const failure: FailureDescription = {
-      title: 'A game record could not be read.',
-      code: 'bad_game_record',
-      message: 'game record.status is "paused"',
-    }
-    const markup = render({
-      listing: listing({
-        unreadable: [
-          { objectName: 'g.broken-3333cccc.game', gameId: 'broken-3333cccc', failure },
-        ],
-      }),
-    })
-    expect(markup).toContain('role="alert"')
-    expect(markup).toContain('g.broken-3333cccc.game')
-    expect(markup).toContain('bad_game_record')
-    expect(markup).toContain('game record.status is')
-  })
-})
-
-describe('Start Multiplayer is the creator alone', () => {
-  const twoPlayers = [player(CREATOR.id, 'tom'), player(OTHER.id, 'bob')]
-
-  it('shows an enabled Start to the creator of a lobby with two players', () => {
-    const markup = render({ identity: CREATOR, active: active(game(), twoPlayers) })
-    const start = buttonTagFor(markup, 'Start Multiplayer \\(creator\\)')
-    expect(start).not.toContain('disabled')
-    expect(markup).not.toContain('not_enough_players')
-  })
-
-  it('shows NO Start at all to a player who is not the creator', () => {
-    const markup = render({ identity: OTHER, active: active(game(), twoPlayers) })
-    expect(markup).not.toContain('Start Multiplayer')
-    expect(markup).toContain('Leave game')
-    expect(markup).toContain('Created by tom')
-  })
-
-  it('shows the creator a disabled Start, with the reason, until a second player joins', () => {
-    const markup = render({
-      identity: CREATOR,
-      active: active(game(), [player(CREATOR.id, 'tom')]),
-    })
-    const start = buttonTagFor(markup, 'Start Multiplayer \\(creator\\)')
-    expect(start).toContain('disabled')
-    expect(markup).toContain('not_enough_players')
-  })
-
-  it('offers Enter game to a SEATED player once the game has started', () => {
-    const started = game({ status: 'started', seatOrder: [CREATOR.id, OTHER.id] })
-    const markup = render({ identity: CREATOR, active: active(started, twoPlayers) })
-    expect(markup).not.toContain('>Start Multiplayer (creator)</button>')
-    expect(markup).toContain('Enter game')
-    expect(markup).not.toContain('Watching')
-  })
-
-  it('tells a SPECTATOR they are watching, never treating them as seat 0', () => {
-    const started = game({ status: 'started', seatOrder: [CREATOR.id, OTHER.id] })
-    const stranger: StoreIdentity = {
-      id: 'ZZZZ9999watching',
-      label: 'caspar',
-      stores: ['colossus'],
-      perms: ['read'],
-    }
-    const markup = render({ identity: stranger, active: active(started, twoPlayers) })
-    expect(markup).toContain('Watching')
-    expect(markup).not.toContain('Enter game')
-  })
-})
-
-describe('refusals and notices are visible', () => {
-  it('renders a refusal with its title, code and the service message', () => {
-    const markup = render({
-      failure: {
-        title: 'The lobby refused.',
-        code: 'game_full',
-        message: '"Tom\'s Game!" is full (6 players)',
-      },
-    })
-    expect(markup).toContain('role="alert"')
-    expect(markup).toContain('game_full')
-    expect(markup).toContain('is full (6 players)')
-  })
-
-  it('renders a success notice', () => {
-    const markup = render({ notice: 'Created "My game". Waiting for players.' })
-    expect(markup).toContain('role="status"')
-    expect(markup).toContain('Waiting for players')
+describe('invite links', () => {
+  it('reads ?room=CODE and writes it', () => {
+    expect(roomCodeFromUrl('?room=k7q2zp')).toBe('K7Q2ZP')
+    expect(roomCodeFromUrl('?room=<script>')).toBeNull()
+    expect(roomCodeFromUrl('')).toBeNull()
+    expect(roomLink('K7Q2ZP', 'https://apps.futuremagic.de/ColossusWeb/?x=1#y')).toBe(
+      'https://apps.futuremagic.de/ColossusWeb/?room=K7Q2ZP',
+    )
   })
 })

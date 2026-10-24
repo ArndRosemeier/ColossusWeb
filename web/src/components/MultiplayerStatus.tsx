@@ -1,56 +1,48 @@
 /**
- * The multiplayer status line — small, presentational, and the place the rules
- * a player needs to SEE are stated: whose turn it is, whether this client may
- * act, whether the poll is healthy, and whether a FORK happened.
+ * The online status line — small, presentational, and the place the rules a
+ * player needs to SEE are stated: whose turn it is, whether this client may act,
+ * whether the connection is up, and who is away.
  *
- * It renders from props only, so "it says whose turn it is" and "a fork is
- * surfaced, not swallowed" are checkable with `react-dom/server` and no store.
- * Neither sentence is invented here: a fork is `sync.ts`'s `formatFork` and a
- * failure is `failure.ts`'s `formatFailureStatus`, both carried on
- * `PollStatus.detail`, so the warning and the state it warns about can never
- * disagree. A `429` therefore reads as "the store is busy — slowing down",
- * with the wait the service itself asked for.
+ * It renders from props only, so "it says whose turn it is" and "a refusal is
+ * surfaced, not swallowed" are checkable with `react-dom/server`
+ * (`multiplayerStatus.test.ts`). A failure's words are `net/failure.ts`'s.
  */
 
 import type { FailureDescription } from '../net/failure'
-import type { PollStatus } from '../net/sync'
+import type { ConnectionPhase } from '../net/session'
 
 export interface MultiplayerStatusProps {
   /** This client's seat index, or -1 for a spectator. */
   seat: number
   seatCount: number
+  roomCode: string | null
+  isHost: boolean
+  /** Seated players whose connection is gone right now. */
+  away: readonly string[]
   /** A human label for the current decision, e.g. `Rd01's turn` or an engagement. */
   turnLabel: string
   myTurn: boolean
   gameOver: boolean
-  status: PollStatus | null
+  connection: ConnectionPhase
   failure: FailureDescription | null
 }
 
-function pollLabel(status: PollStatus | null): string {
-  if (status === null) return 'connecting…'
-  if (status.phase === 'stopped') return 'sync stopped'
-  if (status.phase === 'error') {
-    // A rate limit is PACING, not a broken sync: the loop is doing what the
-    // store asked, so it must not read as a failure the player should act on.
-    if (status.lastError?.code === 'rate_limited') return 'store busy — slowing down'
-    return status.failures > 1
-      ? `sync error (retry ${status.failures})`
-      : 'sync error'
+function connectionLabel(props: MultiplayerStatusProps): string {
+  switch (props.connection) {
+    case 'online':
+      return props.roomCode === null ? 'room closed' : `room ${props.roomCode}${props.isHost ? ' · host' : ''}`
+    case 'connecting':
+      return 'connecting…'
+    case 'reconnecting':
+      return 'connection lost — reconnecting…'
+    case 'idle':
+      return 'offline'
   }
-  if (status.phase === 'idle') return 'sync idle'
-  return 'synced'
 }
 
 export function MultiplayerStatus(props: MultiplayerStatusProps) {
-  const { seat, seatCount, myTurn, gameOver, status, failure } = props
-  // The job's own warning — the fork sentence, or the failure that just
-  // happened. A FAILURE is rendered below from the description itself (title,
-  // code and the service's message), so the same sentence is not printed twice.
-  const detail = status?.detail ?? null
-  const showDetail = detail !== null && failure === null
-  const seatLabel =
-    seat >= 0 ? `Seat ${seat + 1}/${seatCount}` : `Watching (${seatCount} seats)`
+  const { seat, seatCount, myTurn, gameOver, failure } = props
+  const seatLabel = seat >= 0 ? `Seat ${seat + 1}/${seatCount}` : `Watching (${seatCount} seats)`
 
   return (
     <span className="mp-status" data-testid="multiplayer-status">
@@ -63,19 +55,13 @@ export function MultiplayerStatus(props: MultiplayerStatusProps) {
         ) : (
           <span className="muted mp-readonly">read-only</span>
         ))}
-      <span className="muted">· {pollLabel(status)}</span>
-      {showDetail && (
-        <span className="connect-failure" role="alert">
-          {detail}
-        </span>
-      )}
+      <span className="muted" data-connection={props.connection}>
+        · {connectionLabel(props)}
+      </span>
+      {props.away.length > 0 && <span className="muted mp-away">· away: {props.away.join(', ')}</span>}
       {failure && (
         <span className="connect-failure" role="alert">
-          {failure.title}{' '}
-          {failure.retryAfterSeconds === undefined ? null : (
-            <>retrying in {failure.retryAfterSeconds}s </>
-          )}
-          <span className="connect-code">{failure.code}</span> {failure.message}
+          {failure.title} <span className="connect-code">{failure.code}</span> {failure.message}
         </span>
       )}
     </span>

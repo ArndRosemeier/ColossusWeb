@@ -1,74 +1,59 @@
 /**
- * The ONE local pointer to the multiplayer game this client is inside, so that
- * opening or reloading the app offers to RESUME it (adopt the latest snapshot)
- * instead of starting a fresh local game.
+ * The ONE local record of the online game this browser is in, so that a reload
+ * goes straight back into it — and so that the game itself survives the room.
  *
- * It lives in `localStorage` beside the key (`keyStorage.ts` owns
- * `colossusweb.key.v1`; this owns `colossusweb.multiplayer.v1`) and holds ONLY
- * the game id — never a snapshot, never a seat, never key material. The store is
- * the source of truth for everything else, so a stale pointer is harmless: the
- * lobby reads the game and drops the pointer if it is gone.
+ * GameHub keeps NOTHING on disk: a room with no players is deleted after 60 s
+ * (`docs/PROTOCOL.md`, "Lifetimes"). A Titan game lasts longer than an evening, so
+ * every client keeps its latest copy of the {@link RoomWorld} here. When the room
+ * is gone, any seated player can RE-OPEN the game from this copy in a new room;
+ * the others find it in the lobby by its `gameId` and rejoin their seats. If a
+ * rejoining player's copy is newer, the host asks for it (`room.ts`, `send-backup`).
  *
- * A value that is present but not a legal game id is a LOUD
- * `bad_active_game` — a corrupted pointer must not be silently ignored and then
- * look like "no game to resume".
+ * A value that is present but malformed is a LOUD `bad_active_game`.
  */
 
-import { isLegalGameId } from './gameRecord'
-import { ServerStoreError } from './transport'
+import { NetError } from './failure'
+import { parseWorld, type RoomWorld } from './room'
 
-/** The ONE `localStorage` entry. */
-export const ACTIVE_GAME_STORAGE_KEY = 'colossusweb.multiplayer.v1'
+export const ACTIVE_GAME_STORAGE_KEY = 'colossusweb.online.v1'
+/** The ServerStore-era pointer. Removed on first load; it names nothing on GameHub. */
+const LEGACY_KEYS = ['colossusweb.multiplayer.v1', 'colossusweb.key.v1']
 
-interface ActiveGameRecord {
-  version: 1
-  gameId: string
+export interface ActiveGame {
+  /** The room code the game was last seen in (it changes when the game is re-opened). */
+  readonly code: string
+  readonly world: RoomWorld
 }
 
 function storage(): Storage | null {
-  const candidate = globalThis.localStorage as Storage | undefined
-  return candidate ?? null
+  return (globalThis.localStorage as Storage | undefined) ?? null
 }
 
-/** Remember `gameId` as the game to resume. */
-export function rememberActiveGame(gameId: string): void {
-  if (!isLegalGameId(gameId)) {
-    throw new ServerStoreError(
-      'bad_active_game',
-      `refusing to remember ${JSON.stringify(gameId)}: not a legal game id`,
-    )
-  }
-  const record: ActiveGameRecord = { version: 1, gameId }
-  storage()?.setItem(ACTIVE_GAME_STORAGE_KEY, JSON.stringify(record))
+/** Remember the game (called on every world change). */
+export function rememberActiveGame(code: string, world: RoomWorld): void {
+  storage()?.setItem(ACTIVE_GAME_STORAGE_KEY, JSON.stringify({ version: 1, code, world }))
 }
 
-/** The remembered game id, or null when there is none. A corrupt value is LOUD. */
-export function readActiveGame(): string | null {
-  const raw = storage()?.getItem(ACTIVE_GAME_STORAGE_KEY)
+/** The remembered game, or null. A corrupt value is LOUD. */
+export function readActiveGame(): ActiveGame | null {
+  const store = storage()
+  for (const key of LEGACY_KEYS) store?.removeItem(key)
+  const raw = store?.getItem(ACTIVE_GAME_STORAGE_KEY)
   if (raw === null || raw === undefined || raw.length === 0) return null
   let parsed: unknown
   try {
     parsed = JSON.parse(raw)
   } catch {
-    throw new ServerStoreError(
-      'bad_active_game',
-      `${ACTIVE_GAME_STORAGE_KEY} is not JSON: ${raw.slice(0, 120)}`,
-    )
+    throw new NetError('bad_active_game', `${ACTIVE_GAME_STORAGE_KEY} is not JSON`)
   }
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw new ServerStoreError('bad_active_game', `${ACTIVE_GAME_STORAGE_KEY} is not an object`)
+  const record = parsed as { version?: unknown; code?: unknown; world?: unknown } | null
+  if (typeof record !== 'object' || record === null || record.version !== 1 || typeof record.code !== 'string') {
+    throw new NetError('bad_active_game', `${ACTIVE_GAME_STORAGE_KEY} is not a version-1 record`)
   }
-  const record = parsed as Partial<ActiveGameRecord>
-  if (record.version !== 1 || typeof record.gameId !== 'string' || !isLegalGameId(record.gameId)) {
-    throw new ServerStoreError(
-      'bad_active_game',
-      `${ACTIVE_GAME_STORAGE_KEY} does not hold a version-1 record with a legal game id`,
-    )
-  }
-  return record.gameId
+  return { code: record.code, world: parseWorld(record.world) }
 }
 
-/** Forget the pointer (game finished, left, or deleted). Idempotent. */
+/** Forget it (left, finished, or "New game"). Idempotent. */
 export function forgetActiveGame(): void {
   storage()?.removeItem(ACTIVE_GAME_STORAGE_KEY)
 }
