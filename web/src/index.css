@@ -1886,3 +1886,15 @@ button:disabled {
 .lobby-delete-failure {
   color: #ffb4ae;
 }
+
+/* —— Online lobby (GameHub) —— */
+.lobby-online {
+  color: #6fcf6f;
+}
+.lobby-away {
+  color: #8a7a6a;
+}
+.lobby-link {
+  word-break: break-all;
+  user-select: all;
+}

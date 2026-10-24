@@ -1,488 +1,227 @@
 /**
- * The lobby panel — the owner's three actions: **Create Multiplayer**,
- * **Join Multiplayer**, **Start Multiplayer (creator only)**.
+ * The online lobby — Create, Join, Start, and getting back into a game.
+ *
+ * Everything travels over the ONE live GameHub connection (`net/session.ts`):
+ * the room list is pushed by the server, a join appears on everyone's screen the
+ * moment it happens, and Start moves every player into the game together. There
+ * is no key to paste; a player is a name plus the browser's stable token
+ * (`net/identity.ts`).
  *
  * Two pieces, deliberately split:
  *
  *  - {@link LobbyPanelView} is PRESENTATIONAL: everything it draws comes from its
- *    props, so the rules that matter most ("Start appears only for the creator",
- *    "the creator is TOLD why Start is blocked") are checkable without a browser
- *    or a store (`lobbyUi.test.ts` renders it with `react-dom/server`).
- *  - {@link LobbyPanel} is the container: it reads the ONE connection state
- *    `SetupScreen` owns, builds a lobby context, and calls the operations in
- *    `net/lobby.ts`. It never talks to the store directly — every read and write
- *    goes through that seam.
- *
- * The lobby is reachable only once a key is connected: with no identity the panel
- * renders a hint pointing at `ConnectPanel`, so a refusal there is never a blank
- * screen here.
- *
- * ## The list is LIVE (S4)
- *
- * This panel used to refresh once on mount, then only on an action or the
- * explicit Refresh button — and the owner's first live test found the cost: the
- * creator never saw a joiner arrive, so Start (which needs two joined players as
- * the creator's view sees them) stayed disabled and "there is no way to start"
- * was really "the lobby never refreshed". So the panel now WATCHES the store,
- * through `net/lobbyWatcher.ts`: the lobby's job on the session's ONE poll loop
- * (~5s, visible-only, backoff on error, no timer of its own — `sync.ts`'s
- * `pollLoop` owns the timer). {@link LobbyFreshness} says so on screen, so a list
- * that has not changed does not look dead, and a failed read is loud, not silent.
+ *    props, so "Start appears only for the host" and "the host is TOLD why Start
+ *    is blocked" are checkable with `react-dom/server` (`lobbyUi.test.ts`).
+ *  - {@link LobbyPanel} is the container: it drives the session.
  */
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
-import { forgetActiveGame, rememberActiveGame } from '../net/activeGame'
-import type { FailureDescription } from '../net/failure'
-import { seatIndexOf } from '../net/gameRecord'
-import {
-  joinBlockedReason,
-  startRefusal,
-  type ActiveLobby,
-  type GameDeletionPlan,
-  type GameListing,
-} from '../net/lobby'
-import { LobbyStore, LobbyWatcher, type DeletionUiState, type LobbyData } from '../net/lobbyWatcher'
-import { createServerStoreTransport } from '../net/serverStore'
-import { serverStoreName } from '../net/storeName'
-import {
-  browserVisibility,
-  usePolledStatus,
-  type MultiplayerHandoff,
-  type PollHandle,
-  type PollStatus,
-} from '../net/sync'
-import type { ConnectionState } from '../net/useConnection'
-import type { ServerStoreTransport, StoreIdentity } from '../net/transport'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { readActiveGame, forgetActiveGame, type ActiveGame } from '../net/activeGame'
+import { describeFailure, type FailureDescription } from '../net/failure'
+import { cleanName, saveLocalPlayerName, type LocalPlayer } from '../net/identity'
+import { seatOf, startRefusal, type RoomWorld } from '../net/room'
+import type { ConnectionPhase, HubSession, LobbyRoom } from '../net/session'
+
+/** `?room=CODE` — the lobby page's Join link (`docs/LOBBY.md` in the gameserver repo). */
+export function roomCodeFromUrl(search: string): string | null {
+  const code = new URLSearchParams(search).get('room')
+  return code !== null && /^[A-Za-z0-9]{4,12}$/.test(code) ? code.toUpperCase() : null
+}
+
+export function roomLink(code: string, href: string): string {
+  const url = new URL(href)
+  url.search = `?room=${encodeURIComponent(code)}`
+  url.hash = ''
+  return url.toString()
+}
 
 export interface LobbyPanelViewProps {
-  /** The connected identity, or `null` when no key is connected yet. */
-  identity: StoreIdentity | null
+  connection: ConnectionPhase
+  playerName: string
+  onPlayerNameChange: (value: string) => void
+  myToken: string
   variantName: string
   maxPlayers: number
-  displayName: string
-  onDisplayNameChange: (value: string) => void
-  listing: GameListing | null
-  /** The game this client is currently inside, if any. */
-  active: ActiveLobby | null
+  gameName: string
+  onGameNameChange: (value: string) => void
+  rooms: readonly LobbyRoom[]
+  /** The room this browser is in, or null. */
+  room: { code: string; world: RoomWorld; isHost: boolean; link: string } | null
+  /** A remembered game whose room is not joined (closed, or re-opened elsewhere). */
+  resume: { copy: ActiveGame; live: LobbyRoom | null } | null
   failure: FailureDescription | null
-  notice: string | null
-  /** The watching loop's health, for the freshness signal. `null` while none runs. */
-  pollStatus: PollStatus | null
   busy: boolean
   onCreate: () => void
-  onJoin: (gameId: string) => void
+  onJoin: (code: string) => void
   onStart: () => void
-  /** Enter a STARTED game: adopt the latest snapshot rather than start fresh. */
   onEnter: () => void
   onLeave: () => void
-  onRefresh: () => void
-  onClose: () => void
-  /**
-   * S9 part B: the delete the caller is confirming or running, or `null`. It is
-   * the WATCHER's own state (`LobbyData.deletion`), not the panel's, so a poll
-   * tick cannot wipe a confirmation the user is looking at.
-   */
-  deletion?: DeletionNotice | null
-  /** Opens the delete confirmation for a game the caller was in. */
-  onDelete?: (gameId: string) => void
+  onReopen: () => void
+  onForget: () => void
 }
 
-/**
- * The freshness signal: what a person needs in order to tell "nothing has
- * changed yet" from "this screen is dead". It renders the loop's own state — it
- * makes no request of its own — and every sentence it can say is a function of
- * that state, so a pin can assert the wording as well as the presence.
- *
- * A rate limit reads as PACING, not as a broken lobby: the store said "slow
- * down", the loop is waiting the `Retry-After` out, and the sentence says so
- * WITH the wait. The failure detail below still carries the service's own
- * message, so the refusal is never hidden.
- */
-export interface LobbyFreshnessProps {
-  readonly status: PollStatus | null
-  readonly pollSeconds: number
-  /** The loop's last refusal, so its SENTENCE can be the fresh one. */
-  readonly failure?: FailureDescription | null
-}
-
-export function LobbyFreshness(props: LobbyFreshnessProps) {
-  const { status } = props
-  const phase = status?.phase ?? 'starting'
-  const rateLimited = status?.lastError?.code === 'rate_limited'
-  const retryAfter = props.failure?.retryAfterSeconds
-  const label =
-    status === null
-      ? 'Checking the store…'
-      : status.phase === 'error'
-        ? rateLimited
-          ? `the store is busy — slowing down${
-              retryAfter === undefined ? '' : `, retrying in ${retryAfter}s`
-            }`
-          : `list update failed — retrying (${status.failures} in a row, last tried ${props.pollSeconds}s ago)`
-        : status.phase === 'stopped'
-          ? 'Not watching the store any more'
-          : status.phase === 'idle'
-            ? 'Paused — this tab is hidden'
-            : status.polls === 0
-              ? 'Watching the store…'
-              : `live · updated ${props.pollSeconds}s ago`
-  return (
-    <p className="lobby-freshness" data-phase={phase}>
-      <span className="lobby-live-dot" aria-hidden="true" />
-      {label}
-    </p>
-  )
-}
-
-/** Whole seconds since `iso`, or 0 when there is no read yet. */
-function secondsAgo(iso: string | null, now: number): number {
-  if (iso === null) return 0
-  return Math.max(0, Math.round((now - Date.parse(iso)) / 1000))
-}
-
-/**
- * The lobby's own clock. It exists only so the freshness line can count, and it
- * ticks only while the tab is visible — a hidden tab neither polls nor redraws.
- * The visibility source is `sync.ts`'s ONE rule rather than a second
- * `visibilitychange` listener of the panel's own.
- */
-function useLobbyPollSeconds(status: PollStatus | null, live: boolean): number {
-  const [now, setNow] = useState(() => Date.now())
-  const polling = status?.phase === 'polling'
-
-  useEffect(() => {
-    if (!live || !polling) return
-    const source = browserVisibility()
-    let timer: ReturnType<typeof setInterval> | null = null
-
-    const schedule = () => {
-      if (timer !== null) clearInterval(timer)
-      timer = source.visible() ? setInterval(() => setNow(Date.now()), 1000) : null
-      setNow(Date.now())
-    }
-    schedule()
-    const unsubscribe = source.subscribe(schedule)
-    return () => {
-      if (timer !== null) clearInterval(timer)
-      unsubscribe()
-    }
-  }, [live, polling])
-
-  return secondsAgo(status?.lastPolledAt ?? null, now)
-}
-
-/**
- * The delete confirmation and its progress — the panel's words for S9 part B.
- *
- * `state` is the WATCHER's own (`LobbyData.deletion`), so the confirmation cannot
- * be wiped by a poll tick. `deletePermitted` is the identity's own `perms` from
- * `whoami`: the owner's live keys are `read,write`, and saying so BEFORE the first
- * DELETE is better than after a 403.
- */
-export interface DeletionNotice {
-  readonly state: DeletionUiState
-  /**
-   * What the confirmation NAMES: the game, and how many objects of each kind go.
-   * Counted by `deletionPlanFor` — the same plan the delete walks — so the promise
-   * and the action cannot disagree.
-   */
-  readonly plan: GameDeletionPlan
-  readonly displayName: string
-  readonly deletePermitted: boolean
-  onConfirm: () => void
-  onCancel: () => void
-}
-
-/**
- * What a delete looks like while it is happening and after it stops. Every
- * sentence is a function of the watcher's state OR the store's own refusal:
- *
- *  - a RUNNING delete shows `12 / 40 objects` so a 100-object game does not look
- *    frozen;
- *  - a REFUSED one shows the store's own `code` and `message`, the ONE actionable
- *    sentence, and — because the app must never claim a success — exactly what was
- *    removed and what remains.
- */
-export function DeletionCard(props: { notice: DeletionNotice }) {
-  const { state, plan, displayName, deletePermitted } = props.notice
-  const total = state.total
-  return (
-    <div className="lobby-delete-card" role="alertdialog" aria-label="Delete game">
-      <p>
-        Delete <strong>{displayName}</strong> <span className="muted">(id {state.gameId})</span> —
-        permanently remove {plan.snapshots.length} snapshot{plan.snapshots.length === 1 ? '' : 's'},{' '}
-        {plan.players.length} player object{plan.players.length === 1 ? '' : 's'} and the game record
-        ({total} object{total === 1 ? '' : 's'} in all). The record goes last, so a game that cannot
-        be finished stays visible and still deletable.
-      </p>
-      {!deletePermitted && (
-        <p className="muted lobby-delete-warning">
-          This key's permissions do not include <code>delete</code> (they are{' '}
-          <code>read,write</code>), so the store will refuse. Pressing Delete will show exactly what
-          the store says.
-        </p>
-      )}
-      {state.running && (
-        <p className="lobby-delete-progress" role="status">
-          Deleting… {state.deleted} / {total} objects
-          {state.absent > 0 ? ` (${state.absent} already gone)` : ''}
-        </p>
-      )}
-      {state.failure && (
-        <p className="lobby-delete-failure" role="alert">
-          <strong>Not deleted.</strong> Deleted {state.deleted} of {total} objects
-          {state.absent > 0 ? ` (${state.absent} were already gone)` : ''}; {state.failure.title}{' '}
-          <span className="connect-code">{state.failure.code}</span> {state.failure.message}
-          {state.advice ? ` — ${state.advice}` : ''}. The remaining {total - state.deleted - state.absent}{' '}
-          object{total - state.deleted - state.absent === 1 ? '' : 's'} — including the game record —
-          are still there, and the game is still listed and still deletable.
-        </p>
-      )}
-      <div className="setup-actions">
-        <button
-          type="button"
-          className="danger"
-          onClick={props.notice.onConfirm}
-          disabled={state.running}
-        >
-          {state.failure ? 'Try again' : state.running ? 'Deleting…' : 'Delete permanently'}
-        </button>
-        <button
-          type="button"
-          className="ghost"
-          onClick={props.notice.onCancel}
-          disabled={state.running}
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  )
+function connectionLabel(phase: ConnectionPhase): string {
+  switch (phase) {
+    case 'idle':
+      return 'Not connected'
+    case 'connecting':
+      return 'Connecting to the game server…'
+    case 'reconnecting':
+      return 'Connection lost — reconnecting…'
+    case 'online':
+      return 'Online · the list updates live'
+  }
 }
 
 export function LobbyPanelView(props: LobbyPanelViewProps) {
-  const { identity, active } = props
-  const pollSeconds = useLobbyPollSeconds(props.pollStatus, identity !== null)
-
-  if (!identity) {
-    return (
-      <section className="setup-panel lobby-panel" aria-label="Multiplayer lobby">
-        <h2>Multiplayer</h2>
-        <p className="hint">
-          Connect a ServerStore key above first — Create, Join and Start all need an identity.
-        </p>
-      </section>
-    )
-  }
-
-  const isCreator = active !== null && active.record.creator.id === identity.id
-  const startBlocked =
-    isCreator && active !== null
-      ? startRefusal(active.record, identity, active.players.length)
-      : null
-  // A spectator (joined but not seated) is told so; they are never treated as
-  // seat 0. `seatOrder` is written at Start, so it is meaningless in the lobby.
-  const seat = active === null ? -1 : seatIndexOf(active.record, identity.id)
+  const { room, resume } = props
+  const named = cleanName(props.playerName).length > 0
+  const online = props.connection === 'online'
+  const [code, setCode] = useState('')
 
   return (
-    <section className="setup-panel lobby-panel" aria-label="Multiplayer lobby">
-      <h2>Multiplayer</h2>
+    <section className="setup-panel lobby-panel" aria-label="Online lobby">
+      <h2>Play online</h2>
+      <p className="lobby-freshness" data-phase={props.connection}>
+        <span className="lobby-live-dot" aria-hidden="true" />
+        {connectionLabel(props.connection)}
+      </p>
+      <div className="connect-row">
+        <input
+          value={props.playerName}
+          aria-label="Your name"
+          placeholder="Your name"
+          maxLength={32}
+          onChange={(event) => props.onPlayerNameChange(event.target.value)}
+        />
+      </div>
 
-      {active ? (
-        <div className="lobby-active">
-          <p className="lobby-game-title">
-            <strong>{active.record.displayName}</strong>{' '}
-            <span className="muted">
-              id {active.record.gameId} · {active.record.variant} · {active.record.status} ·{' '}
-              {active.players.length}/{active.record.maxPlayers} players
-            </span>
-          </p>
-          <p className="muted">
-            Created by {active.record.creator.label}
-            {isCreator ? ' (you)' : ''}
-          </p>
-          {active.players.length > 0 ? (
-            <ul className="lobby-players">
-              {active.players.map((player) => (
-                <li key={player.playerId}>
-                  {player.label}
-                  {player.playerId === identity.id ? ' (you)' : ''}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="hint">Nobody has joined yet.</p>
-          )}
-          <LobbyFreshness
-            status={props.pollStatus}
-            pollSeconds={pollSeconds}
-            failure={props.failure}
-          />
-          <div className="setup-actions">
-            {isCreator && active.record.status === 'lobby' && (
-              <button
-                type="button"
-                className="primary"
-                onClick={props.onStart}
-                disabled={props.busy || startBlocked !== null}
-                title={startBlocked?.message}
-              >
-                Start Multiplayer (creator)
-              </button>
-            )}
-            {active.record.status === 'started' && seat >= 0 && (
-              <button
-                type="button"
-                className="primary"
-                onClick={props.onEnter}
-                disabled={props.busy}
-              >
-                Enter game
-              </button>
-            )}
-            {active.record.status === 'started' && seat < 0 && (
-              <span className="muted">
-                Watching — you are not one of this game&apos;s {active.record.seatOrder.length}{' '}
-                seats.
-              </span>
-            )}
-            {/*
-              The blocking reason is NEVER only a greyed-out button: the creator
-              with one player sees the rule working, in words, and the same text
-              is on the button's `title`. It clears by itself the moment the
-              second player's join appears in the list — the rule is re-evaluated
-              from the refreshed players, not remembered.
-            */}
-            {startBlocked && (
-              <span className="muted lobby-refusal">
-                {startBlocked.code}: {startBlocked.message}
-              </span>
-            )}
-            <button type="button" className="ghost" onClick={props.onLeave} disabled={props.busy}>
-              Leave game
-            </button>
-            <button type="button" className="ghost" onClick={props.onClose} disabled={props.busy}>
-              Back to games
-            </button>
-          </div>
-        </div>
+      {room ? (
+        <RoomView {...props} room={room} />
       ) : (
         <>
+          {resume && (
+            <div className="lobby-active" aria-label="Your game">
+              <p className="lobby-game-title">
+                <strong>{resume.copy.world.displayName}</strong>{' '}
+                <span className="muted">
+                  {resume.copy.world.variant} · {resume.copy.world.status}
+                  {resume.copy.world.status === 'started' ? ` · move ${resume.copy.world.rev}` : ''}
+                </span>
+              </p>
+              {resume.live ? (
+                <p className="hint">This game is open in room {resume.live.code}.</p>
+              ) : (
+                <p className="hint">
+                  Its room has closed. The game is saved in this browser — re-open it and the other
+                  players can rejoin their seats from the list.
+                </p>
+              )}
+              <div className="setup-actions">
+                {resume.live ? (
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={props.busy || !online}
+                    onClick={() => props.onJoin(resume.live!.code)}
+                  >
+                    Rejoin
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={props.busy || !online || seatOf(resume.copy.world, props.myToken) < 0}
+                    onClick={props.onReopen}
+                  >
+                    Re-open game
+                  </button>
+                )}
+                <button type="button" className="ghost" disabled={props.busy} onClick={props.onForget}>
+                  Forget it
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="lobby-create">
-            <h3>Create Multiplayer</h3>
+            <h3>Create a game</h3>
             <div className="connect-row">
               <input
-                value={props.displayName}
-                aria-label="Multiplayer game name"
+                value={props.gameName}
+                aria-label="Game name"
                 placeholder="My game"
-                onChange={(event) => props.onDisplayNameChange(event.target.value)}
+                maxLength={32}
+                onChange={(event) => props.onGameNameChange(event.target.value)}
               />
               <button
                 type="button"
                 className="primary"
                 onClick={props.onCreate}
-                disabled={props.busy || props.displayName.trim().length === 0}
+                disabled={props.busy || !online || !named || props.gameName.trim().length === 0}
               >
-                Create Multiplayer
+                Create
               </button>
             </div>
             <p className="hint">
-              Variant {props.variantName} · up to {props.maxPlayers} players. You will join your own
-              game as its first player.
+              Variant {props.variantName} · up to {props.maxPlayers} players.
+              {named ? '' : ' Enter your name first.'}
             </p>
           </div>
 
           <div className="lobby-join">
-            <h3>Join Multiplayer</h3>
-            {props.listing === null ? (
-              <p className="hint">Reading the game list…</p>
-            ) : props.listing.games.length === 0 ? (
-              <p className="hint">No games in the store yet. Create one.</p>
+            <h3>Join a game</h3>
+            {props.rooms.length === 0 ? (
+              <p className="hint">{online ? 'No open games right now. Create one.' : 'Waiting for the server…'}</p>
             ) : (
               <ul className="lobby-games">
-                {props.listing.games.map((game) => {
-                  const blocked = joinBlockedReason(game.record, game.playerCount)
-                  const mine = game.record.creator.id === identity.id
+                {props.rooms.map((game) => {
+                  const full = game.meta.status === 'lobby' && game.meta.members >= game.meta.maxPlayers
+                  const mine = resume?.copy.world.gameId === game.meta.gameId
                   return (
-                    <li key={game.objectName} className="lobby-game">
+                    <li key={game.code} className="lobby-game" data-code={game.code}>
                       <span className="lobby-game-name">
-                        {game.record.displayName}
+                        {game.name}
                         {mine ? ' (yours)' : ''}
                       </span>
                       <span className="muted">
-                        {game.record.variant} · {game.playerCount}/{game.record.maxPlayers} ·{' '}
-                        {game.record.creator.label}
-                        {game.record.status === 'started' ? ' · started' : ''}
+                        {game.meta.variant} · {game.meta.members}/{game.meta.maxPlayers}
+                        {game.meta.status === 'started' ? ' · started' : ''} · {game.code}
                       </span>
                       <button
                         type="button"
-                        className={game.alreadyJoined ? 'ghost' : 'primary'}
-                        disabled={props.busy || (!game.alreadyJoined && blocked !== null)}
-                        title={blocked?.message}
-                        onClick={() => props.onJoin(game.gameId)}
+                        className="primary"
+                        disabled={props.busy || !named || (full && !mine)}
+                        onClick={() => props.onJoin(game.code)}
                       >
-                        {game.alreadyJoined ? 'Open' : blocked ? 'Unavailable' : 'Join Multiplayer'}
+                        {mine ? 'Rejoin' : game.meta.status === 'started' ? 'Watch' : full ? 'Full' : 'Join'}
                       </button>
-                      {blocked && !game.alreadyJoined && (
-                        <span className="muted lobby-refusal">
-                          {blocked.code}: {blocked.message}
-                        </span>
-                      )}
-                      {/*
-                        S9 part B: a game the caller WAS IN can be deleted. The
-                        criterion is the caller's OWN `player.<gameid>.<tag>`
-                        object (`game.alreadyJoined`, from the S5 prefix listing),
-                        so a game they never joined is never offered.
-                      */}
-                      {game.alreadyJoined && (
-                        <button
-                          type="button"
-                          className="ghost lobby-delete-btn"
-                          data-game={game.gameId}
-                          disabled={props.busy}
-                          onClick={() => props.onDelete?.(game.gameId)}
-                        >
-                          Delete…
-                        </button>
-                      )}
                     </li>
                   )
                 })}
               </ul>
             )}
-            {props.listing !== null && props.listing.unreadable.length > 0 && (
-              <ul className="lobby-unreadable">
-                {props.listing.unreadable.map((game) => (
-                  <li key={game.objectName} role="alert">
-                    {game.objectName}: {game.failure.title}{' '}
-                    <span className="connect-code">{game.failure.code}</span>{' '}
-                    {game.failure.message}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <LobbyFreshness
-              status={props.pollStatus}
-              pollSeconds={pollSeconds}
-              failure={props.failure}
-            />
-            {/* The confirmation is OUTSIDE the list's branch so it survives a
-                listing that is momentarily empty or unreadable. */}
-            {props.deletion && <DeletionCard notice={props.deletion} />}
-            <div className="setup-actions">
-              <button type="button" className="ghost" onClick={props.onRefresh} disabled={props.busy}>
-                Refresh games
+            <div className="connect-row">
+              <input
+                value={code}
+                aria-label="Room code"
+                placeholder="Room code"
+                maxLength={12}
+                onChange={(event) => setCode(event.target.value.toUpperCase())}
+              />
+              <button
+                type="button"
+                className="ghost"
+                disabled={props.busy || !online || !named || code.trim().length < 4}
+                onClick={() => props.onJoin(code.trim())}
+              >
+                Join by code
               </button>
             </div>
           </div>
         </>
       )}
 
-      {props.notice && (
-        <p className="lobby-notice" role="status">
-          {props.notice}
-        </p>
-      )}
       {props.failure && (
         <p className="connect-failure" role="alert">
           {props.failure.title} <span className="connect-code">{props.failure.code}</span>{' '}
@@ -493,281 +232,206 @@ export function LobbyPanelView(props: LobbyPanelViewProps) {
   )
 }
 
-interface Props {
-  /** The ONE connection state, owned by `SetupScreen`. */
-  connection: ConnectionState
-  variantName: string
-  maxPlayers: number
-  /**
-   * The started game to open. `mode` decides who writes the first snapshot:
-   * the creator (`host`) publishes it, everyone else (`adopt`) reads it.
-   */
-  onStarted: (handoff: MultiplayerHandoff) => void
+function RoomView(props: LobbyPanelViewProps & { room: NonNullable<LobbyPanelViewProps['room']> }) {
+  const { world, isHost, code } = props.room
+  const refusal = isHost && world.status === 'lobby' ? startRefusal(world) : null
+  const seat = seatOf(world, props.myToken)
+  return (
+    <div className="lobby-active">
+      <p className="lobby-game-title">
+        <strong>{world.displayName}</strong>{' '}
+        <span className="muted">
+          room {code} · {world.variant} · {world.status} ·{' '}
+          {world.status === 'started' ? world.seats.length : world.members.length}/{world.maxPlayers} players
+        </span>
+      </p>
+      <p className="hint">
+        Invite link: <code className="lobby-link">{props.room.link}</code>
+      </p>
+      <ul className="lobby-players">
+        {world.members.map((member) => {
+          const s = seatOf(world, member.token)
+          return (
+            <li key={member.token} data-online={member.conn !== null}>
+              <span className={member.conn !== null ? 'lobby-online' : 'lobby-away'} aria-hidden="true">
+                ●
+              </span>{' '}
+              {member.name || 'Player'}
+              {member.token === props.myToken ? ' (you)' : ''}
+              {member.token === world.creatorToken ? ' · creator' : ''}
+              {world.status === 'started' ? (s >= 0 ? ` · seat ${s + 1}` : ' · watching') : ''}
+              {member.conn === null ? ' · away' : ''}
+            </li>
+          )
+        })}
+      </ul>
+      <div className="setup-actions">
+        {isHost && world.status === 'lobby' && (
+          <button
+            type="button"
+            className="primary"
+            onClick={props.onStart}
+            disabled={props.busy || refusal !== null}
+            title={refusal?.message}
+          >
+            Start game
+          </button>
+        )}
+        {!isHost && world.status === 'lobby' && (
+          <span className="muted">Waiting for the host to start…</span>
+        )}
+        {world.status === 'started' && (
+          <button type="button" className="primary" onClick={props.onEnter} disabled={props.busy}>
+            {seat >= 0 ? 'Enter game' : 'Watch game'}
+          </button>
+        )}
+        {/* The blocking reason is NEVER only a greyed-out button. */}
+        {refusal && (
+          <span className="muted lobby-refusal">
+            {refusal.code}: {refusal.message}
+          </span>
+        )}
+        <button type="button" className="ghost" onClick={props.onLeave} disabled={props.busy}>
+          Leave
+        </button>
+      </div>
+    </div>
+  )
 }
 
-export function LobbyPanel({ connection, variantName, maxPlayers, onStarted }: Props) {
-  const identity = connection.identity
-  /**
-   * The connected id as a PRIMITIVE, and the watcher's inputs are primitives
-   * only. A `useMemo` does not guarantee a stable identity (React may discard a
-   * result and recompute it — measured here under `StrictMode`, which `main.tsx`
-   * keeps ON in production), and a starter depending on such an object would be
-   * a new function after every recomputation: the effect would restart the loop
-   * and abandon a live one. A string cannot be recomputed into a different
-   * identity, so the loop starts exactly once per real connection.
-   */
-  const identityId = identity?.id ?? null
-  const identityLabel = identity?.label ?? ''
-  // `useState`, not `useMemo`, for the same reason: ONE store client, and ONE
-  // external store whose subscribe/getSnapshot are stable from the first render.
-  const [transport] = useState<ServerStoreTransport>(() => createServerStoreTransport())
-  const [store] = useState(() => new LobbyStore())
+interface Props {
+  session: HubSession
+  player: LocalPlayer
+  onPlayerChange: (player: LocalPlayer) => void
+  variantName: string
+  maxPlayers: number
+  /** Open the started game this browser is in. */
+  onEnter: () => void
+}
 
-  const [displayName, setDisplayName] = useState('')
-  const [notice, setNotice] = useState<string | null>(null)
+export function LobbyPanel({ session, player, onPlayerChange, variantName, maxPlayers, onEnter }: Props) {
+  const snap = useSyncExternalStore(session.subscribe, session.getSnapshot)
+  const [gameName, setGameName] = useState(() => (player.name ? `${player.name}'s game` : ''))
   const [busy, setBusy] = useState(false)
-
-  // The panel renders the STORE's snapshot; the watcher does every read.
-  const data: LobbyData = useSyncExternalStore(store.subscribe, store.getSnapshot)
-  const listing = identityId === null ? null : data.listing
-  const active = identityId === null ? null : data.active
-
-  const polled = usePolledStatus(
-    useCallback(
-      (report: (status: PollStatus) => void): PollHandle | null => {
-        if (identityId === null) return null
-        const watcher = new LobbyWatcher({
-          transport,
-          // The identity built from the PRIMITIVES this callback depends on, so
-          // the reader can never be handed one whose id went null — and this
-          // callback cannot change identity under a live loop.
-          identity: {
-            id: identityId,
-            label: identityLabel,
-            // The watcher's own reads never consult these, and a key may be
-            // scoped to many stores; the ONE store this panel uses is `store`.
-            stores: [serverStoreName()],
-            perms: ['read', 'write'],
-          },
-          store: serverStoreName(),
-          onStatus: (status) => report(status),
-        })
-        // Attach BEFORE the first tick, so the first read reaches React.
-        store.set(watcher)
-        watcher.start()
-        return {
-          stop: () => {
-            watcher.close()
-            store.clear(watcher)
-          },
-        }
-      },
-      // PRIMITIVES only: see the note above.
-      [identityId, identityLabel, transport, store],
-    ),
-  )
-  // A refusal the watcher could not even start on is the hook's; anything the
-  // watcher read or an action produced is on the store.
-  const failure = identityId === null ? polled.failure : data.failure
-  const pollStatus = polled.status
-
-  useEffect(() => {
-    if (identityId === null || identity === null) {
-      setNotice(null)
-      setDisplayName('')
-      return
+  const [localFailure, setLocalFailure] = useState<FailureDescription | null>(null)
+  const [copy, setCopy] = useState<ActiveGame | null>(() => {
+    try {
+      return readActiveGame()
+    } catch (error) {
+      queueMicrotask(() => setLocalFailure(describeFailure(error)))
+      return null
     }
-    const label = identity.label
-    setDisplayName((current) => (current.length > 0 ? current : `${label}'s game`))
-    // RESUME: the store's watcher read the resume pointer at construction and its
-    // FIRST tick is already reading that game back, so a game this client was in
-    // before a reload is offered instead of starting a fresh local one. A pointer
-    // to a game that is gone reports `not_found`, which is forgotten here rather
-    // than re-read; anything else is already on the error surface.
-    void (async () => {
-      const watcher = store.current()
-      if (watcher === null) return
-      await watcher.refresh()
-      store.refresh()
-      if (watcher.getData().failure?.code === 'not_found') {
-        forgetActiveGame()
-        await watcher.setActiveGame(null)
-        store.refresh()
-        return
-      }
-      const resumed = watcher.getData().active
-      if (resumed !== null) {
-        setNotice(`Resuming "${resumed.record.displayName}" — press Enter game.`)
-      }
-    })()
-    // The ID, not the memoised ctx: a memo may be recomputed with equal contents,
-    // and re-running this effect on that would re-issue the notice for nothing.
-  }, [identityId, identity, store])
+  })
+  const autoEntered = useRef(false)
+  /** The copy as it was when the panel opened: where a resume starts from. */
+  const initialCopy = useRef(copy)
 
-  const run = useCallback(
-    async (action: (target: LobbyWatcher) => Promise<void>) => {
-      const watcher = store.current()
-      if (watcher === null) return
-      setBusy(true)
-      setNotice(null)
-      try {
-        await action(watcher)
-      } catch {
-        // The watcher stored the refusal and published it; the panel only has to
-        // stop being busy. Nothing is swallowed — `data.failure` renders it.
-      } finally {
-        setBusy(false)
-        // An action's own read has landed; show it even if a tick is in flight.
-        store.refresh()
-      }
-    },
-    [store],
-  )
+  const run = useCallback(async (action: () => Promise<void>) => {
+    setBusy(true)
+    setLocalFailure(null)
+    try {
+      await action()
+    } catch {
+      // The session put the refusal on its snapshot; `failure` renders it.
+    } finally {
+      setBusy(false)
+    }
+  }, [])
 
-  const onCreate = useCallback(() => {
-    void run(async (target) => {
-      await target.create({ displayName, variant: variantName, maxPlayers })
-      const record = target.getData().active!.record
-      rememberActiveGame(record.gameId)
-      setNotice(`Created "${record.displayName}" (${record.gameId}). Waiting for players.`)
-    })
-  }, [run, displayName, variantName, maxPlayers])
-
-  const onJoin = useCallback(
-    (gameId: string) => {
-      void run(async (target) => {
-        await target.join(gameId)
-        const lobby = target.getData().active!
-        rememberActiveGame(gameId)
-        setNotice(`Joined "${lobby.record.displayName}".`)
-      })
-    },
-    [run],
-  )
-
-  const onStart = useCallback(() => {
-    void run(async (target) => {
-      if (identity === null) return
-      await target.startGame()
-      const lobby = target.getData().active
-      if (lobby === null) return
-      onStarted({
-        record: lobby.record,
-        players: lobby.players,
-        identity,
-        mode: 'host',
-      })
-    })
-  }, [run, identity, onStarted])
-
-  const onEnter = useCallback(() => {
-    if (active === null || identity === null) return
-    onStarted({
-      record: active.record,
-      players: active.players,
-      identity,
-      mode: 'adopt',
-    })
-  }, [active, identity, onStarted])
-
-  const onLeave = useCallback(() => {
-    void run(async (target) => {
-      const label = target.getData().active?.record.displayName ?? 'the game'
-      await target.leaveGame()
-      forgetActiveGame()
-      setNotice(`Left "${label}".`)
-    })
-  }, [run])
-
-  const onRefresh = useCallback(() => {
-    void run(async (target) => {
-      await target.refresh()
-      setNotice('Game list refreshed.')
-    })
-  }, [run])
-
-  /**
-   * S9 part B — the delete, in TWO presses, both on the WATCHER (which owns the
-   * plan, the progress and the refusal). The first press asks what would go; the
-   * second actually deletes. `run` already puts a refusal on the panel's ONE
-   * error surface, and the card says what remains.
-   */
-  const onDelete = useCallback(
-    (gameId: string) => {
-      void run(async (target) => {
-        await target.planDeletion(gameId)
-        setNotice(null)
-      })
-    },
-    [run],
-  )
-
-  const onConfirmDelete = useCallback(() => {
-    const deletion = data.deletion
-    if (deletion === null) return
-    void run(async (target) => {
-      const displayName =
-        listing?.games.find((game) => game.gameId === deletion.gameId)?.record.displayName ??
-        deletion.gameId
-      try {
-        await target.deleteGame(deletion.gameId)
-        setNotice(`Deleted "${displayName}".`)
-      } catch {
-        // The watcher stored the store's own refusal, the counts and the advice;
-        // the card renders them. Nothing is claimed as deleted.
-      }
-    })
-  }, [run, data.deletion, listing])
-
-  const onCancelDelete = useCallback(() => {
-    store.current()?.cancelDeletion()
-    store.refresh()
-  }, [store])
-
-  const deletePermitted = identity?.perms.includes('delete') ?? false
-  const deletionNotice: DeletionNotice | null =
-    data.deletion === null
-      ? null
-      : {
-          state: data.deletion,
-          plan: data.deletion.plan,
-          displayName:
-            listing?.games.find((game) => game.gameId === data.deletion!.gameId)?.record
-              .displayName ?? data.deletion.gameId,
-          deletePermitted,
-          onConfirm: onConfirmDelete,
-          onCancel: onCancelDelete,
+  // Connect, then go straight back into the game this browser was in — or into
+  // the room an invite link names.
+  useEffect(() => {
+    const linked = roomCodeFromUrl(globalThis.location?.search ?? '')
+    void run(async () => {
+      await session.start()
+      if (session.getSnapshot().code !== null) return
+      const saved = initialCopy.current
+      const target = linked ?? saved?.code ?? null
+      if (target !== null && target.length > 0) {
+        if (saved !== null) session.restoreCopy(saved.world)
+        try {
+          await session.join(target)
+        } catch {
+          // A closed room is not an error worth shouting about on resume: the
+          // copy is offered for re-opening instead.
+          if (linked === null) setLocalFailure(null)
         }
+      }
+    })
+  }, [session, run])
 
-  const onClose = useCallback(() => {
-    store.current()?.back()
-    store.refresh()
-    setNotice(null)
-  }, [store])
+  // Keep the remembered copy in step with the live world.
+  useEffect(() => {
+    if (snap.world !== null && snap.code !== null) setCopy({ code: snap.code, world: snap.world })
+  }, [snap.world, snap.code])
+
+  // Start moves everyone in: a seated player enters the game on its own.
+  useEffect(() => {
+    if (autoEntered.current) return
+    if (snap.code === null || snap.world?.status !== 'started') return
+    if (seatOf(snap.world, player.token) < 0) return
+    autoEntered.current = true
+    onEnter()
+  }, [snap.code, snap.world, player.token, onEnter])
+
+  const onPlayerNameChange = useCallback(
+    (value: string) => {
+      const next = saveLocalPlayerName(player, value)
+      session.setPlayer(next)
+      onPlayerChange({ token: next.token, name: value.slice(0, 32) })
+    },
+    [player, session, onPlayerChange],
+  )
+
+  const room =
+    snap.code !== null && snap.world !== null
+      ? {
+          code: snap.code,
+          world: snap.world,
+          isHost: snap.isHost,
+          link: roomLink(snap.code, globalThis.location?.href ?? 'https://apps.futuremagic.de/ColossusWeb/'),
+        }
+      : null
+  const resume =
+    room === null && copy !== null ? { copy, live: session.findRoomFor(copy.world.gameId) } : null
 
   return (
     <LobbyPanelView
-      identity={identity}
+      connection={snap.connection}
+      playerName={player.name}
+      onPlayerNameChange={onPlayerNameChange}
+      myToken={player.token}
       variantName={variantName}
       maxPlayers={maxPlayers}
-      displayName={displayName}
-      onDisplayNameChange={setDisplayName}
-      listing={listing}
-      active={active}
-      failure={failure}
-      notice={notice}
-      pollStatus={pollStatus}
+      gameName={gameName}
+      onGameNameChange={setGameName}
+      rooms={snap.rooms}
+      room={room}
+      resume={resume}
+      failure={localFailure ?? snap.failure}
       busy={busy}
-      onCreate={onCreate}
-      onJoin={onJoin}
-      onStart={onStart}
+      onCreate={() =>
+        void run(() => session.create({ displayName: gameName, variant: variantName, maxPlayers }))
+      }
+      onJoin={(code) => void run(() => session.join(code))}
+      onStart={() => {
+        autoEntered.current = true
+        onEnter()
+      }}
       onEnter={onEnter}
-      onLeave={onLeave}
-      onRefresh={onRefresh}
-      onClose={onClose}
-      deletion={deletionNotice}
-      onDelete={onDelete}
+      onLeave={() =>
+        void run(async () => {
+          await session.leave()
+          setCopy(null)
+        })
+      }
+      onReopen={() => {
+        if (copy !== null) void run(() => session.reopen(copy.world))
+      }}
+      onForget={() => {
+        forgetActiveGame()
+        setCopy(null)
+      }}
     />
   )
 }
-
