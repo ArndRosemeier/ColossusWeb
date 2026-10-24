@@ -72,6 +72,27 @@ and takes it.
 for it (`docs/LOBBY.md` in the gameserver repo). The app honours its Join link,
 `?room={code}`, by joining that room on load.
 
+### cued.de
+[cued](https://cued.de) (Frank Zimmer's friends' portal) can list the game as a guest
+game: it frames `https://apps.futuremagic.de/ColossusWeb/` and appends a signed pass,
+`#cued=<JWT>` (gameserver repo, `docs/CUED.md`). `web/src/net/cued.ts` is copied
+verbatim from that repo; `web/src/net/cuedPlayer.ts` is the ONE reader.
+
+- The pass is read once at startup, stripped from the address bar and kept for the
+  tab. Without one the app is unchanged.
+- **Display only** — the browser cannot verify the signature, and the cued key must
+  never ship. The badge shows the cued name and avatar, and online play uses the cued
+  name (locked in the lobby), so friends see each other under their cued names.
+- A malformed pass is shown as `bad_cued_pass`; an expired one asks the player to
+  reopen the game from cued and its name is not used.
+- **Invitations**: a game created while the pass carries a `raum` puts it in the room
+  meta (`cuedRaum`); a player whose pass carries the same `raum` joins that game by
+  itself as soon as it is listed. This is ready for cued's invitation bridge.
+- The sandbox forbids modal dialogs, top-window navigation and downloads; the app uses
+  none. `apps.futuremagic.de` sends no `X-Frame-Options`/CSP, so it can be framed
+  (checked 2026-10-24).
+- Not built: results/HiScores to cued (needs a server endpoint holding the cued key).
+
 ## 4 · Limits
 
 - 1 MiB per message: a 6-player AI game measured ~35 KB at round 22 (the log grows
@@ -89,6 +110,10 @@ for it (`docs/LOBBY.md` in the gameserver repo). The app honours its Join link,
 2. The key is committed in `web/.env` (the owner's call, 2026-10-24: the gameserver
    README says app keys are not secrets, since the bundle ships them anyway). Override
    it in `web/.env.local`. A build without any key shows `hub_not_configured`.
-3. Optional: add the `gamehub` block to ColossusWeb's entry in `apps.json` —
+3. To list the game on cued: a member with the developer flag registers it at
+   `https://cued.de/entwickler/` with the address `https://apps.futuremagic.de/ColossusWeb/`.
+   The cued key it shows is a SECRET: the client does not need it, so keep it off the
+   repo (it is only for a future server that verifies passes).
+4. Optional: add the `gamehub` block to ColossusWeb's entry in `apps.json` —
    `{"app": "colossusweb", "key": "<the key>", "join": "?room={code}"}` — so the game
    shows on `apps.futuremagic.de/lobby/`.

@@ -19,6 +19,8 @@ function props(over: Partial<LobbyPanelViewProps> = {}): LobbyPanelViewProps {
     connection: 'online',
     playerName: 'Arnd',
     onPlayerNameChange: noop,
+    nameFromCued: false,
+    awaitingCuedGame: false,
     myToken: ME,
     variantName: 'Default',
     maxPlayers: 6,
@@ -77,7 +79,7 @@ describe('the lobby view', () => {
       props({
         resume: {
           copy: { code: 'OLD', world },
-          live: { code: 'NEW123', name: 'Friday', connected: 1, meta: { kind: 'colossus', v: 1, gameId: world.gameId, variant: 'Default', status: 'started', maxPlayers: 4, members: 2 } },
+          live: { code: 'NEW123', name: 'Friday', connected: 1, meta: { kind: 'colossus', v: 1, gameId: world.gameId, variant: 'Default', status: 'started', maxPlayers: 4, members: 2, cuedRaum: null } },
         },
       }),
     )
@@ -96,6 +98,15 @@ describe('the lobby view', () => {
   it('Create needs a name', () => {
     const html = render(props({ playerName: '' }))
     expect(html).toContain('Enter your name first.')
+  })
+})
+
+describe('from cued', () => {
+  it('the name is the cued name and cannot be edited; an invitee is told it will join', () => {
+    const html = render(props({ nameFromCued: true, awaitingCuedGame: true }))
+    expect(html).toMatch(/readOnly|readonly/)
+    expect(html).toContain('Your name on cued')
+    expect(html).toContain('Opened from a cued invitation')
   })
 })
 

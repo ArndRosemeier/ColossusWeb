@@ -20,6 +20,7 @@ import { readFile } from 'node:fs/promises'
 import { dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
+import { createHmac } from 'node:crypto'
 
 const require = createRequire(import.meta.url)
 const { chromium } = require('playwright')
@@ -29,7 +30,17 @@ const DIST = join(HERE, 'online-dist')
 // --- a static server for the built app -------------------------------------
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg' }
 const http = createServer(async (req, res) => {
-  const path = decodeURIComponent(new URL(req.url, 'http://x').pathname)
+  const url = new URL(req.url, 'http://x')
+  const path = decodeURIComponent(url.pathname)
+  if (path === '/__cued.html') {
+    // cued's own frame, exactly as docs/CUED.md §3 shows it.
+    const pass = url.searchParams.get('pass')
+    res.writeHead(200, { 'content-type': 'text/html' })
+    res.end(`<!doctype html><iframe id="game" src="/#cued=${pass}" style="width:1300px;height:900px"
+      allow="fullscreen; gamepad; autoplay" allowfullscreen referrerpolicy="origin"
+      sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-popups allow-forms"></iframe>`)
+    return
+  }
   const file = join(DIST, path.endsWith('/') ? path + 'index.html' : path)
   try {
     const body = await readFile(file)
@@ -249,6 +260,43 @@ try {
 
   const commits = wire.filter((w) => w.t === 'state').length
   check('every change travelled as host state frames (no polling)', commits >= 3, `${commits} state frames`)
+
+  // --- cued.de: two friends open the game from a cued invitation (room r1) ---
+  const pass = (sub, name, raum) => {
+    const b64 = (t) => Buffer.from(t, 'utf8').toString('base64url')
+    const now = Math.floor(Date.now() / 1000)
+    const head = b64(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
+    const body = b64(JSON.stringify({ iss: 'cued', aud: 'colossusweb', iat: now, exp: now + 21600, sub, name, kuerzel: name[0], hg: 'rgb(31, 58, 50)', schrift: 'rgb(124, 240, 208)', bild: '', raum, cued: 'https://cued.de/' }))
+    return `${head}.${body}.${createHmac('sha256', 'k').update(`${head}.${body}`).digest('base64url')}`
+  }
+  const ctxC = await browser.newContext()
+  const ctxD = await browser.newContext()
+  await routeHub(ctxC)
+  await routeHub(ctxD)
+  const c = await ctxC.newPage()
+  const d = await ctxD.newPage()
+  await c.goto(`${ORIGIN}/__cued.html?pass=${pass('7', 'Carla', 'r1')}`)
+  const fc = c.frameLocator('#game')
+  await fc.getByText('Online · the list updates live').waitFor({ timeout: 10000 })
+  check('inside cued’s sandboxed frame the game loads and reaches the game server', true)
+  check('the cued player is shown by name', await fc.getByText('Playing as').isVisible())
+  const frameUrl = c.frames().find((f) => f.url().startsWith(ORIGIN + '/') && !f.url().includes('__cued'))?.url() ?? ''
+  check('the pass is stripped from the frame’s address', !frameUrl.includes('cued='), frameUrl)
+  const nameInput = fc.getByLabel('Your name')
+  check('the lobby uses the cued name and locks it', (await nameInput.inputValue()) === 'Carla' && (await nameInput.getAttribute('readonly')) !== null)
+  await fc.getByLabel('Game name').fill('Cued Titan')
+  await fc.getByRole('button', { name: 'Create', exact: true }).click()
+  await fc.getByText('Start game').waitFor()
+
+  await d.goto(`${ORIGIN}/__cued.html?pass=${pass('8', 'Dirk', 'r1')}`)
+  const fd = d.frameLocator('#game')
+  await fd.getByText('Waiting for the host to start').waitFor({ timeout: 10000 })
+  check('an invitee from the same cued room joins that game by itself', true)
+  await fc.getByText('Dirk').waitFor({ timeout: 5000 })
+  check('...and the host sees them under their cued name', true)
+  await fc.getByRole('button', { name: 'Start game' }).click()
+  await fd.getByTestId('multiplayer-status').waitFor({ timeout: 10000 })
+  check('Start works inside the frame for both', await fc.getByTestId('multiplayer-status').isVisible())
 } catch (error) {
   check('the scenario ran to the end', false, String(error?.message ?? error).split('\n')[0])
 } finally {

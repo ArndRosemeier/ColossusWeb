@@ -3,11 +3,13 @@ import type { AiProfileId } from '../ai/profiles'
 import { AI_PROFILE_CHOICES } from '../ai/profiles'
 import type { NewGameOptions, PlayerKind } from '../engine/types'
 import { PLAYER_COLORS } from '../engine/types'
+import type { CuedPlayer } from '../net/cuedPlayer'
 import type { LocalPlayer } from '../net/identity'
 import type { HubSession } from '../net/session'
 import type { SavedGameMeta } from '../persistence/saveGame'
 import { KNOWN_VARIANTS } from '../variant/loadVariant'
 import { BackgroundAtmosphereSelect } from './BackgroundAtmosphere'
+import { CuedBadge } from './CuedBadge'
 import { LobbyPanel } from './LobbyPanel'
 import { MarkerChit } from './MarkerChit'
 
@@ -15,6 +17,8 @@ interface Props {
   onStart: (options: NewGameOptions) => void
   /** The ONE online connection (owned by `App`, so it outlives this screen). */
   session: HubSession
+  /** The cued.de player, if the game was opened from cued. */
+  cued: CuedPlayer
   player: LocalPlayer
   onPlayerChange: (player: LocalPlayer) => void
   /** Open the online game this browser is in (the host starts it first). */
@@ -64,6 +68,7 @@ function formatSavedAt(iso: string): string {
 export function SetupScreen({
   onStart,
   session,
+  cued,
   player,
   onPlayerChange,
   onOnlineEnter,
@@ -133,6 +138,7 @@ export function SetupScreen({
             COLOSSUS
           </text>
         </svg>
+        <CuedBadge cued={cued} />
         <h1>Masterboard awaits</h1>
         <p className="lede">
           Raise your Titan. Split, march, and clash — hotseat, AI, or online with friends, all in the browser.
@@ -163,6 +169,7 @@ export function SetupScreen({
 
       <LobbyPanel
         session={session}
+        cued={cued}
         player={player}
         onPlayerChange={onPlayerChange}
         variantName={variantName}

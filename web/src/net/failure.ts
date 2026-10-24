@@ -39,6 +39,7 @@ function titleFor(code: string): string {
   if (ROOM_CODES.has(code)) return 'The game server refused.'
   if (MOVE_CODES.has(code)) return 'That move was not accepted.'
   if (code === 'bad_world' || code === 'bad_backup') return 'A game record could not be read.'
+  if (code === 'bad_cued_pass') return 'Your cued pass could not be read.'
   return 'Online play failed.'
 }
 

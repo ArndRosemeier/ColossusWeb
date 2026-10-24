@@ -56,6 +56,8 @@ export interface RoomWorld {
   readonly lastBy: string | null
   /** The game, in the ONE save format (`serializeGame`). `null` in the lobby. */
   readonly game: SavedGameBlob | null
+  /** The cued room (`raum`) this game was created for, so invitees find it (`cued.ts`). */
+  readonly cuedRaum?: string | null
 }
 
 /** What the lobby list shows, carried in the GameHub room `meta`. */
@@ -67,6 +69,8 @@ export interface RoomMeta {
   readonly status: RoomWorld['status']
   readonly maxPlayers: number
   readonly members: number
+  /** See {@link RoomWorld.cuedRaum}. */
+  readonly cuedRaum: string | null
 }
 
 /** Player → host. */
@@ -92,6 +96,7 @@ export function createWorld(options: {
   maxPlayers: number
   creator: { token: string; name: string }
   conn: number | null
+  cuedRaum?: string | null
 }): RoomWorld {
   return {
     v: PROTOCOL_VERSION,
@@ -107,6 +112,7 @@ export function createWorld(options: {
     rev: 0,
     lastBy: null,
     game: null,
+    cuedRaum: options.cuedRaum ?? null,
   }
 }
 
@@ -119,6 +125,7 @@ export function roomMeta(world: RoomWorld): RoomMeta {
     status: world.status,
     maxPlayers: world.maxPlayers,
     members: world.status === 'started' ? world.seats.length : world.members.length,
+    cuedRaum: world.cuedRaum ?? null,
   }
 }
 
@@ -130,7 +137,7 @@ export function parseRoomMeta(meta: unknown): RoomMeta | null {
   if (typeof m.gameId !== 'string' || typeof m.variant !== 'string') return null
   if (m.status !== 'lobby' && m.status !== 'started') return null
   if (typeof m.maxPlayers !== 'number' || typeof m.members !== 'number') return null
-  return m as RoomMeta
+  return { ...(m as RoomMeta), cuedRaum: typeof m.cuedRaum === 'string' && m.cuedRaum.length > 0 ? m.cuedRaum : null }
 }
 
 /** This token's seat index, or -1 (spectator, or not in the game). */
@@ -173,6 +180,7 @@ export function parseWorld(value: unknown): RoomWorld {
   if (!Array.isArray(w.seats) || !w.seats.every(isLegalToken)) fail('seats')
   if (typeof w.rev !== 'number' || !Number.isInteger(w.rev) || w.rev < 0) fail('rev')
   if (w.lastBy !== null && !isLegalToken(w.lastBy)) fail('lastBy')
+  if (w.cuedRaum !== undefined && w.cuedRaum !== null && typeof w.cuedRaum !== 'string') fail('cuedRaum')
   if (w.status === 'started') {
     if (w.seats!.length < 2) fail('a started game needs at least 2 seats')
     if (w.game === null || typeof w.game !== 'object') fail('a started game needs its state')
