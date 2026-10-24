@@ -236,6 +236,20 @@ try {
   check('the host is seat 1 and may act', /Seat 1\/2/.test(textA) && /your turn/.test(textA), textA.replace(/\s+/g, ' '))
   check('the joiner is seat 2 and is read-only', /Seat 2\/2/.test(textB) && /read-only/.test(textB), textB.replace(/\s+/g, ' '))
 
+  // A second tab of the SAME browser (same token) joins the game and takes the
+  // seat's connection; the first tab must still be able to split (live bug:
+  // "not_seated only a seated player may move" on the first split).
+  const a2 = await ctxA.newPage()
+  await a2.goto(ORIGIN + '/')
+  await a2.getByTestId('multiplayer-status').waitFor({ timeout: 10000 })
+  await a.locator('[data-legion="leg-1"]').first().click()
+  for (const c of ['Angel', 'Ogre', 'Ogre', 'Centaur']) await a.getByTitle(`Move ${c} to new legion`).first().click()
+  await a.getByRole('button', { name: 'Confirm 4:4 split' }).click()
+  await b.locator('[data-legion="leg-3"]').first().waitFor({ timeout: 5000 })
+  const afterSplit = await statusA.innerText()
+  check('with a second tab open, the first tab still splits and the other player sees it', !/not_seated/.test(afterSplit), afterSplit.replace(/\s+/g, ' '))
+  await a2.close()
+
   // A reload drops the socket; the browser must come straight back into its seat.
   await b.reload()
   await b.getByTestId('multiplayer-status').waitFor({ timeout: 10000 })
