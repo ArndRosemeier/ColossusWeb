@@ -19,7 +19,7 @@ export const BACKGROUND_ATMOSPHERE_IDS = Object.keys(
 type Listener = (id: BackgroundAtmosphereId) => void
 
 const listeners = new Set<Listener>()
-let preferred: BackgroundAtmosphereId = 'ember'
+let preferred: BackgroundAtmosphereId = 'off'
 let booted = false
 
 export function isBackgroundAtmosphereId(value: string): value is BackgroundAtmosphereId {
@@ -53,8 +53,10 @@ function readStored(): BackgroundAtmosphereId {
   } catch {
     /* private mode */
   }
-  // First visit: respect OS reduced-motion as the default only.
-  return prefersReducedMotion() ? 'off' : 'ember'
+  // First visit: no motion. The blurred, blended full-screen layers of the
+  // animated backgrounds can stall weak GPUs (and with them all of Chrome), so
+  // animation is opt-in.
+  return 'off'
 }
 
 function paint(): void {
