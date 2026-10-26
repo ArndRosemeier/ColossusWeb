@@ -145,6 +145,13 @@ export function deserializeGame(blob: SavedGameBlob, variant: LoadedVariant): Ga
     const defender = state.legions.find((l) => l.id === state.activeEngagement!.defenderId)
     state.activeEngagement.fleeDeclined = defender ? !canFlee(state, defender) : true
   }
+  if (state.activeEngagement && !state.activeEngagement.fleeDeclined) {
+    // Saves written while an AI defender's window was left open (it had declined
+    // to flee but never closed it), which stranded a human attacker's Fight!.
+    const defender = state.legions.find((l) => l.id === state.activeEngagement!.defenderId)
+    const defPlayer = state.players.find((p) => p.id === defender?.playerId)
+    if (defPlayer?.kind === 'ai') state.activeEngagement.fleeDeclined = true
+  }
   migrateMarkerPools(state)
   for (const leg of state.legions) {
     if (!Array.isArray(leg.knownPublic)) {
