@@ -31,6 +31,7 @@ import { describe, expect, it } from 'vitest'
 import { canFlee } from '../engagement'
 import { dispatch } from '../GameEngine'
 import type { GameState, Legion } from '../types'
+import { deserializeGame, serializeGame } from '../../persistence/saveGame'
 import { twoPlayerGame } from './helpers'
 
 /** A revealed, pending engagement between two HUMAN players, defender able to flee. */
@@ -198,5 +199,53 @@ describe('S8 engagement choice — whose decision it is', () => {
     const aiStood = dispatch(aiState, { type: 'standFight' })
     const aiFought = dispatch(aiStood, { type: 'proposeAgreement', kind: 'fight' })
     expect(aiFought.phase).toBe('Battle')
+  })
+})
+
+describe('solo game: human attacker vs an AI defender that does not flee', () => {
+  /** The owner's bug: the AI did not flee, Fight! was pressed, and nothing happened. */
+  function aiDefenderEngagement(): { state: GameState; attacker: Legion; defender: Legion } {
+    const state = twoPlayerGame(71)
+    const attacker = state.legions[0]!
+    const defender = state.legions[1]!
+    state.players.find((p) => p.id === defender.playerId)!.kind = 'ai'
+    // A strong, Lord-free defender against a weak attacker: it CAN flee, but won't.
+    defender.creatures = [
+      { type: 'Behemoth', hits: 0 },
+      { type: 'Behemoth', hits: 0 },
+      { type: 'Troll', hits: 0 },
+    ]
+    defender.knownPublic = ['Behemoth', 'Behemoth', 'Troll']
+    attacker.creatures = [{ type: 'Titan', hits: 0 }]
+    attacker.knownPublic = ['Titan']
+    attacker.hexLabel = defender.hexLabel
+    state.phase = 'Fight'
+    state.pendingEngagements = [{ attackerId: attacker.id, defenderId: defender.id }]
+    const opened = dispatch(state, {
+      type: 'startEngagement',
+      attackerId: attacker.id,
+      defenderId: defender.id,
+    })
+    return { state: opened, attacker, defender }
+  }
+
+  it('the AI closes its own flee window when it declines, so Fight! starts the battle', () => {
+    const { state, defender } = aiDefenderEngagement()
+    expect(canFlee(state, defender)).toBe(true)
+    expect(state.activeEngagement).not.toBeNull()
+    expect(state.activeEngagement!.fleeDeclined).toBe(true)
+    const fought = dispatch(state, { type: 'proposeAgreement', kind: 'fight' })
+    expect(fought.phase).toBe('Battle')
+    expect(fought.battle).not.toBeNull()
+  })
+
+  it('a save stranded with the AI window still open loads with it closed', () => {
+    const { state } = aiDefenderEngagement()
+    const stuck = structuredClone(state)
+    stuck.activeEngagement!.fleeDeclined = false
+    const loaded = deserializeGame(serializeGame(stuck), state.variant)
+    expect(loaded.activeEngagement!.fleeDeclined).toBe(true)
+    const fought = dispatch(loaded, { type: 'proposeAgreement', kind: 'fight' })
+    expect(fought.phase).toBe('Battle')
   })
 })

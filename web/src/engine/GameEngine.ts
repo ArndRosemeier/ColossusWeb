@@ -546,6 +546,11 @@ function openEngagement(state: GameState, attackerId: string, defenderId: string
   }
 
   const defPlayer = state.players.find((p) => p.id === defender.playerId)
+  // An AI defender answers its window right here: it did not flee, so it stands.
+  // Nothing else would close the window when the attacker is human (`simpleAi`
+  // only acts when no human is involved), and the attacker's Fight! would be
+  // refused forever.
+  if (defPlayer?.kind === 'ai') state.activeEngagement.fleeDeclined = true
   state.message =
     defPlayer?.kind === 'human' && canFlee(state, defender)
       ? `Engagement ${attacker.markerId} vs ${defender.markerId} — ${defPlayer.name} chooses: stand and fight, or flee`
