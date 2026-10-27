@@ -381,7 +381,7 @@ function applyCommand(state: GameState, command: GameCommand, rng: () => number)
       beginFightPhase(state)
       break
     case 'startEngagement':
-      openEngagement(state, command.attackerId, command.defenderId)
+      openEngagement(state, command.attackerId, command.defenderId, rng)
       break
     case 'recruit':
       doRecruit(state, command.legionId, command.creatureType)
@@ -514,7 +514,12 @@ function commitPendingDice(state: GameState, rng: () => number, forced?: number[
   throw new Error(`Unknown pending dice context`)
 }
 
-function openEngagement(state: GameState, attackerId: string, defenderId: string): void {
+function openEngagement(
+  state: GameState,
+  attackerId: string,
+  defenderId: string,
+  rng: () => number,
+): void {
   if (state.phase !== 'Fight') throw new Error('Not fight phase')
   const attacker = state.legions.find((l) => l.id === attackerId)
   const defender = state.legions.find((l) => l.id === defenderId)
@@ -551,6 +556,13 @@ function openEngagement(state: GameState, attackerId: string, defenderId: string
   // only acts when no human is involved), and the attacker's Fight! would be
   // refused forever.
   if (defPlayer?.kind === 'ai') state.activeEngagement.fleeDeclined = true
+  // An AI attacker against a human defender who has no flee choice (a Lord):
+  // the AI always demands the battle, and nobody else would (`simpleAi` waits on
+  // the human), so the battle begins now.
+  if (aiAttackerFightsHuman(state)) {
+    startBattleFromEngagement(state, rng)
+    return
+  }
   state.message =
     defPlayer?.kind === 'human' && canFlee(state, defender)
       ? `Engagement ${attacker.markerId} vs ${defender.markerId} — ${defPlayer.name} chooses: stand and fight, or flee`
@@ -604,6 +616,8 @@ function handleEngagementCommand(
       eng.fleeDeclined = true
       state.message = `${defender.markerId} stands and fights — ${attacker.markerId} may begin the battle`
       state.log.push(state.message)
+      // An AI attacker demands the battle at once; it has no button to press.
+      if (aiAttackerFightsHuman(state)) startBattleFromEngagement(state, rng)
       break
     }
     case 'concedeEngagement': {
@@ -666,6 +680,20 @@ function finishEngagementResolution(state: GameState, slayerId: string | null): 
   state.pendingEngagements = findEngagements(state)
   if (state.pendingEngagements.length === 0) beginMusterPhase(state)
   else state.message = `Fight continues — ${state.pendingEngagements.length} engagement(s) left`
+}
+
+/**
+ * The defender's window is closed, the attacker is an AI and the defender a
+ * human: the AI's demand for battle is implied (Titan: "either player may
+ * demand that the Battle be played out"), since `simpleAi` never acts while a
+ * human is party to the engagement.
+ */
+function aiAttackerFightsHuman(state: GameState): boolean {
+  const eng = state.activeEngagement
+  if (!eng || !eng.fleeDeclined) return false
+  const owner = (legionId: string) =>
+    state.players.find((p) => p.id === state.legions.find((l) => l.id === legionId)?.playerId)
+  return owner(eng.attackerId)?.kind === 'ai' && owner(eng.defenderId)?.kind === 'human'
 }
 
 function startBattleFromEngagement(state: GameState, rng: () => number): void {
