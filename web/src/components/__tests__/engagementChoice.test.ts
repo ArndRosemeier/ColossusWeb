@@ -108,3 +108,13 @@ describe('S8 engagement overlay — whose client shows which choice', () => {
     expect(html).not.toContain('Fight!')
   })
 })
+
+describe('solo game: an engagement left waiting on an AI attacker', () => {
+  it('offers the human defender Fight! so an older stuck save can go on', () => {
+    const { state, attackerPlayerId } = engagementState(75)
+    const s = structuredClone(state)
+    s.players.find((p) => p.id === attackerPlayerId)!.kind = 'ai'
+    s.activeEngagement!.fleeDeclined = true
+    expect(markup(s, null)).toContain('Fight!')
+  })
+})

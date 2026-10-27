@@ -464,7 +464,7 @@ function EngagementCard({
             </button>
           </>
         )}
-        {!waitingForDefender && atkIsMe && (
+        {!waitingForDefender && (atkIsMe || (atkP?.kind === 'ai' && localControlsDefender)) && (
           <button
             type="button"
             className="primary"

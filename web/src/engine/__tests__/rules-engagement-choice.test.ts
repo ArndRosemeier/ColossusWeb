@@ -249,3 +249,43 @@ describe('solo game: human attacker vs an AI defender that does not flee', () =>
     expect(fought.phase).toBe('Battle')
   })
 })
+
+describe('solo game: an AI attacks a human defender', () => {
+  function aiAttack(defenderCanFlee: boolean): GameState {
+    const state = twoPlayerGame(73)
+    const attacker = state.legions[1]!
+    const defender = state.legions[0]!
+    state.players.find((p) => p.id === attacker.playerId)!.kind = 'ai'
+    state.activePlayerIndex = state.players.findIndex((p) => p.id === attacker.playerId)
+    if (defenderCanFlee) {
+      defender.creatures = [
+        { type: 'Ogre', hits: 0 },
+        { type: 'Centaur', hits: 0 },
+      ]
+      defender.knownPublic = ['Ogre', 'Centaur']
+    }
+    attacker.hexLabel = defender.hexLabel
+    state.phase = 'Fight'
+    state.pendingEngagements = [{ attackerId: attacker.id, defenderId: defender.id }]
+    return dispatch(state, {
+      type: 'startEngagement',
+      attackerId: attacker.id,
+      defenderId: defender.id,
+    })
+  }
+
+  it('a defender that cannot flee goes straight to the battle (there is no button to press)', () => {
+    const s = aiAttack(false)
+    expect(s.activeEngagement).toBeNull()
+    expect(s.phase).toBe('Battle')
+    expect(s.battle).not.toBeNull()
+  })
+
+  it('a defender that can flee is asked, and Stand and fight starts the battle', () => {
+    const s = aiAttack(true)
+    expect(s.activeEngagement?.fleeDeclined).toBe(false)
+    const stood = dispatch(s, { type: 'standFight' })
+    expect(stood.phase).toBe('Battle')
+    expect(stood.battle).not.toBeNull()
+  })
+})
