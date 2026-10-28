@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { WhatsNewButton } from './WhatsNew'
 import { isAiActing, pickAiCommand } from '../ai/simpleAi'
 import {
   activePlayer,
@@ -676,6 +677,7 @@ export default function App() {
     <div className="app-shell">
       <header className="topbar">
         <span className="brand-inline">Colossus</span>
+        <WhatsNewButton compact />
         <CuedBadge cued={cued} compact />
         <span className="muted">
           {state.variant.data.name} · {online ? 'online' : 'local'}

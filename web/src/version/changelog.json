@@ -1,0 +1,11 @@
+[
+  {
+    "version": "1.00",
+    "date": "2026-10-28",
+    "changes": [
+      "The game now has a version number, shown next to the Colossus title. It goes up by 0.01 with every update.",
+      "New \"What's new\" button: click the version number to see what changed in each version.",
+      "Already in this first numbered version: hotseat, AI and online play (GameHub), saving and loading, selectable backgrounds, and the recent fixes for the Fight! button against AI defenders."
+    ]
+  }
+]

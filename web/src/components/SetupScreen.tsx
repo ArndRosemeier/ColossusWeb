@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { WhatsNewButton } from './WhatsNew'
 import type { AiProfileId } from '../ai/profiles'
 import { AI_PROFILE_CHOICES } from '../ai/profiles'
 import type { NewGameOptions, PlayerKind } from '../engine/types'
@@ -139,6 +140,7 @@ export function SetupScreen({
           </text>
         </svg>
         <CuedBadge cued={cued} />
+        <WhatsNewButton />
         <h1>Masterboard awaits</h1>
         <p className="lede">
           Raise your Titan. Split, march, and clash — hotseat, AI, or online with friends, all in the browser.
