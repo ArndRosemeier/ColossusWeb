@@ -19,6 +19,7 @@ import {
   legalStrikes as findLegalStrikes,
   listStrikeRaiseOptions,
 } from '../engine/battleStrike'
+import { legalBattleMoves } from '../engine/battleMovement'
 import { battleNeighbors } from '../engine/battleland'
 import type { BattleState, BattleUnit, GameCommand, GameState } from '../engine/types'
 import {
@@ -743,6 +744,66 @@ export function preferSingleTargetStrikes(
   return forced.length > 0 ? forced : ranked
 }
 
+/** Search cap for `allCanStillEnter`: enough for 7 units, bounded for the UI thread. */
+const ENTRY_SEARCH_BUDGET = 4000
+
+/**
+ * Whether every unit of the moving side that is still off the board can enter,
+ * if `unitId` lands on `toHex` first. Units that never enter are eliminated
+ * after the first maneuver (`killUnentered`), and units block each other's
+ * paths, so the ORDER matters: fodder parked on the only reachable entry hexes
+ * strands the Titan, which then dies and loses the game.
+ *
+ * A depth-first search on a scratch copy of the units, most constrained unit
+ * first. If the search runs out of budget it answers `true` (it found no proof
+ * of a dead end), so the AI is never left with no move at all.
+ */
+export function allCanStillEnter(
+  state: GameState,
+  battle: BattleState,
+  unitId: string,
+  toHex: string,
+): boolean {
+  const land = battleLand(state, battle)
+  const units = battle.units.map((u) => ({ ...u }))
+  const sim: BattleState = { ...battle, units }
+  const mover = units.find((u) => u.id === unitId)
+  if (!mover) return true
+  mover.hex = toHex
+  mover.moved = true
+  const pending = units.filter(
+    (u) =>
+      u.playerId === battle.activePlayerId && u.hex == null && !u.moved && isUnitAlive(state, u),
+  )
+  let budget = ENTRY_SEARCH_BUDGET
+  const search = (left: BattleUnit[]): boolean => {
+    if (left.length === 0) return true
+    if (--budget <= 0) return true
+    let best: BattleUnit | null = null
+    let bestMoves: string[] = []
+    for (const u of left) {
+      const moves = legalBattleMoves(state, sim, land, u)
+      if (moves.length === 0) return false
+      if (!best || moves.length < bestMoves.length) {
+        best = u
+        bestMoves = moves
+      }
+    }
+    const rest = left.filter((u) => u !== best)
+    for (const hex of bestMoves) {
+      best!.hex = hex
+      best!.moved = true
+      const ok = search(rest)
+      best!.hex = null
+      best!.moved = false
+      if (ok) return true
+      if (budget <= 0) return true
+    }
+    return false
+  }
+  return search(pending)
+}
+
 export function pickBestBattleMove(
   state: GameState,
   battle: BattleState,
@@ -758,12 +819,35 @@ export function pickBestBattleMove(
     const u = battle.units.find((x) => x.id === m.unitId)
     return u != null && u.hex == null
   })
-  const nonTitanDeploy = deployMoves.filter((m) => {
-    const u = battle.units.find((x) => x.id === m.unitId)
-    return u != null && u.creatureType !== 'Titan'
-  })
-  const pool =
-    nonTitanDeploy.length > 0 ? nonTitanDeploy : deployMoves.length > 0 ? deployMoves : ranked
+  const isTitan = (m: ScoredBattleMove) =>
+    battle.units.find((x) => x.id === m.unitId)?.creatureType === 'Titan'
+  // Only entries that leave room for every other unit still off the board (a
+  // unit that cannot enter dies — losing the Titan loses the game). Checked in
+  // score order and only as far as the pick below looks (best, then within 0.5,
+  // at most 3), since each check is a search.
+  const safeTop = (moves: ScoredBattleMove[]): ScoredBattleMove[] => {
+    const out: ScoredBattleMove[] = []
+    for (const m of moves) {
+      if (out.length >= 3 || (out.length > 0 && m.score < out[0]!.score - 0.5)) break
+      if (allCanStillEnter(state, battle, m.unitId, m.toHex)) out.push(m)
+    }
+    return out
+  }
+  let pool: ScoredBattleMove[] = ranked
+  if (deployMoves.length > 0) {
+    const titanDeploy = deployMoves.filter(isTitan)
+    const safeOthers = safeTop(deployMoves.filter((m) => !isTitan(m)))
+    const safeTitan = safeOthers.length > 0 ? [] : safeTop(titanDeploy)
+    // When not everyone can get in, the Titan goes first.
+    pool =
+      safeOthers.length > 0
+        ? safeOthers
+        : safeTitan.length > 0
+          ? safeTitan
+          : titanDeploy.length > 0
+            ? titanDeploy
+            : deployMoves
+  }
 
   const anyMoved = battle.units.some(
     (u) => u.playerId === battle.activePlayerId && isUnitAlive(state, u) && u.moved,
