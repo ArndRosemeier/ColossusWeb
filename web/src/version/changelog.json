@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.01",
+    "date": "2026-10-28",
+    "changes": [
+      "AI legions now leave room for every creature when they move onto the battle board. Before, the AI could block its own Titan from entering, so the Titan was eliminated before you had a single turn."
+    ]
+  },
+  {
     "version": "1.00",
     "date": "2026-10-28",
     "changes": [
