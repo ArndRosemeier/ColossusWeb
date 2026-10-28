@@ -69,6 +69,20 @@ The full procedure is the `apps-publish` skill; this is the binding summary.
    assets are safe; the *page* URL is not. Check `cf-cache-status` (`DYNAMIC`/`MISS` = new bytes)
    before declaring a publish live.
 
+## Versioning — every merged change bumps the version by 0.01
+
+The app's version and its in-app "What's new" list both come from ONE file,
+`web/src/version/changelog.json` (newest entry first; history starts at 1.00).
+
+1. **Every pull request into `master` adds exactly one entry at the top**, with the next
+   version (current + 0.01), today's date, and one plain-language line per change the
+   player would notice. Write for the player, not for developers.
+2. CI (`.github/workflows/version.yml` → `scripts/check-version-bump.mjs`) fails a PR that
+   does not bump by exactly one step. The unit tests in `web/src/version/__tests__` check
+   the whole history (1.00 start, 0.01 steps, no gaps).
+3. If `master` moved on while a PR was open, merge it in and **renumber your entry** so it
+   sits directly above the new top. Never reuse a version.
+
 ## Binding engineering rules
 
 1. **No silent fallbacks.** When data, parsing or a step fails, propagate a LOUD
