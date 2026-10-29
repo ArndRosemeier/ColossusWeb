@@ -1,5 +1,5 @@
 /**
- * One-ply battle tactics: score moves and strikes by expected hits,
+ * Bounded battle tactics: exact strike expectations and legal enemy responses,
  * mirrored after masterboard evaluateMove / battleEstimate.
  * Also weights the 7-turn clock (attacker loses on time-out).
  */
@@ -20,7 +20,9 @@ import {
   listStrikeRaiseOptions,
 } from '../engine/battleStrike'
 import { legalBattleMoves } from '../engine/battleMovement'
-import { battleNeighbors } from '../engine/battleland'
+import { battleNeighbors, hazardDamageToCreature } from '../engine/battleland'
+import { strikeExpectations } from './battleProbability'
+import { battlePlannerOptions, legalEnemyResponse, type BattlePlannerOptions } from './battleResponse'
 import type { BattleState, BattleUnit, GameCommand, GameState } from '../engine/types'
 import {
   RATIO_DRAW,
@@ -273,7 +275,6 @@ export function evaluateBattleStrike(
   if (!attacker.hex || !defender.hex) return -Infinity
   const land = battleLand(state, battle)
   const melee = isAdjacentHex(state, battle, attacker.hex, defender.hex)
-  const eh = expectedHits(state, battle, attacker, defender, melee, raisedStrikeNumber)
   const rem = remainingHp(state, defender)
   if (rem <= 0) return -Infinity
 
@@ -286,32 +287,19 @@ export function evaluateBattleStrike(
     (asAtk ? 1 + 1.4 * heat + 0.9 * urgency : 1 - 0.2 * heat) * desperationOffenseMul(win)
 
   const tv = targetValue(state, defender, profile)
-  const dealt = Math.min(eh, rem)
-  let score = dealt * tv * profile.attackAppetite * offenseMul
-
-  if (eh >= rem) {
-    const killMul = asAtk ? 1 + 2.5 * heat + 1.2 * urgency : 1 + 0.3 * heat
-    score += 12 * tv * profile.attackAppetite * killMul
-  }
-
-  // Carry overflow onto legal adjacent enemies (respects raised SN)
-  if (melee && eh > rem) {
-    const overflow = eh - rem
-    const natural = getStrikeNumber(state, attacker, defender, land, true)
-    const raised =
-      raisedStrikeNumber != null && raisedStrikeNumber > natural
-        ? raisedStrikeNumber
-        : undefined
-    const carryIds = legalCarryTargetIds(state, battle, land, attacker, defender, raised)
-    if (carryIds.length > 0) {
-      const bestOther = Math.max(
-        ...carryIds.map((id) => {
-          const o = battle.units.find((u) => u.id === id)!
-          return targetValue(state, o, profile)
-        }),
-      )
-      score += Math.min(overflow, 3) * bestOther * 0.45 * profile.attackAppetite * offenseMul
-    }
+  const natural = getStrikeNumber(state, attacker, defender, land, melee)
+  const need = raisedStrikeNumber != null ? Math.max(natural, raisedStrikeNumber) : natural
+  const carryIds = melee ? legalCarryTargetIds(state, battle, land, attacker, defender,
+    raisedStrikeNumber != null && raisedStrikeNumber > natural ? raisedStrikeNumber : undefined) : []
+  const carryTargets = carryIds.map(id => battle.units.find(u => u.id === id)!).filter(Boolean)
+  const capacity = carryTargets.reduce((sum, unit) => sum + remainingHp(state, unit), 0)
+  const stats = strikeExpectations(getStrikeDice(state, land, attacker, defender, melee), need, rem, capacity)
+  let score = stats.expectedDamage * tv * profile.attackAppetite * offenseMul
+  const killMul = asAtk ? 1 + 2.5 * heat + 1.2 * urgency : 1 + 0.3 * heat
+  score += stats.killProbability * 12 * tv * profile.attackAppetite * killMul
+  if (carryTargets.length > 0) {
+    const bestOther = Math.max(...carryTargets.map(unit => targetValue(state, unit, profile)))
+    score += stats.expectedOverflow * bestOther * 0.45 * profile.attackAppetite * offenseMul
   }
 
   // When ahead: slight preference that fodder delivers (keep value); big swings still from damage
@@ -382,6 +370,10 @@ export function prospectiveExposure(
   toHex: string,
   profile: AiProfile,
 ): number {
+  battle = { ...battle, units: battle.units.map(candidate => ({ ...candidate })) }
+  const simulated = battle.units.find(candidate => candidate.id === unit.id)
+  if (!simulated) throw new Error('Tactical exposure unit is absent from battle')
+  unit = simulated
   const land = battleLand(state, battle)
   let win = battleWinConfidence(state, battle, unit.playerId)
   if (unit.creatureType === 'Titan') win = Math.max(win, 0.92)
@@ -504,7 +496,7 @@ export function perchScore(
 }
 
 /** Score placing `unit` on `toHex` (offense − threat + approach ± clock ± deploy). */
-export function evaluateBattleHex(
+function evaluateBattleHexInPlace(
   state: GameState,
   battle: BattleState,
   unit: BattleUnit,
@@ -650,13 +642,29 @@ export function evaluateBattleHex(
     const heuristic = state.players.find((p) => p.id === unit.playerId)?.aiHeuristicId ?? 'spatial'
     const formation = heuristic === 'legacy' ? 0 : formationScore(state, battle, unit, toHex)
     const perch = heuristic === 'perch' ? perchScore(state, battle, unit, toHex) : 0
-    return offenseW - threatW + approachW + posture + deployBonus + formation + perch
+    const creature = state.variant.creatures[unit.creatureType]
+    const damage = hazardDamageToCreature(land.hexByLabel[toHex].terrain, creature)
+    const hp = remainingHp(state, unit)
+    // This occurs before any Strike, even when no enemy has a target.
+    if (unit.creatureType === 'Titan' && damage >= hp) return -Infinity
+    const terrainCost = damage > 0 ? damage * keep * protect + (damage >= hp ? keep * 2 : 0)
+      : -Math.min(unit.hits, -damage) * keep * 0.15
+    return offenseW - threatW + approachW + posture + deployBonus + formation + perch - terrainCost
   } finally {
     unit.hex = prevHex
   }
 }
 
+/** Public evaluators never mutate a caller's units, including during hypothetical scoring. */
+export function evaluateBattleHex(state: GameState, battle: BattleState, unit: BattleUnit, toHex: string, profile: AiProfile): number {
+  const sim = { ...battle, units: battle.units.map(candidate => ({ ...candidate })) }
+  const mover = sim.units.find(candidate => candidate.id === unit.id)
+  if (!mover) throw new Error('Tactical mover is absent from battle')
+  return evaluateBattleHexInPlace(state, sim, mover, toHex, profile)
+}
+
 export function rankBattleMoves(state: GameState, battle: BattleState, profile: AiProfile): ScoredBattleMove[] {
+  battle = { ...battle, units: battle.units.map(unit => ({ ...unit })) }
   const movers = battle.units.filter(
     (u) => u.playerId === battle.activePlayerId && isUnitAlive(state, u) && !u.moved,
   )
@@ -667,7 +675,7 @@ export function rankBattleMoves(state: GameState, battle: BattleState, profile: 
       scored.push({
         unitId: u.id,
         toHex,
-        score: evaluateBattleHex(state, battle, u, toHex, profile),
+        score: evaluateBattleHexInPlace(state, battle, u, toHex, profile),
       })
     }
   }
@@ -804,12 +812,117 @@ export function allCanStillEnter(
   return search(pending)
 }
 
+export interface BattlePlanResult {
+  command: GameCommand
+  work: { responseNodes: number; safetyNodes: number; safetyExhausted: boolean; candidatesEvaluated: number; exhausted: boolean }
+}
+
+function searchBattleManeuver(state: GameState, battle: BattleState, profile: AiProfile,
+  ranked: ScoredBattleMove[], options: Partial<BattlePlannerOptions>): BattlePlanResult {
+  const settings = battlePlannerOptions(options)
+  const budget = { nodes: 0, limit: settings.maxResponseNodes }
+  const work = { responseNodes: 0, safetyNodes: 0, safetyExhausted: false, candidatesEvaluated: 0, exhausted: false }
+  const hold: GameCommand = { type: 'battleDonePhase' }
+  const keep = (unit: BattleUnit) => ownKeepValue(state, battle, unit, profile)
+  const land = battleLand(state, battle)
+  const ourTitans = battle.units.filter(unit => unit.playerId === battle.activePlayerId && unit.creatureType === 'Titan' && isUnitAlive(state, unit) && unit.hex)
+  const safetyBudget = { nodes: 0, limit: 8192 }
+  const safetyCache = new Map<string, ReturnType<typeof legalEnemyResponse>>()
+  let protectedMove: ScoredBattleMove | undefined
+  if (ourTitans.length > 0) {
+    const held = legalEnemyResponse(state, battle, safetyBudget, keep)
+    if (!held.complete) work.safetyExhausted = true
+    if (held.complete) safetyCache.set('hold', held)
+    // A certificate, not an assumed force ratio: no enemy can damage the Titan
+    // before turn eight. Both intervening pre-strike drains must be survivable.
+    if (held.complete && held.titanDamage === 0 && battle.turn === MAX_BATTLE_TURNS && !actingAsAttacker(state, battle) &&
+        ourTitans.every(unit => unit.hits + 2 * Math.max(0, hazardDamageToCreature(land.hexByLabel[unit.hex!].terrain, state.variant.creatures[unit.creatureType])) < getUnitPower(state, unit))) {
+      work.safetyNodes = safetyBudget.nodes
+      return { command: hold, work }
+    }
+    // Inspect every legal Titan retreat within a separate fixed safety ceiling.
+    // Optional difficulty budgets must not prune the only safe escape out of the beam.
+    let safest = held
+    if (held.titanDamage > 0 || ourTitans.some(unit => hazardDamageToCreature(land.hexByLabel[unit.hex!].terrain, state.variant.creatures[unit.creatureType]) >= remainingHp(state, unit))) {
+      for (const move of ranked) {
+        if (!Number.isFinite(move.score) || !ourTitans.some(unit => unit.id === move.unitId)) continue
+        const sim = { ...battle, units: battle.units.map(unit => ({ ...unit })) }
+        sim.units.find(unit => unit.id === move.unitId)!.hex = move.toHex
+        const response = legalEnemyResponse(state, sim, safetyBudget, keep)
+        if (!response.complete) { work.safetyExhausted = true; break }
+        safetyCache.set(`${move.unitId}:${move.toHex}`, response)
+        if (response.titanRisk < safest.titanRisk - 1e-9 ||
+            (response.titanRisk <= safest.titanRisk + 1e-9 && response.titanDamage < safest.titanDamage - 1e-9)) {
+          safest = response
+          protectedMove = move
+        }
+      }
+    }
+    work.safetyNodes = safetyBudget.nodes
+  }
+  const selected: ScoredBattleMove[] = protectedMove ? [protectedMove] : []
+  // Keep at least one useful option per mobile creature before filling the beam.
+  for (const move of ranked) {
+    if (selected.length >= settings.candidateLimit) break
+    if (Number.isFinite(move.score) && !selected.some(candidate => candidate.unitId === move.unitId)) selected.push(move)
+  }
+  for (const move of ranked) {
+    if (selected.length >= settings.candidateLimit) break
+    if (Number.isFinite(move.score) && !selected.includes(move)) selected.push(move)
+  }
+  const candidates: (ScoredBattleMove | null)[] = [null, ...selected]
+  // Budget exhaustion must never strand a Titan on deterministic lethal terrain.
+  const escape = ranked.find(move => {
+    const unit = battle.units.find(candidate => candidate.id === move.unitId)!
+    const drains = battle.turn === MAX_BATTLE_TURNS && actingAsAttacker(state, battle) ? 1 : 2
+    return unit.creatureType === 'Titan' && unit.hex &&
+      drains * hazardDamageToCreature(land.hexByLabel[unit.hex].terrain, state.variant.creatures[unit.creatureType]) >= remainingHp(state, unit) &&
+      drains * hazardDamageToCreature(land.hexByLabel[move.toHex].terrain, state.variant.creatures[unit.creatureType]) < remainingHp(state, unit) &&
+      Number.isFinite(move.score)
+  })
+  let bestScore = -Infinity, bestCommand: GameCommand = escape
+    ? { type: 'battleMove', unitId: escape.unitId, toHex: escape.toHex } : hold
+  for (const move of candidates) {
+    const sim = { ...battle, units: battle.units.map(unit => ({ ...unit })) }
+    if (move) sim.units.find(unit => unit.id === move.unitId)!.hex = move.toHex
+    let positionScore = 0
+    for (const unit of sim.units) if (unit.playerId === sim.activePlayerId && isUnitAlive(state, unit) && unit.hex) {
+      positionScore += evaluateBattleHexInPlace(state, sim, unit, unit.hex, profile)
+    }
+    if (!Number.isFinite(positionScore)) continue
+    const reply = safetyCache.get(move ? `${move.unitId}:${move.toHex}` : 'hold') ?? legalEnemyResponse(state, sim, budget, keep)
+    if (!reply.complete) { work.exhausted = true; break }
+    work.candidatesEvaluated++
+    // Whole-position response cost notices a move that releases an enemy from a
+    // screen or blocks a friendly ranged line, rather than scoring only the mover.
+    const heat = battleClockHeat(battle), asAttacker = actingAsAttacker(state, battle)
+    const responseWeight = asAttacker
+      ? Math.max(0.1, 0.5 - 0.35 * heat - 0.2 * attackerPreReinforceUrgency(battle))
+      : 0.65 + 0.35 * heat
+    const score = positionScore - reply.loss * profile.fightLossPenalty * responseWeight - reply.titanRisk * 10000
+    if (score > bestScore + 0.01) {
+      bestScore = score
+      bestCommand = move ? { type: 'battleMove', unitId: move.unitId, toHex: move.toHex } : hold
+    }
+  }
+  work.responseNodes = budget.nodes
+  return { command: bestCommand, work }
+}
+
+/** Deterministic, inspectable budget seam for future per-seat difficulty controls. */
+export function planBattleManeuver(state: GameState, battle: BattleState, profile: AiProfile,
+  options: Partial<BattlePlannerOptions> = {}): BattlePlanResult {
+  return searchBattleManeuver(state, battle, profile, rankBattleMoves(state, battle, profile), options)
+}
+
 export function pickBestBattleMove(
   state: GameState,
   battle: BattleState,
   profile: AiProfile,
   rng: () => number,
+  options: Partial<BattlePlannerOptions> = {},
 ): GameCommand {
+  battlePlannerOptions(options)
   const ranked = rankBattleMoves(state, battle, profile)
   if (ranked.length === 0) return { type: 'battleDonePhase' }
 
@@ -849,29 +962,10 @@ export function pickBestBattleMove(
             : deployMoves
   }
 
-  const anyMoved = battle.units.some(
-    (u) => u.playerId === battle.activePlayerId && isUnitAlive(state, u) && u.moved,
-  )
-  const best = pool[0]!
-  const heat = battleClockHeat(battle)
-  const asAtk = actingAsAttacker(state, battle)
-  const urgency = asAtk ? attackerPreReinforceUrgency(battle) : 0
-
-  // Never end Move while creatures can still enter (unentered die after first maneuver)
-  if (deployMoves.length === 0) {
-    let threshold = profile.battleMoveThreshold
-    if (asAtk) {
-      threshold -= 12 * heat
-      // Keep maneuvering while racing the reinforce window
-      threshold -= 16 * urgency
-    } else threshold += 6 * heat
-    if (anyMoved && best.score <= threshold) {
-      return { type: 'battleDonePhase' }
-    }
-  }
+  if (deployMoves.length === 0) return searchBattleManeuver(state, battle, profile, ranked, options).command
 
   // Among top few near-best, slight rng for variety
-  const top = pool.filter((m) => m.score >= best.score - 0.5).slice(0, 3)
+  const top = pool.filter((m) => m.score >= pool[0]!.score - 0.5).slice(0, 3)
   const pick = top[Math.floor(rng() * top.length)]!
   return { type: 'battleMove', unitId: pick.unitId, toHex: pick.toHex }
 }
@@ -898,30 +992,17 @@ export function pickBestBattleStrike(
     const band = ranked.filter((s) => s.score >= best.score - Math.max(12, best.score * 0.2))
     const bestAtk = battle.units.find((u) => u.id === best.attackerId)
     const bestDef = battle.units.find((u) => u.id === best.defenderId)
-    const bestKills =
-      bestAtk &&
-      bestDef &&
-      expectedHits(
-        state,
-        battle,
-        bestAtk,
-        bestDef,
-        bestAtk.hex != null &&
-          bestDef.hex != null &&
-          isAdjacentHex(state, battle, bestAtk.hex, bestDef.hex),
-        best.raisedStrikeNumber,
-      ) >= remainingHp(state, bestDef)
-
-    const candidates = band.filter((s) => {
-      if (!bestKills) return true
-      const atk = battle.units.find((u) => u.id === s.attackerId)
-      const def = battle.units.find((u) => u.id === s.defenderId)
-      if (!atk || !def || !atk.hex || !def.hex) return false
-      const melee = isAdjacentHex(state, battle, atk.hex, def.hex)
-      return (
-        expectedHits(state, battle, atk, def, melee, s.raisedStrikeNumber) >=
-        remainingHp(state, def)
-      )
+    const killChance = (atk: BattleUnit, def: BattleUnit, raised?: number) => {
+      if (!atk.hex || !def.hex) return 0
+      const land = battleLand(state, battle), melee = isAdjacentHex(state, battle, atk.hex, def.hex)
+      const natural = getStrikeNumber(state, atk, def, land, melee)
+      return strikeExpectations(getStrikeDice(state, land, atk, def, melee), raised == null ? natural : Math.max(natural, raised), remainingHp(state, def)).killProbability
+    }
+    const bestKillChance = bestAtk && bestDef ? killChance(bestAtk, bestDef, best.raisedStrikeNumber) : 0
+    const candidates = band.filter(s => {
+      const atk = battle.units.find(unit => unit.id === s.attackerId)
+      const def = battle.units.find(unit => unit.id === s.defenderId)
+      return atk && def && (bestKillChance < 0.5 || killChance(atk, def, s.raisedStrikeNumber) >= Math.min(0.9, bestKillChance - 0.05))
     })
     if (candidates.length > 0) {
       candidates.sort((a, b) => {
