@@ -25,6 +25,7 @@ import { strikeExpectations } from './battleProbability'
 import { sampleBattleChoices, strikeRolloutOptions, type BattleRolloutOptions, type BattleRolloutWork } from './battleRollout'
 import { difficultyForPlayer } from './difficulty'
 import { battlePlannerOptions, legalEnemyResponse, NORMAL_BATTLE_PLANNER, type BattlePlannerOptions } from './battleResponse'
+import { searchBattleDeployment, type BattleDeploymentOptions, type DeploymentResult } from './battleDeployment'
 import type { BattleState, BattleUnit, GameCommand, GameState } from '../engine/types'
 import {
   RATIO_DRAW,
@@ -817,6 +818,8 @@ export function allCanStillEnter(
 export interface BattleTacticalOptions extends Partial<BattlePlannerOptions> {
   /** Hard-only local sampled search; false uses the Normal core unless explicitly overridden. */
   rollout?: false | Partial<BattleRolloutOptions>
+  /** Hard-only complete initial entry formations; separate from combat rollouts. */
+  deployment?: false | Partial<BattleDeploymentOptions>
 }
 
 export interface BattlePlanningWork { responseNodes: number; safetyNodes: number; safetyExhausted: boolean; candidatesEvaluated: number; exhausted: boolean }
@@ -825,6 +828,11 @@ export interface BattlePlanResult {
   normalControlWork?: BattlePlanningWork
   command: GameCommand
   work: BattlePlanningWork
+}
+
+function battleResponseWeight(battle: BattleState, asAttacker: boolean): number {
+  const heat = battleClockHeat(battle)
+  return asAttacker ? Math.max(0.1, 0.5 - 0.35 * heat - 0.2 * attackerPreReinforceUrgency(battle)) : 0.65 + 0.35 * heat
 }
 
 function searchBattleManeuver(state: GameState, battle: BattleState, profile: AiProfile,
@@ -909,10 +917,7 @@ function searchBattleManeuver(state: GameState, battle: BattleState, profile: Ai
     work.candidatesEvaluated++
     // Whole-position response cost notices a move that releases an enemy from a
     // screen or blocks a friendly ranged line, rather than scoring only the mover.
-    const heat = battleClockHeat(battle), asAttacker = actingAsAttacker(state, battle)
-    const responseWeight = asAttacker
-      ? Math.max(0.1, 0.5 - 0.35 * heat - 0.2 * attackerPreReinforceUrgency(battle))
-      : 0.65 + 0.35 * heat
+    const responseWeight = battleResponseWeight(battle, actingAsAttacker(state, battle))
     const score = positionScore - reply.loss * profile.fightLossPenalty * responseWeight - reply.titanRisk * 10000
     if (collect && !reply.titanDoomed) alternatives.push({ command: move ? { type: 'battleMove', unitId: move.unitId, toHex: move.toHex } : hold,
       score, titanRisk: reply.titanRisk })
@@ -959,6 +964,44 @@ function planManeuverWithRollouts(state: GameState, battle: BattleState, profile
 export function planBattleManeuver(state: GameState, battle: BattleState, profile: AiProfile,
   options: BattleTacticalOptions = {}): BattlePlanResult {
   return planManeuverWithRollouts(state, battle, profile, rankBattleMoves(state, battle, profile), options)
+}
+
+function planInitialEntry(state: GameState, battle: BattleState, profile: AiProfile,
+  control: GameCommand, ranked: ScoredBattleMove[], options: BattleTacticalOptions): DeploymentResult {
+  const enabled = difficultyForPlayer(state, battle.activePlayerId).id === 'hard' && options.deployment !== false
+  if (!enabled) return { command: control, plan: [], baselinePlan: [], score: null, baselineScore: null,
+    work: { nodes: 0, legalQueries: 0, completeFormations: 0, responseNodes: 0, entrySafetyChecks: 0, baselineMoves: 0, reachedDepth: 0,
+      exhausted: false, usedPlan: false, changedDecision: false, reason: 'unsupported' } }
+  const placement = new Map(ranked.map(move => [move.unitId + ':' + move.toHex, move.score -
+    formationScore(state, battle, battle.units.find(unit => unit.id === move.unitId)!, move.toHex)]))
+  return searchBattleDeployment(state, battle, control, {
+    normal: sim => pickBestBattleMove(state, sim, profile, () => 0, { ...options, deployment: false }),
+    canFinishAfter: command => allCanStillEnter(state, battle, command.unitId, command.toHex),
+    placementScore: (unitId, hex) => {
+      const score = placement.get(unitId + ':' + hex)
+      if (score === undefined) throw new Error('Deployment generated a destination absent from initial legal moves')
+      return score
+    },
+    formationScore: sim => sim.units.filter(unit => unit.playerId === sim.activePlayerId && unit.hex && isUnitAlive(state, unit))
+      .reduce((sum, unit) => sum + formationScore(state, sim, unit, unit.hex!), 0),
+    completeScore: (sim, budget) => {
+      let score = 0
+      for (const unit of sim.units) if (unit.playerId === sim.activePlayerId && unit.hex && isUnitAlive(state, unit)) {
+        score += evaluateBattleHexInPlace(state, sim, unit, unit.hex, profile)
+      }
+      const reply = legalEnemyResponse(state, sim, budget, unit => ownKeepValue(state, sim, unit, profile))
+      return { score: reply.titanDoomed ? -Infinity : score - reply.loss * profile.fightLossPenalty *
+        battleResponseWeight(sim, actingAsAttacker(state, sim)) - reply.titanRisk * 10000,
+      titanRisk: reply.titanRisk, complete: reply.complete }
+    },
+  }, options.deployment || {})
+}
+
+/** Diagnostic adapter; the live picker computes the unchanged Normal root once. */
+export function planBattleDeployment(state: GameState, battle: BattleState, profile: AiProfile, rng: () => number,
+  options: BattleTacticalOptions = {}): DeploymentResult {
+  const control = pickBestBattleMove(state, battle, profile, rng, { ...options, deployment: false })
+  return planInitialEntry(state, battle, profile, control, rankBattleMoves(state, battle, profile), options)
 }
 
 export function pickBestBattleMove(
@@ -1013,7 +1056,9 @@ export function pickBestBattleMove(
   // Among top few near-best, slight rng for variety
   const top = pool.filter((m) => m.score >= pool[0]!.score - 0.5).slice(0, 3)
   const pick = top[Math.floor(rng() * top.length)]!
-  return { type: 'battleMove', unitId: pick.unitId, toHex: pick.toHex }
+  const control: GameCommand = { type: 'battleMove', unitId: pick.unitId, toHex: pick.toHex }
+  if (difficultyForPlayer(state, battle.activePlayerId).id !== 'hard' || options.deployment === false) return control
+  return planInitialEntry(state, battle, profile, control, ranked, options).command
 }
 
 function pickHeuristicBattleStrike(
