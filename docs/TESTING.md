@@ -279,3 +279,12 @@ Fast-forward integrated `d72cf4d1e9e22a1902e5b3275bd0ee60e9e4521d` into local `c
 - All isolated browsers/servers close in finally handlers; elevated Windows process inventory found no matching verification/browser/Vitest leftovers. Existing user-owned playtest server left running. Shared gate lock free; clean writer worktree logs copied to `.gate-logs/tokens-writer/`, worktree removed, writer branch safely deleted after ancestor check against integrated HEAD. No push/deploy.
 
 Limits: approved24 roster only; unsupported variants keep explicit classic capability fallback, and hidden creatures stay unknown. Other game rules/turn behavior are unchanged.
+
+
+## 2026-10-29 — owner-authorized merge and push
+
+Owner: “merge and push please”. Fetched origin/master, verified it remained `ccb661e95bb2bc5e653bab4ecb1f90ba221cf4d1`, and `git pull --rebase origin master` left the tested feature unchanged. Version check against origin/master passed **1.01 → 1.02**, exactly one entry. Fast-forwarded local master to verified feature tip `46f0ae806404a8f72456652c6cfab067f65d778c` and pushed successfully (`ccb661e..46f0ae8 master -> master`).
+
+Pre-push cheap gate: typecheck/build successful, **exit 2** (suite deliberately not rerun; product code unchanged since the independent 441-pass full gate above), NODE_OPTIONS1024 MB, raw `.gate-logs/merge-push-cheap/gate.log`. This is a build result, not a new full-gate claim. This following record-only commit updates the board/ledger and is pushed with the same authorization. No deployment performed.
+
+COPIES: 11→1 — shared CreaturePresentation policy remains the single revealed-creature artwork seam; this landing record changes no product code.
