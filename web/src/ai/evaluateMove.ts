@@ -394,15 +394,21 @@ export function pickBestMove(
   if (control.type === 'move' && state.legions.some((l) => l.playerId !== owner.id && l.hexLabel === control.toHex)) return control
   const controlMove = control.type === 'move' ? ranked.find((m) => m.legionId === control.legionId && m.hex === control.toHex) : undefined
   const candidates = controlMove ? [controlMove, ...ranked.filter((m) => m !== controlMove)] : ranked
-  const deeper = searchMasterMoves(state, candidates, profile, { ...options.masterLookahead, compareHold: control.type === 'doneMove' })
-  if (!deeper.best) return control // incomplete chance nodes cannot boost a candidate
+  const deeper = searchMasterMoves(state, candidates, profile, { ...options.masterLookahead,
+    compareHold: true, holdLegionId: controlMove?.legionId, stopAfterHoldImprovement: !!controlMove })
+  if (deeper.diagnostics.exhausted || deeper.diagnostics.incomplete) return control
   const comparator = controlMove
     ? deeper.candidates.find((c) => c.move === controlMove)?.expectedArmyQuality
-    : deeper.best.holdArmyQuality
-  // Require actual completed future army improvement, rather than a wider shallow
-  // score/tie adjustment. A small margin also avoids switching on numerical noise.
-  if (comparator == null || deeper.best.expectedArmyQuality <= comparator + 0.5) return control
-  const choice = deeper.best.move
+    : deeper.bestHold?.expectedArmyQuality
+  // Both legal HOLD/companion certificates and moves compete against the same
+  // completed ordinary control. Never return Done just because a stack can stay.
+  if (comparator == null) return control
+  const hold = deeper.bestHold
+  const move = deeper.best
+  if (hold && (!move || hold.expectedArmyQuality >= move.expectedArmyQuality) &&
+    hold.expectedArmyQuality > comparator + 0.5) return hold.command
+  if (!move || move.expectedArmyQuality <= comparator + 0.5) return control
+  const choice = move.move
   return { type: 'move', legionId: choice.legionId, toHex: choice.hex, teleport: choice.teleport }
 }
 

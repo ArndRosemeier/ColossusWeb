@@ -1025,7 +1025,7 @@ function findEngagements(state: GameState): { attackerId: string; defenderId: st
   return result
 }
 
-function canEndMovePhase(state: GameState): boolean {
+export function canEndMovePhase(state: GameState): boolean {
   const mine = playerLegions(state, activePlayer(state).id)
   if (state.movementRoll == null) return true
   const anyoneMoved = mine.some((l) => l.moved)

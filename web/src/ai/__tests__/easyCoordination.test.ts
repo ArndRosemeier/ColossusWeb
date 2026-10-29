@@ -6,9 +6,10 @@ import type { GameState, Legion } from '../../engine/types'
 import { AI_PROFILES } from '../profiles'
 import { AI_DIFFICULTY_CHOICES } from '../difficulty'
 import { pickAiCommand } from '../simpleAi'
-import { rankMoves } from '../evaluateMove'
+import { pickBestMove, rankMoves } from '../evaluateMove'
 import { incomingThreatScore } from '../boardSpatial'
 import { estimateBattleOutcome } from '../battleEstimate'
+import { searchMasterMoves } from '../masterLookahead'
 
 function extraLegion(state: GameState, original: Legion, id: string, hexLabel: string, types: string[], moved: boolean): Legion {
   const owner = state.players.find(player => player.id === original.playerId)!
@@ -17,7 +18,7 @@ function extraLegion(state: GameState, original: Legion, id: string, hexLabel: s
 }
 
 describe('Easy uses simpler legion coordination with shared safety', () => {
-  it.each(Object.values(AI_PROFILES))('ends quiet optional coordination after one move for $id, while Normal/Hard still grow another legion', profile => {
+  it.each(Object.values(AI_PROFILES))('keeps Easy/Normal quiet coordination while Hard takes a proven legal HOLD for $id', profile => {
     for (const level of AI_DIFFICULTY_CHOICES) {
       const state = twoPlayerGame(71), moved = state.legions[0]
       state.turnNumber = 3; state.phase = 'Move'; state.movementRoll = 3
@@ -33,11 +34,37 @@ describe('Easy uses simpler legion coordination with shared safety', () => {
       if (level.id === 'easy') {
         expect(command).toEqual({ type: 'doneMove' }); expect(next.phase).not.toBe('Move')
         expect(next.legions.find(legion => legion.id === useful.id)!.moved).toBe(false)
-      } else {
+      } else if (level.id === 'normal') {
         expect(command).toMatchObject({ type: 'move', legionId: useful.id })
         expect(next.legions.find(legion => legion.id === useful.id)!.moved).toBe(true)
+      } else {
+        // This quiet route has no current recruit. New legal two-turn HOLD can
+        // beat moving; require the complete proof, not a blanket Hard stop cap.
+        const ordinary = pickBestMove(state, profile, () => 0, true, new Set(), { masterLookahead: false })
+        expect(ordinary).toMatchObject({ type: 'move', legionId: useful.id })
+        const control = ranked.find(move => ordinary.type === 'move' && move.legionId === ordinary.legionId && move.hex === ordinary.toHex)!
+        const proof = searchMasterMoves(state, [control, ...ranked.filter(move => move !== control)], profile,
+          { compareHold: true, holdLegionId: useful.id, stopAfterHoldImprovement: true })
+        expect(proof.diagnostics.exhausted).toBe(false)
+        expect(proof.diagnostics.incomplete).toBe(false)
+        expect(proof.bestHold!.expectedArmyQuality).toBeGreaterThan(proof.candidates[0].expectedArmyQuality + 0.5)
+        expect(command).toEqual({ type: 'doneMove' })
+        expect(next.phase).not.toBe('Move')
       }
     }
+  })
+  it.each(Object.values(AI_PROFILES))('Hard still coordinates a genuinely productive second legion for $id', profile => {
+    const state = twoPlayerGame(71), moved = state.legions[0]
+    state.turnNumber = 3; state.phase = 'Move'; state.movementRoll = 3
+    state.players[0].kind = 'ai'; state.players[0].aiProfileId = profile.id; state.players[0].aiDifficultyId = 'hard'
+    moved.hexLabel = '200'; moved.moveOriginHex = '200'; moved.moved = true
+    moved.creatures = ['Titan', 'Angel', 'Centaur', 'Centaur'].map(type => ({ type, hits: 0 }))
+    const useful = extraLegion(state, moved, 'useful', '100', ['Cyclops', 'Cyclops', 'Cyclops'], false)
+    state.legions = [moved, useful]
+    const command = pickAiCommand(state, () => 0)!
+    expect(command).toMatchObject({ type: 'move', legionId: useful.id, toHex: '5' })
+    const next = dispatch(state, command)
+    expect(next.legions.find(legion => legion.id === useful.id)!.moved).toBe(true)
   })
   it.each(Object.values(AI_PROFILES))('still rescues a threatened unmoved Titan after another move for $id at every level', profile => {
     for (const level of AI_DIFFICULTY_CHOICES) {
