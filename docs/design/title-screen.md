@@ -14,6 +14,8 @@ A saved campaign appears directly below the hero with actual variant/player/turn
 
 Layout lives in separately imported `web/src/components/setup.css` with setup-only selectors. Obsolete `.setup`/`.hero`/`.brand-svg`/`.lede`/`.player-row` rules and the old hero version margin are retired from index.css. Shared legacy `.setup-panel`, lobby and button declarations remain, including in-game button/focus values; `.brand-inline` is unchanged. The new setup scopes override legacy lobby sizing/animation only while it is inside `.setup`. No body/html/font-root, board, overlay or dialog styling is changed. This redesign adds no ambient animation, and it loads no creature sprite atlases on the title screen.
 
+Independent Chrome review found that the fixed atmosphere sibling could paint its lattice over the new unpositioned campaign form. The setup shell now establishes `position: relative; z-index: 1`, placing all title content above that sibling without changing atmosphere, body or in-game stacking. This is a setup-only compositing correction.
+
 ## Approved illustration and provenance
 
 - Asset: `web/public/title-screen/colossus-landscape-v1.png`, original PNG **1983 × 793**, **2,395,586 bytes**.

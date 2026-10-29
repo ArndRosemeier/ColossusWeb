@@ -305,3 +305,6 @@ Worktree `C:\Users\windo\Documents\ChatGPT\ColossusWeb\source\worktrees\title-sc
 - All started npm/gate foreground processes ended; shared gate lock released. No push, PR or deployment. Static hero introduces no new motion, dynamic sprite fetches or external image dependency.
 
 Hooks: `.setup-hero-art`, `.setup-resume`, `.setup-workbench`, `#local-setup`, `.setup-player-row`, `#online-lobby`, `.setup-appearance`. Accessible field/action labels retained; all local/online anchor hrefs target real persistent sections. Layout/art rationale: `docs/design/title-screen.md`.
+
+
+Row 21 follow-up: independent Chrome review found the fixed atmospheric lattice painting over the unpositioned campaign form. Added only `position: relative; z-index: 1` to `.setup`; no body, atmosphere or game stacking changes. Cheap gate **exit 2**, typecheck/build successful, `.gate-logs/title-stacking-cheap/gate.log`, 1024 MB ceiling. No new test/full-suite run for this two-line CSS correction; dispatcher verifies final pixels/tree independently.

@@ -1,6 +1,8 @@
 /* Title screen only. Shared game/dialog/legacy lobby styles live in index.css. */
 .setup {
   --setup-gutter: clamp(20px, 2.8vw, 56px);
+  position: relative;
+  z-index: 1;
   width: 100%;
   min-height: 100vh;
   padding: 0 var(--setup-gutter) 24px;
