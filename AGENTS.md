@@ -69,6 +69,12 @@ The full procedure is the `apps-publish` skill; this is the binding summary.
    assets are safe; the *page* URL is not. Check `cf-cache-status` (`DYNAMIC`/`MISS` = new bytes)
    before declaring a publish live.
 
+## Owner workflow preference
+
+After requested changes are implemented and verified, automatically merge into the
+repository default branch `master` and push `origin/master`, without asking again.
+The owner explicitly requested this standing workflow on 2026-10-29.
+
 ## Versioning — every merged change bumps the version by 0.01
 
 The app's version and its in-app "What's new" list both come from ONE file,
