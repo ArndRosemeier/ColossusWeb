@@ -357,3 +357,15 @@ Worktree `C:\Users\windo\Documents\ChatGPT\ColossusWeb\source\worktrees\animated
 - Dispatcher owns fresh browser Animated, explicit saved Classic, checkbox Space-key/persistence, 360/390 navigation/no overflow, gameplay boundaries, integrated full suite and distinct negative pin. Writer ran no browser/server/full suite/differential; **VOID: none**. All started foreground npm/gate processes ended and shared gate lock released. No push or deployment; unrelated Variant14 output artifact untouched.
 
 Current hook: `input[type="checkbox"][aria-label="Animated mode"]`; `.presentation-mode-toggle` wraps it, and `.setup-preferences` groups the title control with What's new. Current design/default docs updated; historical landing/release records remain historical.
+
+
+## 2026-10-29 — independent checkbox/default verification, row23
+
+COPIES: 1 — PresentationModeToggle and presentationMode.ts remain the one shared native control/store.
+
+Integrated eff43deb7d2ce83625f82380be70d53e121d32cf into local codex/title-screen. Reviewed new checkbox, responsive grouping, coherent static/client snapshot getter, preference tests and explicit Classic seeding in unchanged SSR authority assertions. No game/save/net/art changes.
+
+- Own complete gate **exit0**, **449 passed/2todo**, **67 files passed/1skipped**,16 existing lint warnings/0errors, Vitest27.99s, one worker/NODE_OPTIONS1024MB; peak **NOT MEASURED**. `.gate-logs/dispatcher-checkbox/gate.log`.
+- Own isolated same-commit negative pin under shared lock: changed absent/invalid preference fallback back toClassic. A **6passed**, sourceSHA `2cb15793124e48e0a05915cf01aceee3076454ffce48cb4463802cad6e831a86`; B **4failed/2passed**, SHA `062ceffd7fdef2cdbf0a3b76f4a5483bc464592c9cf1d73a6697169613fd667b`, including named RED `defaults to animated and validates stored values strictly` and native checked snapshot; C **6passed**, hash identical toA. Wrapper gate0, focused cheap commandtrue. Restoretrap and same-commit writer worktree prevent mutation of user Vite tree. Logs copied to `.gate-logs/checkbox-writer/dispatcher-animated-default-differential/` and `dispatcher-default-differential-gate/`.
+- Own real Chrome fresh/invalid/blocked preference storage defaults to checked Animated; native checkbox outside collapsed details; explicit Classic survives reload; Space toggles/persists; visible at1440/768/390/360 with nooverflow. Game toolbar uses same control and artwork updates; Space never advances phase or changes save bytes. No page errors. `../output/verify-animated-checkbox.cjs`, report/screenshots `../output/animated-checkbox-verification/`.
+- Source restores exactly, shared lock free, clean writer worktree logs copied and writer branch/worktree safely retired after ancestry check. No push/deploy. Historical old select/default browser scripts describe earlier releases; current control hook is input[type=checkbox][aria-label="Animated mode"].
