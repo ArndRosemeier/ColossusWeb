@@ -518,6 +518,7 @@ button:disabled {
 
 .topbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 1rem;
   padding: 0.55rem 1.1rem;
