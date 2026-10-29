@@ -327,3 +327,16 @@ Integrated writer's initial `8ea1a20` and the measured compositing/contrast corr
 - All own browser/preview/Vite servers close in finally. Elevated Windows inventory found no matching title verifier/isolated browser/Vitest leftovers; user-owned playtest server left running. Shared lock free. Clean writer worktree logs copied to `.gate-logs/title-writer/`, worktree removed and branch deleted only after ancestor verification. No push/PR/deploy for this new feature. Existing source/master remains published animated mode1.02; new title branch adds1.03.
 
 Parallel owner-requested task: output-only generation/export of14 additional variant creatures is handled separately; it changes none of this verified product tree or the approved standard24.
+
+
+## 2026-10-29 — independent output verification, variant studies row22
+
+Parallel author delivered14 new variant creatures,42 atlases,84 state GIFs and336 timeline slots. Product source/registry and approved standard24 were read-only; no product gate rerun is claimed for output artifacts.
+
+- Independent `../output/verify-variant-assets.py` derives the exact14-name set from shipped variant metadata minus the standard roster; checks1024×512 atlases, eight valid durations/state, every cell nonblank and each state containing changing frames, at least8px safe margins (actual minimum **24px**), correct GIF total durations, and **all72 existing atlases byte-identical** to approved inputs. Report `../output/variant-independent-audit.json`.
+- Independent actual Chrome `../output/verify-variant-gallery.cjs` steps all **336 timeline slots**, examining **672 full/counter canvas views**. All nonblank, **zero external network requests**, **zero page errors**, no390px horizontal overflow. Report `../output/variant-independent-gallery.json`. Isolated browser closed in finally, Node ceiling1024MB/Chrome512MB. Author's own atlas/browser/control audit also retained in collection QA.md and JSON files.
+- Visual overview inspected. Original nominal Wraith sheet crossed its256px row boundary; author had already caught it, selected measured white-gutter source boxes (first [0,0,264,282]), and final packaged figures retain complete tails. All final cells independently meet margins. Explicit holds/resequencing omit contacting source poses rather than painting/warping limbs. Knight supporting-source exception and targeted revisions are documented.
+
+Offline gallery and65.4MiB zip are under `../output/variant-creature-collection` and `../output/variant-titan-creatures-full-color.zip`. Runtime integration remains pending; this satisfies the parallel creation request with reviewable assets. Complete built-in image_gen initial/revision prompts are supplied with the collection. No CLI/API-key fallback and no deployment.
+
+COPIES: 1 — reuses the existing approved whole-frame asset production/export method; no new product seam.
