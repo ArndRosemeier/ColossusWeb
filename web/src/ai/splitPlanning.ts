@@ -1,7 +1,7 @@
 /** One bounded, deterministic HOLD-versus-split decision. No game-state mutation. */
-import { listMovePreview } from '../engine/movement'
+import { listAllMoves, listMovePreview } from '../engine/movement'
 import { compositionDevelopmentValue, intrinsicMusterValue, listRecruitOptionsAt, scoreRecruitOption } from '../engine/recruit'
-import type { GameState, Legion } from '../engine/types'
+import type { GameCommand, GameState, Legion } from '../engine/types'
 import { buildSpatialCache, incomingThreatScore, type SpatialCache } from './boardSpatial'
 import { estimateBattleOutcome, legionPointValue } from './battleEstimate'
 import { chooseCreaturesToSplitOut } from './splitChoice'
@@ -48,8 +48,8 @@ export function jointSplitGrowth(state: GameState, parent: Legion, parentHex: st
   child: Legion, childHex: string,
 ): number {
   const none = { type: '', value: 0 }
-  const parents = parentHex === parent.hexLabel ? [none] : [none, ...growthOptions(state, parent, parentHex)]
-  const children = childHex === child.hexLabel ? [none] : [none, ...growthOptions(state, child, childHex)]
+  const parents = !parent.moved && parentHex === parent.hexLabel ? [none] : [none, ...growthOptions(state, parent, parentHex)]
+  const children = !child.moved && childHex === child.hexLabel ? [none] : [none, ...growthOptions(state, child, childHex)]
   let best = 0
   for (const p of parents) for (const c of children) {
     if (p.type && p.type === c.type && (state.caretaker[p.type] ?? 0) < 2) continue
@@ -62,14 +62,162 @@ function pairState(state: GameState, parent: Legion, child: Legion): GameState {
   return { ...state, legions: [...state.legions.map((l) => l.id === parent.id ? parent : l), child] }
 }
 
-function safeAt(state: GameState, legion: Legion, hex: string, cache: SpatialCache): boolean {
+type MoveCommand = Extract<GameCommand, { type: 'move' }>
+type JointRoute = { steps: MoveCommand[]; parent: Legion; child: Legion; growth: number }
+type SearchContext = { cache: SpatialCache; plans: number; queries: number; maxPlans: number; exhausted: boolean }
+
+function positionRisk(state: GameState, legion: Legion, cache: SpatialCache): { safe: boolean; loss: number } {
+  const pv = Math.max(1, legionPointValue(state, legion))
+  let losingFight = false
   for (const enemy of state.legions) {
-    if (enemy.playerId === legion.playerId || enemy.hexLabel !== hex) continue
-    // A merely even fight is not a conservative survival plan for a split child.
-    if (estimateBattleOutcome(state, legion, enemy, hex).ratio < 1.3) return false
+    if (enemy.playerId === legion.playerId || enemy.hexLabel !== legion.hexLabel) continue
+    if (estimateBattleOutcome(state, legion, enemy, legion.hexLabel).ratio < 1.3) losingFight = true
   }
-  // Even one roll of overwhelming incoming danger matters. Titan's multiplier is higher.
-  return incomingThreatScore(state, legion, hex, cache) <= Math.max(1, legionPointValue(state, legion)) * 0.2
+  const incoming = incomingThreatScore(state, legion, legion.hexLabel, cache)
+  return { safe: !losingFight && incoming <= pv * 0.2,
+    loss: incoming + (losingFight ? pv * (legion.creatures.some((c) => c.type === 'Titan') ? 1000 : 10) : 0) }
+}
+
+function safeAt(state: GameState, legion: Legion, hex: string, cache: SpatialCache): boolean {
+  const ghost = { ...legion, hexLabel: hex }
+  return positionRisk({ ...state, legions: state.legions.map((l) => l.id === ghost.id ? ghost : l) }, ghost, cache).safe
+}
+
+/** Projection follows an engine-provided move. Legal routes/teleport eligibility are
+ * always recomputed after the first move, never inferred from two independent lists.
+ */
+function afterMove(state: GameState, legion: Legion, command: MoveCommand): GameState {
+  const moved = { ...legion, hexLabel: command.toHex, moved: true, teleported: !!command.teleport }
+  return { ...state, legions: state.legions.map((l) => l.id === legion.id ? moved : l),
+    players: state.players.map((p) => p.id === legion.playerId && command.teleport ? { ...p, hasTeleported: true } : p) }
+}
+
+function routeChoices(state: GameState, piece: Legion, roll: number, limit: number, ctx: SearchContext): MoveCommand[] {
+  if (piece.moved) return []
+  ctx.queries++
+  return [...listAllMoves(state, piece, roll)].map(([hex, info]) => ({ command:
+    { type: 'move' as const, legionId: piece.id, toHex: hex, teleport: info.teleport },
+    growth: Math.max(0, ...growthOptions(state, piece, hex).map((o) => o.value)) }))
+    .sort((a, b) => b.growth - a.growth).slice(0, limit).map((o) => o.command)
+}
+
+/** Shared search for split approval AND execution/continuation. Moved pieces are fixed. */
+function jointRoutes(state: GameState, parent: Legion, child: Legion, roll: number,
+  limit: number, ctx: SearchContext,
+): JointRoute[] {
+  const routes: JointRoute[] = []
+  const add = (projected: GameState, steps: MoveCommand[]) => {
+    const p = projected.legions.find((l) => l.id === parent.id)!
+    const c = projected.legions.find((l) => l.id === child.id)!
+    if (p.hexLabel === c.hexLabel) return
+    routes.push({ steps, parent: p, child: c,
+      growth: jointSplitGrowth(state, parent, p.hexLabel, child, c.hexLabel) })
+  }
+  // Staying is a real option after the other piece has separated.
+  add(state, [])
+  for (const [first, second] of [[parent, child], [child, parent]]) {
+    for (const command of routeChoices(state, first, roll, limit, ctx)) {
+      const next = afterMove(state, first, command)
+      add(next, [command])
+      for (const continuation of routeChoices(next, second, roll, limit, ctx)) {
+        add(afterMove(next, second, continuation), [command, continuation])
+      }
+    }
+  }
+  return routes.sort((a, b) => b.growth - a.growth || a.steps.length - b.steps.length)
+}
+
+function routeRisk(state: GameState, route: JointRoute, ctx: SearchContext): { safe: boolean; loss: number } {
+  const projected = { ...state, legions: state.legions.map((l) =>
+    l.id === route.parent.id ? route.parent : l.id === route.child.id ? route.child : l) }
+  const parentRisk = positionRisk(projected, route.parent, ctx.cache)
+  const childRisk = positionRisk(projected, route.child, ctx.cache)
+  return { safe: parentRisk.safe && childRisk.safe, loss: parentRisk.loss + childRisk.loss }
+}
+
+function safeJointRoute(state: GameState, parent: Legion, child: Legion, roll: number,
+  limit: number, ctx: SearchContext,
+): JointRoute | null {
+  for (const route of jointRoutes(state, parent, child, roll, limit, ctx)) {
+    if (ctx.plans >= ctx.maxPlans) { ctx.exhausted = true; return null }
+    ctx.plans++
+    if (routeRisk(state, route, ctx).safe) return route
+  }
+  return null
+}
+
+/** Existing moveOriginHex survives beginMovePhase clearing splitParentId. */
+function splitMoveGroups(state: GameState): Legion[][] {
+  const owner = state.players[state.activePlayerIndex].id
+  const groups = new Map<string, Legion[]>()
+  for (const legion of state.legions.filter((l) => l.playerId === owner)) {
+    const key = legion.moveOriginHex ?? legion.hexLabel
+    const group = groups.get(key) ?? []
+    group.push(legion)
+    groups.set(key, group)
+  }
+  return [...groups.values()].filter((group) => group.length === 2 && group.some((l) => !l.moved))
+    .sort((a, b) => Number(b[0].hexLabel === b[1].hexLabel) - Number(a[0].hexLabel === a[1].hexLabel))
+}
+
+export interface SplitMovePolicy {
+  command: MoveCommand | null
+  heldLegionIds: string[]
+  status: 'none' | 'safe' | 'least-loss'
+}
+
+/** No hidden saved plan: recompute from actual occupancy, actual roll and used teleport.
+ * An already-moved sibling is fixed; safe HOLDs are excluded from later generic RNG.
+ * Changed-state/forced-opening failure is explicit: least-loss evaluated LEGAL route,
+ * with Titan loss dominating growth. It is not falsely labeled a safe continuation.
+ */
+export function splitMovePolicy(state: GameState, budget: SplitPlanningBudget = {}): SplitMovePolicy {
+  const result: SplitMovePolicy = { command: null, heldLegionIds: [], status: 'none' }
+  if (state.phase !== 'Move' || state.movementRoll == null) return result
+  const limits = planningLimits(budget)
+  const groups = splitMoveGroups(state)
+  if (groups.length === 0) return result
+  const ctx: SearchContext = { cache: buildSpatialCache(state), plans: 0, queries: 0,
+    maxPlans: limits.maxPlans, exhausted: false }
+  for (const group of groups) {
+    const route = safeJointRoute(state, group[0], group[1], state.movementRoll, limits.destinations, ctx)
+    if (route) {
+      result.status = 'safe'
+      if (route.steps.length) { result.command = route.steps[0]; return result }
+      result.heldLegionIds.push(...group.filter((l) => !l.moved).map((l) => l.id))
+      continue
+    }
+    // Evaluate every legal single leave as well: a bounded growth beam must not
+    // produce illegal Done while an unseparated group can walk. No engine delay.
+    const fallback = jointRoutes(state, group[0], group[1], state.movementRoll, limits.destinations, ctx)
+    for (const first of group.filter((l) => !l.moved)) {
+      const second = group.find((l) => l.id !== first.id)!
+      for (const command of routeChoices(state, first, state.movementRoll, Infinity, ctx)) {
+        const projected = afterMove(state, first, command)
+        const moved = projected.legions.find((l) => l.id === first.id)!
+        if (moved.hexLabel === second.hexLabel) continue
+        fallback.push({ steps: [command], parent: first.id === group[0].id ? moved : second,
+          child: first.id === group[0].id ? second : moved, growth: 0 })
+      }
+    }
+    const scoredFallback = fallback.map((route) => ({ route, loss: routeRisk(state, route, ctx).loss }))
+      .sort((a, b) => a.loss - b.loss || b.route.growth - a.route.growth)
+    const leastLoss = scoredFallback[0]?.route
+    result.status = 'least-loss'
+    if (leastLoss?.steps.length) { result.command = leastLoss.steps[0]; return result }
+    result.heldLegionIds.push(...group.filter((l) => !l.moved).map((l) => l.id))
+  }
+  return result
+}
+
+function planningLimits(budget: SplitPlanningBudget): { maxPlans: number; destinations: number } {
+  const maxPlans = budget.maxPlans ?? 1024
+  const destinations = budget.destinationsPerRoll ?? 4
+  if (!Number.isInteger(maxPlans) || maxPlans < 1 || maxPlans > 8192 ||
+    !Number.isInteger(destinations) || destinations < 1 || destinations > 12) {
+    throw new Error('Invalid split planning budget')
+  }
+  return { maxPlans, destinations }
 }
 
 /** Unique legal two-creature multisets, with the composition-preserving choice first. */
@@ -94,12 +242,7 @@ function candidatesFor(state: GameState, legion: Legion): string[][] {
 export function planOptionalSplit(state: GameState, legion: Legion, profile: AiProfile,
   budget: SplitPlanningBudget = {},
 ): SplitPlan {
-  const maxPlans = budget.maxPlans ?? 1024
-  const destinations = budget.destinationsPerRoll ?? 4
-  if (!Number.isInteger(maxPlans) || maxPlans < 1 || maxPlans > 8192 ||
-    !Number.isInteger(destinations) || destinations < 1 || destinations > 12) {
-    throw new Error('Invalid split planning budget')
-  }
+  const { maxPlans, destinations } = planningLimits(budget)
   const result: SplitPlan = { childCreatures: null, score: 0, holdScore: 0,
     candidates: 0, plans: 0, exhausted: false, movementQueries: 0 }
   if (legion.creatures.length !== 7 || legion.splitThisTurn || state.turnNumber === 1) return result
@@ -107,18 +250,15 @@ export function planOptionalSplit(state: GameState, legion: Legion, profile: AiP
     if (!state.variant.creatures[c.type]) throw new Error(`Unknown split creature: ${c.type}`)
   }
   const cache = buildSpatialCache(state)
-  let previewQueries = 0
-  const moves = (position: GameState, piece: Legion, roll: number) => {
-    previewQueries++
-    return listMovePreview(position, piece, roll)
-  }
+  const ctx: SearchContext = { cache, plans: 0, queries: 0, maxPlans, exhausted: false }
   // HOLD retains the original composition and may stay while another legion moves.
   // Only actual legal endpoints compete with that baseline, never imaginary open exits.
   for (let roll = 1; roll <= 6; roll++) {
     let risk = incomingThreatScore(state, legion, legion.hexLabel, cache)
-    for (const [hex] of moves(state, legion, roll)) {
+    for (const [hex] of listMovePreview(state, legion, roll)) {
       if (safeAt(state, legion, hex, cache)) { risk = 0; break }
     }
+    ctx.queries++
     result.holdScore -= risk / 6
   }
   result.score = result.holdScore
@@ -130,39 +270,16 @@ export function planOptionalSplit(state: GameState, legion: Legion, profile: AiP
     const parent: Legion = { ...legion, creatures: remaining, moved: false, splitThisTurn: true }
     const child: Legion = { ...legion, id: `${legion.id}:split-plan`, creatures: childCreatures,
       moved: false, splitThisTurn: false, splitParentId: legion.id }
-    const split = pairState(state, parent, child)
+    const split = { ...pairState(state, parent, child), players: state.players.map((p) =>
+      p.id === parent.playerId ? { ...p, hasTeleported: false } : p) }
     let growth = 0
     let complete = true
     for (let roll = 1; roll <= 6; roll++) {
-      // Both pieces may stay only if they recombine, which is HOLD, not growth.
-      const choices = (piece: Legion) => [{ hex: piece.hexLabel, growth: 0, teleport: false },
-        ...[...moves(split, piece, roll)].map(([hex, info]) =>
-          ({ hex, growth: Math.max(0, ...growthOptions(split, piece, hex).map((o) => o.value)), teleport: info.teleport }))
-          .sort((a, b) => b.growth - a.growth).slice(0, destinations)]
-      const parentChoices = choices(parent)
-      const childChoices = choices(child)
-      const plans = parentChoices.flatMap((p) => childChoices
-        .filter((c) => c.hex !== p.hex && !(c.teleport && p.teleport))
-        .map((c) => ({ p, c, growth: jointSplitGrowth(split, parent, p.hex, child, c.hex) })))
-        .sort((a, b) => b.growth - a.growth)
-      let safeGrowth: number | null = null
-      for (const plan of plans) {
-        if (result.plans >= maxPlans) { complete = false; result.exhausted = true; break }
-        result.plans++
-        const p = { ...parent, hexLabel: plan.p.hex }
-        const c = { ...child, hexLabel: plan.c.hex }
-        const projected = pairState(state, p, c)
-        if (!safeAt(projected, p, p.hexLabel, cache) || !safeAt(projected, c, c.hexLabel, cache)) continue
-        safeGrowth = plan.growth
-        break
-      }
-      if (!complete) break
-      // Optional splitting must not purchase growth with a forced loss on ANY roll,
-      // especially a Titan loss. HOLD is available before committing the split.
-      if (safeGrowth == null) { complete = false; break }
-      growth += safeGrowth / 6
+      const route = safeJointRoute(split, parent, child, roll, destinations, ctx)
+      if (!route) { complete = false; break }
+      growth += route.growth / 6
     }
-    if (result.exhausted) break
+    if (ctx.exhausted) break
     if (!complete || growth <= 0) continue
     const developmentLoss = Math.max(0, originalDevelopment -
       compositionDevelopmentValue(state, counts(parent)) - compositionDevelopmentValue(state, counts(child)))
@@ -170,6 +287,8 @@ export function planOptionalSplit(state: GameState, legion: Legion, profile: AiP
     const score = growth * profile.recruitPreference - developmentLoss * 1.5 - investment * 0.15
     if (score > result.score + 1) { result.score = score; result.childCreatures = childTypes }
   }
-  result.movementQueries = cache.movementQueries + previewQueries
+  result.plans = ctx.plans
+  result.exhausted = ctx.exhausted
+  result.movementQueries = cache.movementQueries + ctx.queries
   return result
 }

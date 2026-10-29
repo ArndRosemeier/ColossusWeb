@@ -6,8 +6,9 @@ import { bestRecruitAt, compositionDevelopmentValue, listAvailableDevelopmentEdg
 import { twoPlayerGame } from '../../engine/__tests__/helpers'
 import type { GameState, Legion } from '../../engine/types'
 import { pickAiCommand } from '../simpleAi'
+import { pickBestMove, immediateHexValue } from '../evaluateMove'
 import { AI_PROFILES } from '../profiles'
-import { jointSplitGrowth, planOptionalSplit } from '../splitPlanning'
+import { jointSplitGrowth, planOptionalSplit, splitMovePolicy } from '../splitPlanning'
 import { chooseCreaturesToSplitOut } from '../splitChoice'
 import { buildSpatialCache, incomingThreatScore } from '../boardSpatial'
 import { creatureCombatValue, findBestBattleReinforce, findBestSummonable, legionCombatValue } from '../legionStrength'
@@ -232,5 +233,96 @@ describe('executable battle support policy', () => {
     donor.creatures = ['Angel', 'Titan'].map((type) => ({ type, hits: 0 }))
     expect(findBestSummonable(state, own)).toBeNull()
     expect(pickAiCommand(state)).toEqual({ type: 'battleSkipSummon' })
+  })
+})
+
+
+describe('split approval executes through the same joint survival policy', () => {
+  it.each(Object.values(AI_PROFILES))('executes safe productive split rolls without stranding or later random danger for $id', (profile) => {
+    for (let roll = 1; roll <= 6; roll++) {
+      const { state, own } = position(['Titan', 'Cyclops', 'Cyclops', 'Cyclops', 'Lion', 'Ogre', 'Ogre'], '100')
+      state.legions = [own]
+      state.players[0].aiProfileId = profile.id
+      const split = pickAiCommand(state, () => 0.5)!
+      expect(split.type).toBe('split')
+      let next = dispatch(dispatch(state, split), { type: 'doneSplit' }, () => (roll - 0.5) / 6)
+      expect(next.movementRoll).toBe(roll)
+      let commands = 0
+      while (next.phase === 'Move' && commands++ < 4) {
+        const before = JSON.stringify(next)
+        const command = pickAiCommand(next, () => 0.5)!
+        expect(pickAiCommand(next, () => 0.5)).toEqual(command)
+        expect(JSON.stringify(next)).toBe(before)
+        next = dispatch(next, command)
+      }
+      expect(next.phase).not.toBe('Move')
+      const pieces = next.legions.filter((l) => l.playerId === own.playerId)
+      expect(pieces).toHaveLength(2)
+      expect(new Set(pieces.map((l) => l.hexLabel)).size).toBe(2)
+      expect(pieces.some((l) => l.moved)).toBe(true)
+      expect(pieces.filter((l) => l.teleported).length).toBeLessThanOrEqual(1)
+    }
+  })
+
+  it('keeps the remaining child safe instead of taking the profitable but threatened Plains bait', () => {
+    const { state, own, enemy } = position(['Titan', 'Cyclops', 'Cyclops', 'Cyclops', 'Lion', 'Ogre', 'Ogre'], '100')
+    enemy.hexLabel = '37'
+    enemy.creatures = ['Hydra', 'Hydra', 'Hydra'].map((type) => ({ type, hits: 0 }))
+    const split = pickAiCommand(state, () => 0.5)!
+    expect(split.type).toBe('split')
+    let next = dispatch(dispatch(state, split), { type: 'doneSplit' }, () => (3 - 0.5) / 6)
+    const first = pickAiCommand(next, () => 0.5)!
+    expect(first).toMatchObject({ type: 'move', legionId: own.id, toHex: '5' })
+    next = dispatch(next, first)
+    const child = next.legions.find((l) => l.playerId === own.playerId && l.id !== own.id)!
+    expect(child.creatures.map((c) => c.type)).toEqual(['Lion', 'Ogre'])
+    // Generic movement really is lured by this destination; it must not see the held child.
+    expect(pickBestMove(next, AI_PROFILES.balanced, () => 0.5, true)).toMatchObject({ type: 'move', legionId: child.id, toHex: '1' })
+    expect(immediateHexValue(next, child, '1', AI_PROFILES.balanced)).toBeGreaterThan(0)
+    const bait = { ...next, legions: next.legions.map((l) => l.id === child.id ? { ...l, hexLabel: '1' } : l) }
+    expect([1, 2, 3, 4, 5, 6].filter((roll) => listMovePreview(bait, enemy, roll).has('1'))).toHaveLength(5)
+    expect(splitMovePolicy(next)).toMatchObject({ command: null, status: 'safe', heldLegionIds: [child.id] })
+    expect(pickAiCommand(next, () => 0.5)).toEqual({ type: 'doneMove' })
+    const finished = dispatch(next, pickAiCommand(next, () => 0.5)!)
+    expect(finished.legions.find((l) => l.id === child.id)!.hexLabel).toBe('100')
+    expect(finished.legions).toHaveLength(3)
+    expect(finished.phase).not.toBe('Move')
+  })
+
+  it('respects actual moved-piece occupancy and a teleport already consumed by its sibling', () => {
+    const initial = twoPlayerGame(2)
+    initial.players[0].kind = 'ai'
+    let next = dispatch(dispatch(initial, pickAiCommand(initial, () => 0.5)!), { type: 'doneSplit' }, () => 0.99)
+    const pieces = next.legions.filter((l) => l.playerId === next.players[0].id)
+    const first = pieces[0]
+    const teleport = [...listMovePreview(next, first, 6)].find(([, info]) => info.teleport)!
+    next = dispatch(next, { type: 'move', legionId: first.id, toHex: teleport[0], teleport: true })
+    expect(next.players[0].hasTeleported).toBe(true)
+    const command = pickAiCommand(next, () => 0.5)!
+    if (command.type === 'move') {
+      expect(command.legionId).toBe(pieces[1].id)
+      expect(command.teleport).toBe(false)
+    }
+    expect(() => dispatch(next, command)).not.toThrow()
+    expect(next.legions.find((l) => l.id === first.id)!.hexLabel).toBe(teleport[0])
+  })
+
+  it('uses an explicit legal least-loss separation when actual occupancy changes after approval', () => {
+    const { state, own, enemy } = position(['Titan', 'Cyclops', 'Cyclops', 'Cyclops', 'Lion', 'Ogre', 'Ogre'], '4')
+    state.legions = [own]
+    const split = pickAiCommand(state, () => 0.5)!
+    expect(split.type).toBe('split')
+    let next = dispatch(dispatch(state, split), { type: 'doneSplit' }, () => (3 - 0.5) / 6)
+    // An adopted/replaced position can invalidate the original proof. No saved plan is trusted.
+    next.legions.push({ ...enemy, hexLabel: '103', creatures: Array.from({ length: 7 }, () => ({ type: 'Hydra', hits: 0 })) })
+    const policy = splitMovePolicy(next)
+    expect(policy.status).toBe('least-loss')
+    expect(policy.command).toMatchObject({ type: 'move', toHex: '103' })
+    expect(policy.command!.legionId).not.toBe(own.id) // preserve Titan when loss is unavoidable
+    expect(pickAiCommand(next, () => 0.5)).toEqual(policy.command)
+    next = dispatch(next, policy.command!)
+    expect(new Set(next.legions.filter((l) => l.playerId === own.playerId).map((l) => l.hexLabel)).size).toBe(2)
+    expect(pickAiCommand(next, () => 0.5)).toEqual({ type: 'doneMove' })
+    expect(dispatch(next, { type: 'doneMove' }).phase).not.toBe('Move')
   })
 })

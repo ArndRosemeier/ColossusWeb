@@ -17,7 +17,7 @@ import {
 } from './evaluateBattle'
 import { creatureCombatValue } from './legionStrength'
 import { chooseCreaturesToSplitOut, chooseOpeningSplit } from './splitChoice'
-import { planOptionalSplit } from './splitPlanning'
+import { planOptionalSplit, splitMovePolicy } from './splitPlanning'
 import { planReinforcement, planSummon } from './supportPlanning'
 
 function actingPlayer(state: GameState) {
@@ -131,7 +131,9 @@ function pickMove(state: GameState, profile: AiProfile, rng: () => number): Game
   if (state.movementRoll == null) return { type: 'doneMove' }
   const playerId = state.players[state.activePlayerIndex].id
   const anyMoved = playerLegions(state, playerId).some((l) => l.moved)
-  return pickBestMove(state, profile, rng, anyMoved)
+  const splitPolicy = splitMovePolicy(state)
+  if (splitPolicy.command) return splitPolicy.command
+  return pickBestMove(state, profile, rng, anyMoved, new Set(splitPolicy.heldLegionIds))
 }
 
 function pickFight(state: GameState, profile: AiProfile, rng: () => number): GameCommand | null {
