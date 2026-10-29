@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.07",
+    "date": "2026-10-29",
+    "changes": [
+      "Animated mode now celebrates a new winner with their colors, a victory card and brief confetti. Reduced motion keeps the card still."
+    ]
+  },
+  {
     "version": "1.06",
     "date": "2026-10-29",
     "changes": [

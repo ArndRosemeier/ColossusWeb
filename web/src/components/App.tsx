@@ -56,7 +56,10 @@ import { PresentationModeToggle } from './PresentationModeToggle'
 import { CreatureAssetErrorContext } from '../ui/creaturePresentation'
 import { BackgroundAtmosphereSelect } from './BackgroundAtmosphere'
 import { CuedBadge } from './CuedBadge'
-import { useBattleCamera, type BattleCameraObserver } from '../ui/useBattleCamera'
+import { useBattleCamera } from '../ui/useBattleCamera'
+import type { GamePresentationObserver } from '../ui/gamePresentation'
+import { useVictoryCelebration } from '../ui/useVictoryCelebration'
+import { VictoryCelebration } from './VictoryCelebration'
 import { MultiplayerStatus } from './MultiplayerStatus'
 import { SetupScreen } from './SetupScreen'
 
@@ -109,7 +112,8 @@ export default function App() {
   /** The game state as of NOW, so a command never acts on a stale render. */
   const stateRef = useRef<GameState | null>(null)
   const variantRef = useRef<LoadedVariant | null>(null)
-  const cameraObserverRef = useRef<BattleCameraObserver | null>(null)
+  const presentationObserverRef = useRef<GamePresentationObserver | null>(null)
+  const newGameButtonRef = useRef<HTMLButtonElement>(null)
 
   /**
    * The ONE writer of the game state. Everything — a local command, an adopted
@@ -117,7 +121,7 @@ export default function App() {
    * single commit path below is the only caller that can also publish.
    */
   const putState = useCallback((next: GameState | null, replacement = false) => {
-    cameraObserverRef.current?.(stateRef.current, next, replacement)
+    presentationObserverRef.current?.(stateRef.current, next, replacement)
     stateRef.current = next
     setState(next)
   }, [])
@@ -410,7 +414,11 @@ export default function App() {
   )
 
   const battleCamera = useBattleCamera(state, notify)
-  cameraObserverRef.current = battleCamera.observe
+  const victory = useVictoryCelebration(state, battleCamera.active, notify)
+  presentationObserverRef.current = (previous, next, replacement) => {
+    battleCamera.observe(previous, next, replacement)
+    victory.observe(previous, next, replacement)
+  }
 
   // Paced AI autoplay — blocked while a physical throw is pending, and NEVER on
   // in a multiplayer game (those seats are human; a client-driven AI would
@@ -744,6 +752,7 @@ export default function App() {
         <button
           type="button"
           className="ghost"
+          ref={newGameButtonRef}
           onClick={() => {
             if (online) void session.leave()
             stopOnline()
@@ -801,6 +810,8 @@ export default function App() {
           myPlayerId={myPlayerId}
         />
       </main>
+      {victory.celebration && <VictoryCelebration key={victory.celebration.id} celebrationId={victory.celebration.id}
+        winner={victory.celebration.winner} onDismiss={victory.dismiss} onError={notify} returnFocusRef={newGameButtonRef} />}
     </div>
     </CreatureAssetErrorContext.Provider>
   )

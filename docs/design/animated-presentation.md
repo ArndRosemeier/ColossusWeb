@@ -90,3 +90,9 @@ COPIES: 3→1 — MarkerArtwork carries Animated HTML/standing/moving legion art
 Animated mode now observes the visible main-board/battle boundary once at App.putState, capturing the already-rendered outgoing SVG and the actual incoming board after its immediate state commit. An820ms camera zooms/turns into the contested hex and crossfades to battle, then reverses to the updated same location at battle end. Snapshot annotations dissolve early and return late; actual controls/state are never delayed. Classic remains instant, reduced motion uses a150ms opacity-only fade, live preference/viewport/teardown changes cancel. Direct active-battle loads and fully coalesced encounters have no invented source. Safe inert SVG snapshots preserve revealed art/unique definitions and use no new assets or rasterized HTML. Failures use the existing local notice surface, including after a win/draw. Full design, hooks and limitations: [battle-camera.md](battle-camera.md).
 
 COPIES: 1 — checked, no duplication (App.putState / local and remote commit setters); useBattleCamera is the shared boundary observer, not a command-specific animation path.
+
+## Fresh winner celebration — row32
+
+Animated mode now celebrates a fresh authoritative winner with a native dismissible color/name/score card and one bounded confetti burst. Classic retains its original message; reduced motion keeps a still card. One App presentation fanout supplies camera and winner observers, and actual camera active/finish/cancel lifetime gates the victory panel without another timer or delayed game commit. Finished loads, duplicates, mode enable and draws do not replay; dismissal restores the normal final board/header. Full event/accessibility/cleanup design and hooks: [victory-celebration.md](victory-celebration.md).
+
+COPIES: 1 — useVictoryCelebration observes the shared game commit; useBattleCamera supplies actual lifetime ordering.

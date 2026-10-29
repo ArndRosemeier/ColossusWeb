@@ -1,11 +1,12 @@
-import { useCallback, useId, useLayoutEffect, useRef } from 'react'
+import { useCallback, useId, useLayoutEffect, useRef, useState } from 'react'
 import type { GameState } from '../engine/types'
 import { getPresentationMode, usePresentationMode } from './presentationMode'
 import { useReducedMotion } from './battlePresentation'
 import { battleCameraBoundary, battleCameraKey, validCameraRect, visibleBattle } from './battleCamera'
 import { cameraSnapshot, showBattleCamera, type CameraCapture } from './battleCameraOverlay'
+import type { GamePresentationObserver } from './gamePresentation'
 
-export type BattleCameraObserver = (previous: GameState | null, next: GameState | null, replacement?: boolean) => void
+export type BattleCameraObserver = GamePresentationObserver
 
 /** Observe before App.putState swaps DOM; consume after the real incoming board mounts.
  * Both local commit and remote adoption use this seam. Nothing delays a game commit. */
@@ -17,13 +18,20 @@ export function useBattleCamera(state: GameState | null, notify: (message: strin
   const serial = useRef(0)
   const scope = `battle-camera-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
   const alive = useRef(true)
+  const [active, setActive] = useState(false)
+  const activeRef = useRef(false)
+  const markActive = useCallback((value: boolean) => {
+    if (activeRef.current === value) return
+    activeRef.current = value
+    if (alive.current) setActive(value)
+  }, [])
   const notifyRef = useRef(notify); notifyRef.current = notify
   const report = useCallback((error: unknown) => {
     // Errors are notices after the immediate commit, avoiding recursive putState.
     const message = `Battle camera: ${error instanceof Error ? error.message : String(error)}`
     queueMicrotask(() => { if (alive.current) notifyRef.current(message) })
   }, [])
-  const reset = useCallback(() => { pending.current = null; cancel.current?.(); cancel.current = null }, [])
+  const reset = useCallback(() => { pending.current = null; cancel.current?.(); cancel.current = null; markActive(false) }, [markActive])
   const observe = useCallback<BattleCameraObserver>((previous, next, replacement = false) => {
     if (replacement || !previous || !next) { reset(); return }
     if (getPresentationMode() !== 'animated') { reset(); return }
@@ -44,8 +52,9 @@ export function useBattleCamera(state: GameState | null, notify: (message: strin
       const hex = boundary.direction === 'enter' ? [...svg.querySelectorAll('[data-hex]')].find(node => node.getAttribute('data-hex') === boundary.hexLabel)?.querySelector('polygon')?.getBoundingClientRect() : null
       if (boundary.direction === 'enter' && (!hex || !validCameraRect(hex))) throw Error(`Cannot measure contested hex ${boundary.hexLabel}.`)
       pending.current = { boundary, outgoing, hex: hex ? { left: hex.left, top: hex.top, width: hex.width, height: hex.height } : null, incomingKey: battleCameraKey(next) }
+      markActive(true)
     } catch (error) { reset(); report(error) }
-  }, [report, reset, scope])
+  }, [report, reset, scope, markActive])
 
   useLayoutEffect(() => { reset() }, [mode, reducedMotion, reset])
   useLayoutEffect(() => {
@@ -56,20 +65,21 @@ export function useBattleCamera(state: GameState | null, notify: (message: strin
     const capture = pending.current
     if (!capture) return
     pending.current = null
-    if (mode !== 'animated' || !state || capture.incomingKey !== battleCameraKey(state)) return
+    if (mode !== 'animated' || !state || capture.incomingKey !== battleCameraKey(state)) { markActive(false); return }
     try {
       const pane = boardRef.current
       const svg = pane?.querySelector<SVGSVGElement>(capture.boundary.direction === 'enter' ? 'svg.battle-board' : 'svg.master-board')
       if (!pane || !svg) {
         if (pane && !pane.querySelector('svg.master-board, svg.battle-board')) throw Error('Cannot capture the incoming board.')
-        return
+        markActive(false); return
       }
       const incoming = cameraSnapshot(svg, `${scope}-${serial.current}-to`)
-      if (!incoming) return
+      if (!incoming) { markActive(false); return }
       const target = capture.boundary.direction === 'exit' ? [...svg.querySelectorAll('[data-hex]')].find(node => node.getAttribute('data-hex') === capture.boundary.hexLabel)?.querySelector('polygon')?.getBoundingClientRect() : capture.hex
       if (!target || !validCameraRect(target)) throw Error(`Cannot measure returning hex ${capture.boundary.hexLabel}.`)
-      cancel.current = showBattleCamera(capture, incoming, target, pane.getBoundingClientRect(), reducedMotion, report, () => { cancel.current = null })
+      cancel.current = showBattleCamera(capture, incoming, target, pane.getBoundingClientRect(), reducedMotion, report, () => { cancel.current = null; markActive(false) })
+      if (!cancel.current) markActive(false)
     } catch (error) { reset(); report(error) }
   })
-  return { boardRef, observe }
+  return { boardRef, observe, active }
 }
