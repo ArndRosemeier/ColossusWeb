@@ -90,6 +90,31 @@ export function candidateReachCounts(state: GameState, legion: Legion, cache: Sp
   return counts
 }
 
+// Optional representation for multi-enemy chance planning. Normal/Easy's existing
+// count cache/call path is unchanged; masks are allocated only for explicit callers.
+const reachMaskCaches = new WeakMap<SpatialCache, Map<string, Map<string, number>>>()
+
+/** Hex -> six-bit roll mask under actual candidate occupancy. Same movement cache
+ * key as counts; stock-sensitive combat outcomes must be evaluated separately.
+ */
+export function candidateReachRollMasks(state: GameState, legion: Legion, cache: SpatialCache): Map<string, number> {
+  let masks = reachMaskCaches.get(cache)
+  if (!masks) { masks = new Map(); reachMaskCaches.set(cache, masks) }
+  const key = `${legion.id}/${occupancyKey(state)}`
+  const hit = masks.get(key)
+  if (hit) return hit
+  const result = new Map<string, number>()
+  for (let roll = 1; roll <= 6; roll++) {
+    for (const [hex] of listMovePreview(state, legion, roll)) {
+      result.set(hex, (result.get(hex) ?? 0) | (1 << (roll - 1)))
+    }
+  }
+  cache.movementQueries += 6
+  if (masks.size >= 512) masks.delete(masks.keys().next().value!)
+  masks.set(key, result)
+  return result
+}
+
 function cacheOf(state: GameState, cache: SpatialCache | undefined): SpatialCache {
   return cache ?? buildSpatialCache(state)
 }

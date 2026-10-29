@@ -23,6 +23,7 @@ import { pipelineScore, titanDelegationPenalty } from './boardResearch'
 import { lookaheadMusterBonus } from './musterSearch'
 import { creatureCombatValue } from './legionStrength'
 import { difficultyForPlayer } from './difficulty'
+import { searchMasterMoves, type MasterSearchOptions } from './masterLookahead'
 
 const LEGACY_MOBILITY_PER_EXIT = 0.25
 const LEGACY_FRIEND_ADJACENT = 0.4
@@ -303,6 +304,7 @@ export function pickBestMove(
   rng: () => number,
   anyMoved: boolean,
   heldLegionIds: ReadonlySet<string> = new Set(),
+  options: { masterLookahead?: false | MasterSearchOptions } = {},
 ): GameCommand {
   const ranked = rankMoves(state, profile, heldLegionIds)
   if (ranked.length === 0) return { type: 'doneMove' }
@@ -350,6 +352,7 @@ export function pickBestMove(
     return { type: 'doneMove' }
   }
 
+  const ordinaryMove = (): GameCommand => {
   const best = ranked[0]!
   const greedy = playerHeuristic(state, state.players[state.activePlayerIndex]!.id) === 'decisive'
   if (greedy && best.score > 0) {
@@ -383,6 +386,24 @@ export function pickBestMove(
   }
 
   return { type: 'doneMove' }
+  }
+  // Compute the unchanged Normal control exactly once, including its ordinary RNG.
+  const control = ordinaryMove()
+  if (difficultyForPlayer(state, owner.id).id !== 'hard' || options.masterLookahead === false) return control
+  // No won-battle fiction: an ordinary combat decision stays with its current scorer.
+  if (control.type === 'move' && state.legions.some((l) => l.playerId !== owner.id && l.hexLabel === control.toHex)) return control
+  const controlMove = control.type === 'move' ? ranked.find((m) => m.legionId === control.legionId && m.hex === control.toHex) : undefined
+  const candidates = controlMove ? [controlMove, ...ranked.filter((m) => m !== controlMove)] : ranked
+  const deeper = searchMasterMoves(state, candidates, profile, { ...options.masterLookahead, compareHold: control.type === 'doneMove' })
+  if (!deeper.best) return control // incomplete chance nodes cannot boost a candidate
+  const comparator = controlMove
+    ? deeper.candidates.find((c) => c.move === controlMove)?.expectedArmyQuality
+    : deeper.best.holdArmyQuality
+  // Require actual completed future army improvement, rather than a wider shallow
+  // score/tie adjustment. A small margin also avoids switching on numerical noise.
+  if (comparator == null || deeper.best.expectedArmyQuality <= comparator + 0.5) return control
+  const choice = deeper.best.move
+  return { type: 'move', legionId: choice.legionId, toHex: choice.hex, teleport: choice.teleport }
 }
 
 export function outcomeLabel(outcome: BattleOutcome): string {
