@@ -249,10 +249,10 @@ function scoreFight(
 }
 
 /** Rank all legal moves for the active player's unmoved legions. */
-export function rankMoves(state: GameState, profile: AiProfile): ScoredMove[] {
+export function rankMoves(state: GameState, profile: AiProfile, heldLegionIds: ReadonlySet<string> = new Set()): ScoredMove[] {
   if (state.movementRoll == null) return []
   const playerId = state.players[state.activePlayerIndex].id
-  const legs = state.legions.filter((l) => l.playerId === playerId && !l.moved)
+  const legs = state.legions.filter((l) => l.playerId === playerId && !l.moved && !heldLegionIds.has(l.id))
   const heuristic = playerHeuristic(state, playerId)
   const cache = heuristic === 'legacy' ? undefined : buildSpatialCache(state)
   const scored: ScoredMove[] = []
@@ -299,8 +299,9 @@ export function pickBestMove(
   profile: AiProfile,
   rng: () => number,
   anyMoved: boolean,
+  heldLegionIds: ReadonlySet<string> = new Set(),
 ): GameCommand {
-  const ranked = rankMoves(state, profile)
+  const ranked = rankMoves(state, profile, heldLegionIds)
   if (ranked.length === 0) return { type: 'doneMove' }
 
   const forced = ranked.filter((m) => m.forcedSplit)
