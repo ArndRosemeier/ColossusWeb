@@ -20,8 +20,11 @@ import type { GameCommand, GameState, Legion } from '../engine/types'
 import { boardInteraction } from '../ui/boardInteraction'
 import type { MasterMoveAnim } from '../ui/moveAnimation'
 import { pointsToSvg, usePathTween } from '../ui/usePathTween'
+import { usePresentationMode } from '../ui/presentationMode'
+import { useReducedMotion } from '../ui/battlePresentation'
 import { MusterForm, SplitForm } from './LegionActions'
 import { MasterHexGates } from './MasterHexGates'
+import { MasterTerrainArt } from './MasterTerrainArt'
 import { SafeSvgImage } from './SafeSvgImage'
 
 const PREVIEW_STROKE = '#5ec8d4'
@@ -192,6 +195,8 @@ export function MasterBoardView({
   dispatch,
   interactive = false,
 }: Props) {
+  const animatedTerrain = usePresentationMode() === 'animated'
+  const reducedMotion = useReducedMotion()
   const board = state.variant.board
   const scale = 14
   const markerSize = 28
@@ -390,15 +395,15 @@ export function MasterBoardView({
                 strokeWidth={1}
               />
               {terrainSrc ? (
-                <SafeSvgImage
+                <MasterTerrainArt
                   href={terrainSrc}
                   x={bounds.x}
                   y={bounds.y}
                   width={bounds.width}
                   height={bounds.height}
                   clipPath={`url(#hex-clip-${hex.label})`}
-                  opacity={0.9}
-                  preserveAspectRatio="xMidYMid slice"
+                  hexLabel={hex.label}
+                  animated={animatedTerrain && !reducedMotion}
                 />
               ) : null}
               {isSplitHere && !isLegal && (
