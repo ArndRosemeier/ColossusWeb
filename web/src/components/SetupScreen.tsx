@@ -14,6 +14,7 @@ import { BackgroundAtmosphereSelect } from './BackgroundAtmosphere'
 import { CuedBadge } from './CuedBadge'
 import { LobbyPanel } from './LobbyPanel'
 import { MarkerChit } from './MarkerChit'
+import './setup.css'
 
 interface Props {
   onStart: (options: NewGameOptions) => void
@@ -111,197 +112,182 @@ export function SetupScreen({
 
   return (
     <div className="setup">
-      <header className="hero">
-        <svg
-          className="brand-svg"
-          viewBox="0 0 920 220"
-          role="img"
-          aria-label="Colossus"
-          preserveAspectRatio="xMinYMid meet"
-          overflow="visible"
-        >
-          <defs>
-            <linearGradient id="colossusBrandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#ffe0c2" />
-              <stop offset="40%" stopColor="#e08a45" />
-              <stop offset="78%" stopColor="#ff6b35" />
-              <stop offset="100%" stopColor="#ffd4a8" />
-            </linearGradient>
-          </defs>
-          <text
-            x="12"
-            y="155"
-            fill="url(#colossusBrandGrad)"
-            fontFamily="Cinzel, Palatino Linotype, serif"
-            fontWeight="700"
-            fontSize="96"
-            letterSpacing="10"
-          >
-            COLOSSUS
-          </text>
-        </svg>
-        <CuedBadge cued={cued} />
-        <WhatsNewButton />
-        <h1>Masterboard awaits</h1>
-        <p className="lede">
-          Raise your Titan. Split, march, and clash — hotseat, AI, or online with friends, all in the browser.
-        </p>
+      <header className="setup-nav">
+        <a className="setup-wordmark" href="#title-screen" aria-label="Colossus title screen">Colossus</a>
+        <nav className="setup-nav-actions" aria-label="Title screen navigation">
+          <a className="setup-nav-link" href="#local-setup">Local game</a>
+          <a className="setup-nav-link" href="#online-lobby">Online play</a>
+          <WhatsNewButton compact />
+          <CuedBadge cued={cued} compact />
+        </nav>
       </header>
 
-      {savedGame && onContinue && (
-        <section className="setup-panel continue-panel" aria-label="Continue saved game">
-          <h2>Continue</h2>
-          <p className="continue-meta">
-            {savedGame.variantName} · {savedGame.players} · Turn {savedGame.turnNumber} ·{' '}
-            {savedGame.phase}
-            <br />
-            <span className="muted">Saved {formatSavedAt(savedGame.savedAt)}</span>
-          </p>
-          <div className="setup-actions">
-            <button type="button" className="primary" onClick={onContinue}>
-              Load saved game
-            </button>
+      <main id="title-screen">
+        <section className="setup-hero" aria-labelledby="setup-title">
+          <img className="setup-hero-art" src={`${import.meta.env.BASE_URL}title-screen/colossus-landscape-v1.png`}
+            alt="" aria-hidden="true" fetchPriority="high" decoding="async" />
+          <div className="setup-hero-shade" aria-hidden="true" />
+          <div className="setup-hero-copy">
+            <p className="setup-eyebrow">Fantasy strategy · Titan</p>
+            <h1 id="setup-title">Raise your legion.<br /><span>Claim the board.</span></h1>
+            <p className="setup-hero-description">
+              Build an army of mythical creatures. Split your legions, choose your ground,
+              and bring rival Titans to battle.
+            </p>
+            <div className="setup-hero-actions">
+              <a className="setup-primary-action" href="#local-setup">Set up a campaign <span aria-hidden="true">→</span></a>
+              <a className="setup-secondary-action" href="#online-lobby">Play online <span aria-hidden="true">↗</span></a>
+            </div>
+            <p className="setup-hero-note">Hotseat, AI opponents, or a shared board with friends.</p>
           </div>
         </section>
-      )}
 
-      <section className="setup-panel" aria-label="Appearance">
-        <h2>Appearance</h2>
-        <PresentationModeSelect showBlurb className="bg-atmosphere-select setup-bg" />
-        <BackgroundAtmosphereSelect showBlurb className="bg-atmosphere-select setup-bg" />
-      </section>
+        {savedGame && onContinue && (
+          <section className="setup-resume" aria-label="Continue saved game">
+            <div className="setup-resume-copy">
+              <p className="setup-eyebrow">Awaiting your return</p>
+              <h2>Continue your campaign</h2>
+              <p className="setup-resume-meta">
+                {savedGame.variantName} · Turn {savedGame.turnNumber} · {savedGame.phase}
+                <span>{savedGame.players}</span>
+              </p>
+            </div>
+            <div className="setup-resume-action">
+              <span>Saved {formatSavedAt(savedGame.savedAt)}</span>
+              <button type="button" className="primary" onClick={onContinue}>Load saved game</button>
+            </div>
+          </section>
+        )}
 
-      <LobbyPanel
-        session={session}
-        cued={cued}
-        player={player}
-        onPlayerChange={onPlayerChange}
-        variantName={variantName}
-        maxPlayers={maxPlayers}
-        onEnter={onOnlineEnter}
-      />
-      <section className="setup-panel" aria-label="Game setup">
-        <h2>Variant</h2>
-        <div className="player-row">
-          <select
-            value={variantName}
-            aria-label="Game variant"
-            onChange={(e) => onVariantChange(e.target.value)}
-          >
-            {KNOWN_VARIANTS.map((id) => (
-              <option key={id} value={id}>
-                {VARIANT_META[id]?.label ?? id}
-              </option>
-            ))}
-          </select>
-          <p className="hint" style={{ margin: 0, flex: 1 }}>
-            {meta.blurb}
-          </p>
-        </div>
+        <div className="setup-workbench">
+          <section id="local-setup" className="campaign-panel" aria-labelledby="campaign-title" tabIndex={-1}>
+            <div className="setup-panel-heading">
+              <div>
+                <p className="setup-eyebrow">Gather at the table</p>
+                <h2 id="campaign-title">Set up a campaign</h2>
+                <p>Play locally with friends and AI opponents.</p>
+              </div>
+              <span className="setup-player-count">{cappedRows.length} / {maxPlayers} players</span>
+            </div>
 
-        <h2>Muster players</h2>
-        {cappedRows.map((row, i) => (
-          <div className="player-row" key={i}>
-            <input
-              value={row.name}
-              aria-label={`Player ${i + 1} name`}
-              onChange={(e) => {
-                const next = [...cappedRows]
-                next[i] = { ...row, name: e.target.value }
-                setRows(next)
-              }}
-            />
-            <select
-              value={row.kind}
-              aria-label={`${row.name} type`}
-              onChange={(e) => {
-                const next = [...cappedRows]
-                next[i] = { ...row, kind: e.target.value as PlayerKind }
-                setRows(next)
-              }}
-            >
-              <option value="human">Human</option>
-              <option value="ai">AI</option>
-            </select>
-            {row.kind === 'ai' ? (
-              <select
-                value={row.aiProfileId}
-                title="AI personality"
-                aria-label={`${row.name} AI personality`}
-                onChange={(e) => {
-                  const next = [...cappedRows]
-                  next[i] = { ...row, aiProfileId: e.target.value as AiProfileId }
-                  setRows(next)
-                }}
-              >
-                {AI_PROFILE_CHOICES.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
+            <div className="setup-variant">
+              <label htmlFor="setup-variant">Choose your battlefield</label>
+              <select id="setup-variant" value={variantName} aria-label="Game variant"
+                onChange={(e) => onVariantChange(e.target.value)}>
+                {KNOWN_VARIANTS.map((id) => (
+                  <option key={id} value={id}>{VARIANT_META[id]?.label ?? id}</option>
                 ))}
               </select>
-            ) : (
-              <span className="player-row-spacer" aria-hidden="true" />
-            )}
-            <select
-              value={row.colorId}
-              aria-label={`${row.name} color`}
-              onChange={(e) => {
-                const next = [...cappedRows]
-                next[i] = { ...row, colorId: e.target.value }
-                setRows(next)
-              }}
-            >
-              {PLAYER_COLORS.slice(0, Math.max(6, maxPlayers)).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
+              <p>{meta.blurb}</p>
+            </div>
+
+            <div className="setup-commanders-heading">
+              <h3>Your commanders</h3>
+              <span>Choose a name, a color, and a rival.</span>
+            </div>
+            <div className="setup-commanders">
+              {cappedRows.map((row, i) => (
+                <fieldset className="setup-player-row" key={i}>
+                  <legend>Commander {String(i + 1).padStart(2, '0')}</legend>
+                  <div className="setup-player-fields">
+                    <div className="setup-player-marker">
+                      <MarkerChit
+                        markerId={`${PLAYER_COLORS.find((c) => c.id === row.colorId)?.shortName ?? 'Rd'}01`}
+                        color={PLAYER_COLORS.find((c) => c.id === row.colorId)?.css}
+                        size={28}
+                      />
+                    </div>
+                    <label className="setup-player-name">
+                      <span>Name</span>
+                      <input value={row.name} aria-label={`Player ${i + 1} name`}
+                        onChange={(e) => {
+                          const next = [...cappedRows]
+                          next[i] = { ...row, name: e.target.value }
+                          setRows(next)
+                        }} />
+                    </label>
+                    <label className="setup-player-kind">
+                      <span>Control</span>
+                      <select value={row.kind} aria-label={`${row.name} type`}
+                        onChange={(e) => {
+                          const next = [...cappedRows]
+                          next[i] = { ...row, kind: e.target.value as PlayerKind }
+                          setRows(next)
+                        }}>
+                        <option value="human">Human</option>
+                        <option value="ai">AI</option>
+                      </select>
+                    </label>
+                    {row.kind === 'ai' ? (
+                      <label className="setup-player-personality">
+                        <span>Personality</span>
+                        <select value={row.aiProfileId} title="AI personality" aria-label={`${row.name} AI personality`}
+                          onChange={(e) => {
+                            const next = [...cappedRows]
+                            next[i] = { ...row, aiProfileId: e.target.value as AiProfileId }
+                            setRows(next)
+                          }}>
+                          {AI_PROFILE_CHOICES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+                        </select>
+                      </label>
+                    ) : (
+                      <div className="setup-player-personality setup-human-note"><span>Personality</span><p>You decide</p></div>
+                    )}
+                    <label className="setup-player-color">
+                      <span>Color</span>
+                      <select value={row.colorId} aria-label={`${row.name} color`}
+                        onChange={(e) => {
+                          const next = [...cappedRows]
+                          next[i] = { ...row, colorId: e.target.value }
+                          setRows(next)
+                        }}>
+                        {PLAYER_COLORS.slice(0, Math.max(6, maxPlayers)).map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    {cappedRows.length > 2 && (
+                      <button type="button" className="ghost setup-remove" aria-label={`Remove ${row.name}`}
+                        onClick={() => setRows(cappedRows.filter((_, j) => j !== i))}>Remove</button>
+                    )}
+                  </div>
+                </fieldset>
               ))}
-            </select>
-            <MarkerChit
-              markerId={`${PLAYER_COLORS.find((c) => c.id === row.colorId)?.shortName ?? 'Rd'}01`}
-              color={PLAYER_COLORS.find((c) => c.id === row.colorId)?.css}
-              size={28}
-            />
-            {cappedRows.length > 2 && (
-              <button
-                type="button"
-                className="ghost"
-                onClick={() => setRows(cappedRows.filter((_, j) => j !== i))}
-              >
-                Remove
+            </div>
+            <div className="campaign-actions">
+              <button type="button" className="ghost" onClick={add} disabled={cappedRows.length >= maxPlayers}>
+                <span aria-hidden="true">+</span> Add player
               </button>
-            )}
-          </div>
-        ))}
-        <div className="setup-actions">
-          <button
-            type="button"
-            className="ghost"
-            onClick={add}
-            disabled={cappedRows.length >= maxPlayers}
-          >
-            Add player
-          </button>
-          <button
-            type="button"
-            className="primary"
-            onClick={() =>
-              onStart({
-                variantName,
-                players: cappedRows.map((r) => ({
-                  name: r.name,
-                  kind: r.kind,
-                  colorId: r.colorId,
-                  aiProfileId: r.kind === 'ai' ? r.aiProfileId : undefined,
-                })),
-              })
-            }
-          >
-            Begin campaign
-          </button>
+              <button type="button" className="primary setup-begin"
+                onClick={() => onStart({
+                  variantName,
+                  players: cappedRows.map((r) => ({
+                    name: r.name,
+                    kind: r.kind,
+                    colorId: r.colorId,
+                    aiProfileId: r.kind === 'ai' ? r.aiProfileId : undefined,
+                  })),
+                })}>
+                Begin campaign <span aria-hidden="true">→</span>
+              </button>
+            </div>
+          </section>
+
+          <aside id="online-lobby" className="setup-online" aria-label="Online play" tabIndex={-1}>
+            <LobbyPanel session={session} cued={cued} player={player} onPlayerChange={onPlayerChange}
+              variantName={variantName} maxPlayers={maxPlayers} onEnter={onOnlineEnter} />
+          </aside>
         </div>
-      </section>
+
+        <details className="setup-appearance">
+          <summary><span>Appearance</span><span className="setup-appearance-hint">Make the war table yours</span></summary>
+          <div className="setup-appearance-controls">
+            <PresentationModeSelect showBlurb className="bg-atmosphere-select setup-bg" />
+            <BackgroundAtmosphereSelect showBlurb className="bg-atmosphere-select setup-bg" />
+          </div>
+        </details>
+      </main>
+      <footer className="setup-footer"><span>Colossus</span><p>A browser adaptation of Titan.</p><a href="#title-screen">Back to top ↑</a></footer>
     </div>
   )
 }

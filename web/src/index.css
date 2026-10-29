@@ -357,62 +357,12 @@ html[data-bg-atmosphere='ash'] .bg-ash-mote {
   color: #ff8a80;
 }
 
-/* —— Setup / landing —— */
-.setup {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  padding: clamp(2rem, 5vw, 3.5rem) clamp(1.5rem, 4vw, 3rem);
-  max-width: 52rem;
-}
-
-.hero {
-  padding: 0.5rem 0 1.75rem;
-  max-width: 40rem;
-  overflow: visible;
-}
-
 .brand,
 .brand-inline {
   font-family: var(--font-display);
   font-weight: 900;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-}
-
-.brand-svg {
-  display: block;
-  width: min(100%, 36rem);
-  height: auto;
-  overflow: visible;
-  margin: 0;
-}
-
-.brand {
-  /* Legacy / unused on setup — keep for any leftover use */
-  display: inline-block;
-  font-size: clamp(3.2rem, 12vw, 5.5rem);
-  margin: 0;
-  line-height: 1.35;
-  color: #f0b87a;
-}
-
-.hero h1 {
-  font-family: var(--font-display);
-  font-weight: 500;
-  font-size: clamp(1rem, 2.5vw, 1.25rem);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--mist);
-  margin: 1rem 0 0.75rem;
-}
-
-.lede {
-  color: color-mix(in srgb, var(--bone) 72%, var(--mist));
-  max-width: 28rem;
-  font-size: 1.05rem;
-  margin: 0;
 }
 
 .setup-panel {
@@ -453,25 +403,6 @@ html[data-bg-atmosphere='ash'] .bg-ash-mote {
   color: var(--copper);
 }
 
-.player-row {
-  display: grid;
-  grid-template-columns: minmax(6rem, 1fr) 6.5rem 7.5rem 6rem auto auto;
-  gap: 0.45rem;
-  margin-bottom: 0.55rem;
-  align-items: center;
-  padding: 0.35rem;
-  border-radius: 2px;
-  background: color-mix(in srgb, var(--ink) 55%, transparent);
-  border: 1px solid color-mix(in srgb, var(--panel-edge) 70%, transparent);
-}
-
-.player-row-spacer {
-  display: block;
-  min-height: 2.35rem;
-}
-
-.player-row input,
-.player-row select,
 button {
   font: inherit;
   padding: 0.45rem 0.65rem;
@@ -483,14 +414,6 @@ button {
     transform 0.12s ease;
 }
 
-.player-row input,
-.player-row select {
-  background: var(--stone);
-  color: var(--bone);
-}
-
-.player-row input:focus,
-.player-row select:focus,
 button:focus-visible {
   outline: 2px solid var(--copper);
   outline-offset: 1px;
@@ -1661,19 +1584,9 @@ button:disabled {
     border-top: 1px solid var(--panel-edge);
     max-height: 45vh;
   }
-
-  .player-row {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .setup {
-    justify-content: flex-start;
-    padding-top: 2rem;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero,
   .setup-panel,
   .winner {
     animation: none;
@@ -1933,10 +1846,6 @@ button:disabled {
   gap: 0.5rem;
   font-size: 0.8rem;
   padding: 0.25rem 0.6rem;
-}
-
-.hero .version-button {
-  margin: 0 0 0.75rem;
 }
 
 .version-number {

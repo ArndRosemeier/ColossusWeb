@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.03",
+    "date": "2026-10-29",
+    "changes": [
+      "The title screen now fills the window with an illustrated fantasy landscape and clearer local and online play.",
+      "Saved campaigns have a prominent resume entry, with a roomier commander setup and a compact Appearance section."
+    ]
+  },
+  {
     "version": "1.02",
     "date": "2026-10-29",
     "changes": [
