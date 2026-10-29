@@ -1,11 +1,13 @@
 // Outcome fixtures deliberately use the lower-level engine independently of the planner.
 import { describe, expect, it, vi } from 'vitest'
 import { twoPlayerGame } from '../../engine/__tests__/helpers'
-import { startBattle, battleLand, advanceBattlePhase, applyTimeLoss, applyBattleResult, removeDeadCreatures, doCarry, resolveStrikeFor, legalStrikesFor } from '../../engine/battle'
+import { startBattle, battleLand, advanceBattlePhase, applyTimeLoss, applyBattleResult, removeDeadCreatures, doCarry, resolveStrikeFor, legalStrikesFor, legalBattleMovesFor } from '../../engine/battle'
+import { dispatch } from '../../engine/GameEngine'
 import { getStrikeDice, getUnitPower, listStrikeRaiseOptions } from '../../engine/battleStrike'
 import { battleRolloutUtility, HARD_BATTLE_ROLLOUT, runBattleTrial, sampleBattleChoices } from '../battleRollout'
 import { AI_PROFILES } from '../profiles'
 import { planBattleManeuver, planBattleStrike } from '../evaluateBattle'
+import { pickAiCommand } from '../simpleAi'
 import type { GameCommand, GameState } from '../../engine/types'
 
 function fixture(ownTypes = ['Hydra', 'Hydra'], enemyTypes = ['Titan', 'Colossus'], terrain = 'Plains') {
@@ -34,8 +36,84 @@ function deepFreeze(value: unknown, seen = new Set<unknown>()) {
   seen.add(value); for (const child of Object.values(value)) deepFreeze(child, seen)
   Object.freeze(value)
 }
+function retainTitansOutsideBattle(state: GameState) {
+  const reserveHex = Object.values(state.variant.board.hexByLabel).find(hex => hex.label !== state.legions[0].hexLabel)!.label
+  state.legions.push(...state.legions.map(legion => ({ ...structuredClone(legion), id: `${legion.id}-reserve`, hexLabel: reserveHex, creatures: [{ type: 'Titan', hits: 0 }] })))
+}
 
 describe('Hard battle search resolves actual sampled outcomes', () => {
+  it('compares an actual pyrrhic ordinary win with an unfinished superior army on the same material scale', () => {
+    const { state, battle, ours, theirs } = fixture(['Hydra', 'Hydra'], ['Colossus'])
+    retainTitansOutsideBattle(state)
+    battle.turn = 1; ours[0].hex = 'C3'; ours[1].hex = 'A1'; theirs[0].hex = 'D3'; theirs[0].hits = 9
+    const continuation = battleRolloutUtility(state, battle, state.players[0].id, AI_PROFILES.balanced)
+    // One hit finishes the Colossus, whose real dead Strikeback kills the first
+    // Hydra. The other full-health Hydra survives the completed engagement.
+    resolveStrikeFor(state, battle, ours[0].id, theirs[0].id, () => 0, [6, ...Array(9).fill(1)])
+    advanceBattlePhase(state, battle)
+    expect(legalStrikesFor(state, battle, theirs[0])).toContain(ours[0].id)
+    resolveStrikeFor(state, battle, theirs[0].id, ours[0].id, () => 0, Array(10).fill(6))
+    advanceBattlePhase(state, battle)
+    expect(battle).toMatchObject({ done: true, winnerPlayerId: state.players[0].id })
+    const costlyWin = battleRolloutUtility(state, battle, state.players[0].id, AI_PROFILES.balanced)
+    expect(costlyWin).toBe(30)
+    expect(continuation).toBeGreaterThan(costlyWin)
+    applyBattleResult(state, battle)
+    expect(state.legions.find(legion => legion.playerId === state.players[0].id)!.creatures).toEqual([{ type: 'Hydra', hits: 0 }])
+  })
+  it('values healed ordinary survivors by their actual material and removes the entire time-loss loser', () => {
+    const survivorValue = (type: string) => {
+      const { state, battle, ours, theirs } = fixture([type], ['Ogre'])
+      retainTitansOutsideBattle(state)
+      ours[0].hex = 'C3'; ours[0].hits = getUnitPower(state, ours[0]) - 1
+      theirs[0].hex = 'F4'; theirs[0].hits = getUnitPower(state, theirs[0])
+      removeDeadCreatures(state, battle)
+      expect(battle.done).toBe(true)
+      const value = battleRolloutUtility(state, battle, state.players[0].id, AI_PROFILES.balanced)
+      applyBattleResult(state, battle)
+      expect(state.legions.find(legion => legion.id === battle.attackerLegionId)!.creatures).toEqual([{ type, hits: 0 }])
+      return value
+    }
+    expect(survivorValue('Hydra')).toBe(30)
+    expect(survivorValue('Ogre')).toBe(12)
+    const { state, battle, ours, theirs } = fixture(['Hydra'], ['Ogre'])
+    ours[0].hex = 'A1'; theirs[0].hex = 'F4'; theirs[0].hits = 5
+    applyTimeLoss(state, battle)
+    expect(battleRolloutUtility(state, battle, state.players[0].id, AI_PROFILES.balanced)).toBe(-12)
+    // Pre-result snapshot can still contain alive attackers; clock authority
+    // eliminates them regardless of that representation.
+    ours[0].hits = 0
+    expect(battleRolloutUtility(state, battle, state.players[0].id, AI_PROFILES.balanced)).toBe(-12)
+    applyBattleResult(state, battle)
+    expect(state.legions.some(legion => legion.id === battle.attackerLegionId)).toBe(false)
+  })
+  it('censors actual Woods first deployment instead of crediting a greedy simulated Titan entry failure', () => {
+    const { state } = fixture(['Titan', 'Ogre'], ['Titan', 'Gorgon', 'Gorgon', 'Cyclops', 'Cyclops', 'Behemoth', 'Ogre'], 'Woods')
+    state.players[1].kind = 'ai'; state.players[1].aiDifficultyId = 'normal'
+    state.legions[0].enteredFrom = 'Left'
+    const battle = startBattle(state, state.legions[0], state.legions[1], () => 0)
+    state.battle = battle
+    const fallback = pickAiCommand(state, () => 0)!
+    expect(fallback.type).toBe('battleMove')
+    const alternatives = battle.units.flatMap(unit => legalBattleMovesFor(state, battle, unit).map(toHex => ({ type: 'battleMove' as const, unitId: unit.id, toHex })))
+      .filter(command => JSON.stringify(command) !== JSON.stringify(fallback))
+    expect(alternatives.length).toBeGreaterThan(0)
+    const result = sampleBattleChoices(state, battle, alternatives, fallback, AI_PROFILES.balanced)
+    expect(result.command).toEqual(fallback)
+    expect(result.work).toMatchObject({ reason: 'boundary', boundaryStops: 1, completedRollouts: 0, creditedRounds: 0, transitionNodes: 0, usedRollout: false })
+    let game = state
+    for (let step = 0; step < 60 && game.battle && !game.battle.firstManeuverDone.defender; step++) {
+      const command = pickAiCommand(game, () => 0)!
+      game = dispatch(game, command, () => 0)
+    }
+    expect(game.battle?.firstManeuverDone.defender).toBe(true)
+    expect(game.log.filter(line => /failed to enter/.test(line))).toEqual([])
+    expect(game.battle?.fallen.some(unit => unit.creatureType === 'Titan')).toBe(false)
+    expect(game.winnerId).toBeFalsy()
+    expect(game.battle?.firstManeuverDone).toEqual({ attacker: false, defender: true })
+    const pendingEnemyEntry = runBattleTrial(game, game.battle!, { type: 'battleDonePhase' }, AI_PROFILES.balanced, 84, { ...HARD_BATTLE_ROLLOUT })
+    expect(pendingEnemyEntry).toMatchObject({ complete: false, boundary: true, utility: 0, cycles: 0 })
+  })
   it('sees the two-action Titan kill that the one-ply kill/carry choice misses', () => {
     const { state, battle, ours, theirs } = combination()
     battle.turn = 7 // The second action must finish the Titan now; turn-eight time loss is real.
@@ -187,6 +265,9 @@ describe('Hard battle search resolves actual sampled outcomes', () => {
     console.log('Hard 7v7 real rollout', JSON.stringify({ ...result, elapsedMs: performance.now() - start }))
     expect(result.rollout?.usedRollout).toBe(true)
     expect(result.rollout?.completedRollouts).toBe(24)
+    const rootMovers = result.rollout!.decisions.map(choice => choice.command.type === 'battleMove' ? choice.command.unitId : 'hold')
+    expect(rootMovers).toHaveLength(HARD_BATTLE_ROLLOUT.candidateLimit)
+    expect(new Set(rootMovers).size).toBe(rootMovers.length)
     expect(result.rollout?.minCompletedCycles).toBe(2)
     expect(result.rollout!.transitionNodes).toBeGreaterThan(100)
     expect(result.rollout!.transitionNodes).toBeLessThanOrEqual(HARD_BATTLE_ROLLOUT.maxTransitionNodes)

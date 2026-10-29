@@ -204,16 +204,19 @@ export function battleRolloutUtility(state: GameState, battle: BattleState, play
     if (ownTitanLost && enemyTitanLost) return contenders <= 2 ? 0 : -1000000
     if (ownTitanLost) return -1000000
     if (enemyTitanLost) return 1000000
-    if (battle.winnerPlayerId === playerId) return 100000
-    if (battle.winnerPlayerId !== null) return -100000
-    return 0
   }
   let value = 0
   for (const unit of battle.units) {
     if (!isUnitAlive(state, unit)) continue
-    const health = Math.max(0, getUnitPower(state, unit) - unit.hits) / getUnitPower(state, unit)
+    // The clock removes the whole attacking legion, even in a result snapshot
+    // that has not marked those units dead yet. Surviving battle wounds heal.
+    if (battle.done && battle.timeLoss && unit.legionId === battle.attackerLegionId) continue
+    const health = battle.done ? 1 : Math.max(0, getUnitPower(state, unit) - unit.hits) / getUnitPower(state, unit)
     value += (unit.playerId === playerId ? 1 : -1) * pv(state, unit, profile) * (0.35 + 0.65 * health)
   }
+  // Ordinary wins/losses share the horizon's material scale: an early pyrrhic
+  // victory must not outweigh every unfinished, materially superior line.
+  if (battle.done) return value
   const attackerId = state.legions.find(legion => legion.id === battle.attackerLegionId)!.playerId
   return value + (playerId === attackerId ? -1 : 1) * battle.turn * 3
 }
@@ -226,6 +229,11 @@ export function runBattleTrial(state: GameState, battle: BattleState, first: Gam
   let command: GameCommand | null = first
   let verified = false
   while (true) {
+    // The cheap policy has no joint entry-feasibility planner. In particular,
+    // non-Titan-first deployment can strand a Titan that real Normal saves.
+    if (!current.done && (!current.firstManeuverDone.attacker || !current.firstManeuverDone.defender)) {
+      return { complete: false, boundary: true, utility: 0, cycles: cycle(current) - startCycle, battle: current }
+    }
     if (current.done || (current.phase === 'Move' && cycle(current) >= startCycle + options.horizonCycles)) {
       return { complete: true, boundary: false, utility: battleRolloutUtility(sim, current, playerId, profile), cycles: cycle(current) - startCycle, battle: current }
     }
@@ -299,7 +307,7 @@ export function sampleBattleChoices(state: GameState, battle: BattleState, candi
       (!(terminalWins || terminalLosses) || (terminalWins >= 2 && terminalWins > terminalLosses)))
     return { command, completed: n, meanUtility: n ? sums[index] / n : 0, pairedAdvantage, pairedStdError: n > 1 ? pairedStdError : null, accepted }
   })
-  // Censored support boundaries or incomplete sampling never beat a proven fallback.
+  // Censored deployment/support boundaries or incomplete sampling retain Normal.
   if (boundary || work.creditedRounds < options.trialsPerCandidate) {
     work.reason = boundary ? 'boundary' : 'budget'
     return { command: fallback, work }

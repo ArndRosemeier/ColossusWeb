@@ -937,7 +937,18 @@ function planManeuverWithRollouts(state: GameState, battle: BattleState, profile
   const normal = searchBattleManeuver(state, battle, profile, ranked, NORMAL_BATTLE_PLANNER, true)
   if (normal.protected || base.protected) return { command: normal.command, work: base.work, normalControlWork: normal.work }
   const normalRisk = normal.alternatives?.find(choice => JSON.stringify(choice.command) === JSON.stringify(normal.command))?.titanRisk ?? 0
-  const result = sampleBattleChoices(state, battle, (base.alternatives ?? []).filter(choice => choice.titanRisk <= normalRisk + 1e-9).map(choice => choice.command), normal.command, profile, rollout || {})
+  const alternatives = (base.alternatives ?? []).filter(choice => choice.titanRisk <= normalRisk + 1e-9).map(choice => choice.command)
+  const moverKey = (command: GameCommand) => command.type === 'battleMove' ? command.unitId : 'hold'
+  const seen = new Set([moverKey(normal.command)])
+  // Preserve root diversity after the whole-position sort: the same three-root
+  // budget should compare different movers before another square for one mover.
+  const diverse = alternatives.filter(command => {
+    const key = moverKey(command)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+  const result = sampleBattleChoices(state, battle, [...diverse, ...alternatives], normal.command, profile, rollout || {})
   // Never reward a censored support boundary or an unfinished candidate. The
   // fallback is the actual Normal planner, including shared mandatory safety.
   const command = result.work.usedRollout ? result.command : normal.command
