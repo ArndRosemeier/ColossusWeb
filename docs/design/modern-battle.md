@@ -56,6 +56,6 @@ Hooks: `.battle-wrap[data-presentation]`, `[data-battle-hex][data-terrain][data-
 `foreignObject[data-unit-id]`, `.bhex.lit` and move/strike hooks remain intact. Modern
 clip/gradient IDs use a scoped React ID; Classic clip IDs/markup remain unchanged.
 
-Writer test and preview evidence is in TESTING. Dispatcher full suite, independent
-Classic pixel comparison and actual movement/strike checks remain required before
-claiming independent verification or deployment.
+Writer and independent dispatcher evidence is in TESTING. All12 Classic maps are
+pixel-exact after the geometry fold, and the integrated full suite plus actual
+movement/strike/strikeback checks pass. This local review has not been deployed.
