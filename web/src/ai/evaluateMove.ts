@@ -395,7 +395,8 @@ export function pickBestMove(
   const controlMove = control.type === 'move' ? ranked.find((m) => m.legionId === control.legionId && m.hex === control.toHex) : undefined
   const candidates = controlMove ? [controlMove, ...ranked.filter((m) => m !== controlMove)] : ranked
   const deeper = searchMasterMoves(state, candidates, profile, { ...options.masterLookahead,
-    compareHold: true, holdLegionId: controlMove?.legionId, stopAfterHoldImprovement: !!controlMove })
+    compareHold: true, holdLegionId: controlMove?.legionId, continuationLegionId: controlMove?.legionId,
+    stopAfterHoldImprovement: !!controlMove })
   if (deeper.diagnostics.exhausted || deeper.diagnostics.incomplete) return control
   const comparator = controlMove
     ? deeper.candidates.find((c) => c.move === controlMove)?.expectedArmyQuality

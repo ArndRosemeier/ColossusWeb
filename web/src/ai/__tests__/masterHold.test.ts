@@ -128,10 +128,15 @@ describe('legal masterboard HOLD alternatives', () => {
     const ally = helper(own, '1')
     state.legions.push(ally)
     for (const type of Object.keys(state.caretaker)) state.caretaker[type] = 0
-    const result = searchMasterMoves(state, rankMoves(state, profile), profile, { depth: 1, compareHold: true, holdLegionId: own.id })
-    expect(result.bestHold?.command).toMatchObject({ type: 'move', legionId: ally.id, toHex: '3' })
-    expect(result.bestHold!.expectedArmyQuality).toBeLessThan(40)
-    const moved = dispatch(state, result.bestHold!.command)
+    const result = searchMasterMoves(state, rankMoves(state, profile), profile, { depth: 1, compareHold: true, holdLegionId: own.id, continuationLegionId: own.id })
+    const heldOwn = result.candidates.find((c) => c.move.legionId === own.id)!
+    expect(heldOwn.holdCommand).toMatchObject({ type: 'move', legionId: ally.id, toHex: '3' })
+    expect(heldOwn.holdArmyQuality).toBeLessThan(40)
+    const otherFocus = searchMasterMoves(state, rankMoves(state, profile), profile, { depth: 1, compareHold: true,
+      holdLegionId: own.id, continuationLegionId: ally.id })
+    expect(otherFocus.diagnostics.incomplete).toBe(true)
+    expect(otherFocus.bestHold).toBeNull()
+    const moved = dispatch(state, heldOwn.holdCommand!)
     expect(canEndMovePhase(moved)).toBe(true)
     expect([1, 2, 3, 4, 5, 6].filter((roll) =>
       listAllMoves({ ...moved, legions: moved.legions.map((l) => ({ ...l, moved: false })) }, enemy, roll).has('2'))).toHaveLength(5)
