@@ -15,8 +15,10 @@ import {
   pickBestBattleStrike,
   pickBestCarry,
 } from './evaluateBattle'
-import { creatureCombatValue, findBestSummonable } from './legionStrength'
-import { chooseCreaturesToSplitOut } from './splitChoice'
+import { creatureCombatValue } from './legionStrength'
+import { chooseCreaturesToSplitOut, chooseOpeningSplit } from './splitChoice'
+import { planOptionalSplit } from './splitPlanning'
+import { planReinforcement, planSummon } from './supportPlanning'
 
 function actingPlayer(state: GameState) {
   if (state.pendingPostBattleReinforce) {
@@ -44,7 +46,7 @@ export function pickRandomCommand(state: GameState, rng = Math.random): GameComm
   const profile = profileOf(state)
 
   if (state.pendingPostBattleReinforce) {
-    return pickPostBattleReinforce(state, profile, rng)
+    return pickPostBattleReinforce(state)
   }
 
   if (state.battle && !state.battle.done) {
@@ -97,33 +99,17 @@ function pickSplit(state: GameState, profile: AiProfile, rng: () => number): Gam
     return { type: 'split', parentId: parent.id, childCreatures: child }
   }
 
-  // Always split height >7; always split height 7 so stacks can keep mustering
-  // (Colossus SimpleAI.splitOneLegion — only skips when no marker / rare combat cases).
-  const full = fullLegionsNeedingSplit(state)
-  const candidates = forced.length > 0 ? forced : full
-  if (candidates.length === 0) {
-    return { type: 'doneSplit' }
+  // Mandatory height-8 splits remain legal; optional splits must beat HOLD.
+  for (const parent of forced) {
+    const child = chooseCreaturesToSplitOut(state, parent)
+    if (child.length === 2) return { type: 'split', parentId: parent.id, childCreatures: child }
   }
-
-  const parent = [...candidates].sort((a, b) => b.creatures.length - a.creatures.length)[0]!
-  const child =
-    parent.creatures.length >= 8 && state.turnNumber === 1
-      ? pickTurn1SplitChild(state, parent, profile, rng)
-      : chooseCreaturesToSplitOut(state, parent)
-
-  if (child.length >= 2 && parent.creatures.length - child.length >= 2) {
-    return { type: 'split', parentId: parent.id, childCreatures: child }
+  for (const parent of fullLegionsNeedingSplit(state)) {
+    const plan = planOptionalSplit(state, parent, profile)
+    if (plan.childCreatures) {
+      return { type: 'split', parentId: parent.id, childCreatures: plan.childCreatures }
+    }
   }
-
-  // Fallback: any two non-Titans (should be rare)
-  const fallback = parent.creatures
-    .filter((c) => c.type !== 'Titan')
-    .slice(0, 2)
-    .map((c) => c.type)
-  if (fallback.length >= 2 && parent.creatures.length - fallback.length >= 2) {
-    return { type: 'split', parentId: parent.id, childCreatures: fallback }
-  }
-
   return { type: 'doneSplit' }
 }
 
@@ -134,17 +120,11 @@ function pickTurn1SplitChild(
   rng: () => number,
 ): string[] {
   const lords = parent.creatures.filter((c) => state.variant.creatures[c.type]?.lord)
-  const nonLords = parent.creatures.filter((c) => !state.variant.creatures[c.type]?.lord)
   const angel = lords.find((c) => c.type === 'Angel')
   const titan = lords.find((c) => c.type === 'Titan')
   const childLord =
     angel && (rng() < profile.preferAngelOnTurn1 || !titan) ? angel : (titan ?? lords[0])
-  const shuffled = [...nonLords]
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1))
-    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-  }
-  return [childLord.type, ...shuffled.slice(0, 3).map((c) => c.type)]
+  return chooseOpeningSplit(state, parent, childLord.type, rng)
 }
 
 function pickMove(state: GameState, profile: AiProfile, rng: () => number): GameCommand {
@@ -219,53 +199,27 @@ function pickMuster(state: GameState, profile: AiProfile, rng: () => number): Ga
   return nearBest[Math.floor(rng() * nearBest.length)]!.cmd
 }
 
-function pickBattleReinforce(state: GameState, profile: AiProfile, rng: () => number): GameCommand {
+function pickBattleReinforce(state: GameState): GameCommand {
   const battle = state.battle!
-  const opts = listBattleReinforceOptions(state, battle)
-  if (opts.length === 0) return { type: 'battleSkipReinforce' }
-  if (rng() < profile.skipReinforceChance) return { type: 'battleSkipReinforce' }
-  const def = state.legions.find((l) => l.id === battle.defenderLegionId)!
-  let best = opts[0]!
-  let bestVal = -Infinity
-  for (const c of opts) {
-    const v = creatureCombatValue(state, c, def.hexLabel)
-    if (v > bestVal) {
-      bestVal = v
-      best = c
-    }
-  }
-  return { type: 'battleReinforce', creatureType: best }
+  const defender = state.legions.find((l) => l.id === battle.defenderLegionId)!
+  const creatureType = planReinforcement(listBattleReinforceOptions(state, battle), defender.hexLabel,
+    (type, hex) => creatureCombatValue(state, type, hex))
+  return creatureType ? { type: 'battleReinforce', creatureType } : { type: 'battleSkipReinforce' }
 }
 
-function pickPostBattleReinforce(state: GameState, profile: AiProfile, rng: () => number): GameCommand {
-  const pending = state.pendingPostBattleReinforce!
-  const opts = listPostBattleReinforceOptions(state, pending.legionId)
-  if (opts.length === 0) return { type: 'postBattleSkipReinforce' }
-  if (rng() < profile.skipReinforceChance) return { type: 'postBattleSkipReinforce' }
-  const def = state.legions.find((l) => l.id === pending.legionId)!
-  let best = opts[0]!
-  let bestVal = -Infinity
-  for (const c of opts) {
-    const v = creatureCombatValue(state, c, def.hexLabel)
-    if (v > bestVal) {
-      bestVal = v
-      best = c
-    }
-  }
-  return { type: 'postBattleReinforce', creatureType: best }
+function pickPostBattleReinforce(state: GameState): GameCommand {
+  const defender = state.legions.find((l) => l.id === state.pendingPostBattleReinforce!.legionId)!
+  const creatureType = planReinforcement(listPostBattleReinforceOptions(state, defender.id), defender.hexLabel,
+    (type, hex) => creatureCombatValue(state, type, hex))
+  return creatureType ? { type: 'postBattleReinforce', creatureType } : { type: 'postBattleSkipReinforce' }
 }
 
-function pickBattleSummon(state: GameState, profile: AiProfile, rng: () => number): GameCommand {
+function pickBattleSummon(state: GameState): GameCommand {
   const battle = state.battle!
-  const sources = listBattleSummonSources(state, battle)
-  if (sources.length === 0) return { type: 'battleSkipSummon' }
-  if (rng() < profile.skipSummonChance) return { type: 'battleSkipSummon' }
-  const best = findBestSummonable(
-    state,
-    state.legions.find((l) => l.id === battle.attackerLegionId)!,
-  )
-  if (!best) return { type: 'battleSkipSummon' }
-  return { type: 'battleSummon', fromLegionId: best.fromLegionId }
+  const attacker = state.legions.find((l) => l.id === battle.attackerLegionId)!
+  const best = planSummon(state, attacker, (type, hex) => creatureCombatValue(state, type, hex),
+    listBattleSummonSources(state, battle))
+  return best ? { type: 'battleSummon', fromLegionId: best.fromLegionId } : { type: 'battleSkipSummon' }
 }
 
 function pickBattleCommand(
@@ -280,10 +234,10 @@ function pickBattleCommand(
   }
 
   if (battle.phase === 'Recruit') {
-    return pickBattleReinforce(state, profile, rng)
+    return pickBattleReinforce(state)
   }
   if (battle.phase === 'Summon') {
-    return pickBattleSummon(state, profile, rng)
+    return pickBattleSummon(state)
   }
 
   const myUnits = battle.units.filter(
@@ -318,7 +272,7 @@ export function pickAiCommand(state: GameState, rng = Math.random): GameCommand 
   const profile = profileOf(state)
 
   if (state.pendingPostBattleReinforce) {
-    return pickPostBattleReinforce(state, profile, rng)
+    return pickPostBattleReinforce(state)
   }
 
   if (state.battle && !state.battle.done) {

@@ -226,6 +226,13 @@ export function listDevelopmentEdges(state: GameState): DevelopmentEdge[] {
   return edges
 }
 
+/** Available development, recomputed because caretaker counts can change in place.
+ * Only the variant graph is cached; this view never changes recruit eligibility.
+ */
+export function listAvailableDevelopmentEdges(state: GameState): DevelopmentEdge[] {
+  return listDevelopmentEdges(state).filter((edge) => (state.caretaker[edge.recruit] ?? 0) > 0)
+}
+
 /** Immediate combat / tactics value of adding this creature type. */
 export function intrinsicMusterValue(state: GameState, creatureType: string): number {
   const def = state.variant.creatures[creatureType]
@@ -261,9 +268,11 @@ export function compositionDevelopmentValue(
   minTargetExclusive = 0,
 ): number {
   let total = 0
-  for (const e of listDevelopmentEdges(state)) {
+  for (const e of listAvailableDevelopmentEdges(state)) {
     const have = counts[e.recruiter] ?? 0
     if (have <= 0) continue
+    // Missing recruiters cannot be rebuilt out of an exhausted caretaker stack.
+    if (have + (state.caretaker[e.recruiter] ?? 0) < e.needed) continue
     const fromVal = intrinsicMusterValue(state, e.recruiter)
     const toVal = intrinsicMusterValue(state, e.recruit)
     if (toVal <= fromVal) continue
@@ -280,7 +289,7 @@ export function compositionDevelopmentValue(
  */
 export function maxUsefulRecruiterCount(state: GameState, recruiter: string): number {
   let max = 0
-  for (const e of listDevelopmentEdges(state)) {
+  for (const e of listAvailableDevelopmentEdges(state)) {
     if (e.recruiter === recruiter) max = Math.max(max, e.needed)
   }
   return max

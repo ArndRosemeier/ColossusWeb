@@ -62,7 +62,7 @@ describe('AI split choice', () => {
     expect(child).toHaveLength(2)
   })
 
-  it('AI always splits a height-7 legion when markers are free', () => {
+  it('splits a safe productive height-7 legion while preserving its completed recruiting line', () => {
     const g = makeHeight7([
       'Titan',
       'Cyclops',
@@ -72,6 +72,7 @@ describe('AI split choice', () => {
       'Gargoyle',
       'Ogre',
     ])
+    g.legions = [g.legion]
     const cmd = pickAiCommand(g, () => 0.99)
     expect(cmd).toEqual({
       type: 'split',
