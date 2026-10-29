@@ -51,6 +51,8 @@ independently names the verified base. See decision-ledger row 4.
 
 ## Board
 
+BUILT-LOCAL | row=25 | actor=/root/variant_creatures | branch=codex/modern-battle | worktree=C:\Users\windo\Documents\ChatGPT\ColossusWeb\source\worktrees\modern-battle | base=6a6fe7407a9e0481fab89e1a12fe22091b074496 | lands=this commit | scope=Animated tactical materials, eight illustrated obstacles, elevation/coordinate labels and native oriented hexside cues; original Classic paint and game paths retained | writer_focused=0;32 passed/4 files; maxWorkers1/NODE_OPTIONS1024; peak NOT MEASURED | writer_cheap=2;typecheck/Vite only | logs=.gate-logs/modern-battle-focused-final,modern-battle-cheap-final | own_preview=Jungle/Desert/Abyss,27 cells each;0 page errors; isolated browser/server closed | independent=dispatcher owns integrated full gate and final-source Classic/combat/browser checks | COPIES=2→1 battleEdgeGeometry | no push/deploy
+
 ```
 reconciled: 46f0ae806404a8f72456652c6cfab067f65d778c · 2026-10-29 (verified feature pushed to origin/master)
 

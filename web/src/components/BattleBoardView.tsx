@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import { battleLand, getUnitPower, getUnitSkill, isUnitAlive } from '../engine/battle'
 import type { BattleState, GameState } from '../engine/types'
 import type { BattleMoveAnim } from '../ui/moveAnimation'
@@ -8,6 +9,9 @@ import { usePresentationMode, type PresentationMode } from '../ui/presentationMo
 import { hasCreatureAnimation } from '../ui/creatureAnimations'
 import { useBattleStrikePresentation, useReducedMotion } from '../ui/battlePresentation'
 import { SafeSvgImage } from './SafeSvgImage'
+import { ModernBattleDefs, ModernBattleHex } from './ModernBattleHex'
+import { battleEdgeGeometry, battleSurface } from '../ui/modernBattle'
+import './modernBattle.css'
 
 const SQRT3 = Math.sqrt(3)
 
@@ -112,23 +116,7 @@ function HexsideMarks({
   hazard: string
 }) {
   if (hazard === 'nothing') return null
-  const a = verts[side]!
-  const b = verts[(side + 1) % 6]!
-  const dx = b[0] - a[0]
-  const dy = b[1] - a[1]
-  const len = Math.hypot(dx, dy) || 1
-  const ux = dx / len
-  const uy = dy / len
-  // Inward normal (toward hex center ≈ rotate edge 90° — use average of verts)
-  const mx = (a[0] + b[0]) / 2
-  const my = (a[1] + b[1]) / 2
-  const cx = verts.reduce((s, p) => s + p[0], 0) / 6
-  const cy = verts.reduce((s, p) => s + p[1], 0) / 6
-  let nx = cx - mx
-  let ny = cy - my
-  const nlen = Math.hypot(nx, ny) || 1
-  nx /= nlen
-  ny /= nlen
+  const { a, b, dx, dy, length: len, ux, uy, nx, ny } = battleEdgeGeometry(verts, side)
 
   if (hazard === 'river') {
     return (
@@ -414,6 +402,7 @@ export function BattleBoardView({
   onAssetError,
 }: Props) {
   const mode = usePresentationMode()
+  const modernPrefix = `battle-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
   const reducedMotion = useReducedMotion()
   const animatedStrike = useBattleStrikePresentation(state.pendingDice, state.diceRoll, mode === 'animated')
   // Colossus HexMap uses scale = 2 * Scale.get(); we pick a readable web size.
@@ -541,10 +530,11 @@ export function BattleBoardView({
         className="battle-board"
       >
         <defs>
+          {mode === 'animated' && <ModernBattleDefs prefix={modernPrefix} />}
           {hexes.map((h) => {
             const { cx, cy } = hexOrigin(h.x, h.y, scale)
             return (
-              <clipPath key={`clip-${h.label}`} id={`bhex-clip-${h.label}`}>
+              <clipPath key={`clip-${h.label}`} id={mode === 'animated' ? `${modernPrefix}-clip-${h.label}` : `bhex-clip-${h.label}`}>
                 <polygon points={hexPath(cx, cy, scale)} />
               </clipPath>
             )
@@ -560,7 +550,13 @@ export function BattleBoardView({
           const verts = hexVertices(cx, cy, scale)
           const hazardArt = usesHazardArt(h.terrain) ? hazardImageUrl(h.terrain) : ''
           return (
-            <g key={h.label} onClick={() => onHexClick(h.label)} style={{ cursor: 'pointer' }}>
+            <g key={h.label} onClick={() => onHexClick(h.label)} style={{ cursor: 'pointer' }}
+              data-battle-hex={mode === 'animated' ? h.label : undefined}
+              data-terrain={mode === 'animated' ? h.terrain : undefined}
+              data-elevation={mode === 'animated' ? h.elevation : undefined}>
+              {mode === 'animated' ? <ModernBattleHex hex={h} polygon={hexPath(cx, cy, scale)} vertices={verts}
+                bounds={bounds} center={{ x, y }} prefix={modernPrefix} clipPath={`url(#${modernPrefix}-clip-${h.label})`}
+                lit={lit} entry={entry} onAssetError={onAssetError} /> : <>
               <polygon
                 points={hexPath(cx, cy, scale)}
                 fill={fill}
@@ -597,6 +593,7 @@ export function BattleBoardView({
               >
                 {h.label}
               </text>
+              </>}
             </g>
           )
         })}
@@ -781,6 +778,13 @@ export function BattleBoardView({
           />
         )}
       </svg>
+      {mode === 'animated' && <div className="modern-battle-key" aria-label="Battle terrain key">
+        <span className="modern-battle-key-title">Terrain</span>
+        {[...new Set(hexes.map(h => h.terrain))].map(terrain => <span className="modern-battle-key-item" key={terrain}>
+          <span className="modern-battle-swatch" style={{ background: battleSurface(terrain, 0).top }} aria-hidden="true" />{terrain}
+        </span>)}
+        <span className="modern-battle-height-key">Numbered circles: elevation</span>
+      </div>}
     </div>
   )
 }

@@ -1,0 +1,204 @@
+{
+  "method": "Built-in image_gen transparent full-frame terrain drawings; measured transparent-gutter crop, uniform scale and alpha-preserving delivery packaging only. No repainting or generated pixel edits.",
+  "sourceSheetSha256": "298b3037707676f1f807418a341312b06ed555850808c6b362ce86a775f2e72f",
+  "sourceSize": [
+    1774,
+    887
+  ],
+  "frameSize": 256,
+  "commonScale": 0.5270588235294118,
+  "hazards": [
+    {
+      "name": "Bog",
+      "sourceBox": [
+        444,
+        0,
+        887,
+        480
+      ],
+      "contentBox": [
+        459,
+        118,
+        880,
+        433
+      ],
+      "file": "Bog.png",
+      "size": 85199,
+      "sha256": "b011b4f805b5613e6e5d9ca14d6ebffdb1d7e7041a3a0000f461f655f2a10d91",
+      "visibleBounds": [
+        20,
+        73,
+        236,
+        233
+      ]
+    },
+    {
+      "name": "Brambles",
+      "sourceBox": [
+        0,
+        0,
+        444,
+        472
+      ],
+      "contentBox": [
+        21,
+        110,
+        443,
+        431
+      ],
+      "file": "Brambles.png",
+      "size": 80923,
+      "sha256": "b98682fb7426d31677cf92a0591d6854e91c47befa2832ec2ff5631f14f6a3d2",
+      "visibleBounds": [
+        20,
+        70,
+        236,
+        233
+      ]
+    },
+    {
+      "name": "Drift",
+      "sourceBox": [
+        1330,
+        0,
+        1774,
+        482
+      ],
+      "contentBox": [
+        1339,
+        146,
+        1752,
+        438
+      ],
+      "file": "Drift.png",
+      "size": 67109,
+      "sha256": "96acc082995c71f92bc52647ce1a14db970f5bff1667b5f77aa38f118a15e024",
+      "visibleBounds": [
+        22,
+        85,
+        234,
+        233
+      ]
+    },
+    {
+      "name": "Lake",
+      "sourceBox": [
+        444,
+        480,
+        887,
+        887
+      ],
+      "contentBox": [
+        458,
+        557,
+        879,
+        841
+      ],
+      "file": "Lake.png",
+      "size": 78836,
+      "sha256": "c3b047de2d3ec58e6079bac79807fbf544da4d459610773162b8c271913fb851",
+      "visibleBounds": [
+        20,
+        89,
+        236,
+        233
+      ]
+    },
+    {
+      "name": "Sand",
+      "sourceBox": [
+        887,
+        0,
+        1330,
+        440
+      ],
+      "contentBox": [
+        897,
+        158,
+        1320,
+        426
+      ],
+      "file": "Sand.png",
+      "size": 57358,
+      "sha256": "081a3e39498701bf57a9bb24b7b642460b9f5eca7fd2b77dd2dc5bebe2d34656",
+      "visibleBounds": [
+        19,
+        98,
+        236,
+        233
+      ]
+    },
+    {
+      "name": "Stone",
+      "sourceBox": [
+        1330,
+        482,
+        1774,
+        887
+      ],
+      "contentBox": [
+        1342,
+        543,
+        1741,
+        834
+      ],
+      "file": "Stone.png",
+      "size": 60397,
+      "sha256": "fa703dbf2d54531835b29ca44dfd435f560c5f4c51891e65b5078e29d1e9baee",
+      "visibleBounds": [
+        26,
+        86,
+        230,
+        233
+      ]
+    },
+    {
+      "name": "Tree",
+      "sourceBox": [
+        887,
+        440,
+        1330,
+        887
+      ],
+      "contentBox": [
+        899,
+        453,
+        1324,
+        855
+      ],
+      "file": "Tree.png",
+      "size": 96699,
+      "sha256": "d2e43272741783f1d23c6dfe33559f2e4621998d881fbf164dc16dc2cbbffd7b",
+      "visibleBounds": [
+        19,
+        27,
+        237,
+        232
+      ]
+    },
+    {
+      "name": "Volcano",
+      "sourceBox": [
+        0,
+        472,
+        444,
+        887
+      ],
+      "contentBox": [
+        25,
+        512,
+        438,
+        838
+      ],
+      "file": "Volcano.png",
+      "size": 66807,
+      "sha256": "8e272e6d0d896624446ebcfbb40984ac484528d21850167a52edcb252d7cf35a",
+      "visibleBounds": [
+        22,
+        67,
+        234,
+        232
+      ]
+    }
+  ]
+}
