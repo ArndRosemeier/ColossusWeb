@@ -34,10 +34,10 @@ export function ModernTerrainArt({ terrain, hexLabel, cx, cy, scale, clipPath, r
   return <g className="modern-terrain-art" data-terrain={terrain} clipPath={clipPath} pointerEvents="none">
     {failedUrl === url ? <g data-terrain-error={terrain}>
       <title>{message}</title><text x={cx + scale} y={cy + 39} textAnchor="middle" fontSize={6} fill="#fff1dd" stroke="#611e22" strokeWidth={2} paintOrder="stroke">Art unavailable</text>
-    </g> : <svg x={cx + scale - 24} y={cy + 19} width={48} height={38} viewBox="0 0 48 38">
+    </g> : <svg x={cx + scale - 24} y={cy + 23} width={48} height={34} viewBox="0 0 48 34">
       <g className={kind && !reducedMotion ? `master-terrain-motion modern-terrain-motion terrain-motion-${kind}` : 'modern-terrain-still'}
-        style={{ animationDuration: timing.duration, animationDelay: timing.delay, transformOrigin: '24px 36px' }}>
-        <image href={url} width={48} height={38} preserveAspectRatio="xMidYMid meet" onError={() => {
+        style={{ animationDuration: timing.duration, animationDelay: timing.delay, transformOrigin: '24px 32px' }}>
+        <image href={url} width={48} height={34} preserveAspectRatio="xMidYMid meet" onError={() => {
           setFailedUrl(url)
           if (!reported.current.has(url)) { reported.current.add(url); notify(message) }
         }} />
@@ -52,9 +52,9 @@ export function ModernHexLabels({ terrain, label, cx, cy, scale, clipPath, showT
   const center = cx + scale
   return <g className="modern-hex-labels" pointerEvents="none" clipPath={clipPath}>
     {showTerrain && <>
-      <rect x={center - Math.min(44, terrain.length * 4.4 + 8) / 2} y={cy + 7} width={Math.min(44, terrain.length * 4.4 + 8)} height={13} rx={3} fill="#111c25" fillOpacity={0.84} />
-      <text className="modern-terrain-name" x={center} y={cy + 16.8} textAnchor="middle" fill="#f4ebdd" fontFamily="Sora, sans-serif" fontWeight={650} fontSize={7.2}
-        textLength={terrain.length > 7 ? 32 : undefined} lengthAdjust={terrain.length > 7 ? 'spacingAndGlyphs' : undefined}>{terrain}</text>
+      <rect x={center - Math.min(30, terrain.length * 4.4 + 8) / 2} y={cy + 13} width={Math.min(30, terrain.length * 4.4 + 8)} height={11} rx={3} fill="#111c25" fillOpacity={0.84} />
+      <text className="modern-terrain-name" x={center} y={cy + 21.2} textAnchor="middle" fill="#f4ebdd" fontFamily="Sora, sans-serif" fontWeight={650} fontSize={7.2}
+        textLength={terrain.length > 7 ? 28 : undefined} lengthAdjust={terrain.length > 7 ? 'spacingAndGlyphs' : undefined}>{terrain}</text>
     </>}
     {/* Above the shared-edge gate corridor, below the standing marker's printed ID. */}
     <rect className="modern-number-pill" x={center - (preview ? 18 : 11)} y={cy + 57} width={preview ? 36 : 22} height={10} rx={5} fill="#111e28" stroke="#cbb58c" strokeWidth={0.5} />

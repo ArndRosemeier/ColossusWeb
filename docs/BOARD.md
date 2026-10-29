@@ -526,3 +526,7 @@ Each was **verified**, not assumed, on 2026-09-27 at the base commit.
   `cmd && nohup … &` is the SUBSHELL's pid, so `kill $!` left an orphaned `http.server` —
   the THIRD time this session that capturing `$!` for a compound command was wrong. Capture
   the real pid (`ss -ltnp`) and kill it in a separate call.
+
+Row24 writer follow-up (base d002136): destination-preview test now explicitly supplies dispatch's movement RNG and checks exact engine-derived preview creatures; no product change. Focused gate0/11passed and cheap2 recorded in TESTING; independent integrated rerun owed. Logs `.gate-logs/modern-preview-fixture-focused-fixed` and `modern-preview-fixture-cheap`.
+
+Row24 final follow-up also clears name capsules from the actual top-edge gate corridor, as requested by independent Chrome review. Final focused32passed/gate0 and cheap2, geometry probe0caption/gate intersections onDefault96/360; `.gate-logs/modern-followup-focused-final`, `modern-followup-cheap-final`. Updated screenshots in writer .gate-logs; dispatcher full/browser confirmation owed. Toolbar/mobile index.css remains dispatcher-owned.

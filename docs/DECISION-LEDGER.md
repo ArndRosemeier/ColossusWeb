@@ -73,3 +73,7 @@ landing.
 Copy row 1's shape for each new decision. Keep it to one row's worth of prose: the
 detail belongs in the commit, the test, or the seam index — this is the pointer.
 -->
+
+Row24 follow-up: dispatcher integrated suite exposed an unseeded dice input in the pre-existing destination-preview fixture (createGame seed does not seed dispatch). The fix explicitly settles a six through dispatch's RNG and strengthens the renderer assertion against the engine-derived preview list; rules/rendering remain unchanged. See TESTING for failed/corrected focused gates and dispatcher rerun obligation.
+
+Row24 independent visual follow-up also narrows/lowers terrain-name capsules to clear top-edge gate shapes and adjusts vignette framing/ground pivot. Chrome actual fill/stroke sampling reports no caption/gate intersections onDefault96hexes/360marks; independent confirmation remains owed. This is a label/art placement correction only, not gate geometry or gameplay.

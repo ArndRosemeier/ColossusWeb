@@ -15,7 +15,8 @@ import { CreatureAssetErrorContext } from '../../ui/creaturePresentation'
 import { setPresentationMode } from '../../ui/presentationMode'
 import { loadCreatureAtlas } from '../../ui/creatureAnimations'
 import { creatureImageUrl } from '../../variant/assets'
-import { dispatch, getLegalRecruits } from '../../engine/GameEngine'
+import { dispatch, getLegalRecruits, getMovesForSelected } from '../../engine/GameEngine'
+import { bestRecruitAt } from '../../engine/recruit'
 import { turn1SplitChild, twoPlayerGame } from '../../engine/__tests__/helpers'
 import type { GameCommand } from '../../engine/types'
 
@@ -150,10 +151,18 @@ describe('remaining actual creature token callers', () => {
     let state = twoPlayerGame(1)
     const parent = state.legions.find(l => l.playerId === state.players[0].id)!
     state = dispatch(state, { type: 'split', parentId: parent.id, childCreatures: turn1SplitChild(state, parent) })
-    state = dispatch(state, { type: 'doneSplit' })
+    // createGame's seed chooses setup; dispatch's dice RNG is a separate input.
+    // A six gives this real opening split legal recruit-bearing destinations.
+    state = dispatch(state, { type: 'doneSplit' }, () => 0.99)
     state = dispatch(state, { type: 'selectLegion', legionId: parent.id })
+    expect(state.movementRoll).toBe(6)
+    const selected = state.legions.find(legion => legion.id === parent.id)!
+    const expectedRecruits = [...getMovesForSelected(state).keys()]
+      .map(label => bestRecruitAt(state, selected, label)).filter(creature => creature !== null)
+    expect(expectedRecruits.length).toBeGreaterThan(0)
     await render(createElement(MasterBoardView, { state, onHexClick: vi.fn(), onLegionClick: vi.fn(), interactive: true }))
-    expect(host.querySelectorAll('.recruit-preview .board-creature-icon').length).toBeGreaterThan(0)
+    expect(host.querySelectorAll('.recruit-preview .board-creature-icon')).toHaveLength(expectedRecruits.length)
+    expect([...host.querySelectorAll('.recruit-preview .animated-creature[data-creature]')].map(sprite => sprite.getAttribute('data-creature'))).toEqual(expectedRecruits)
     for (const preview of host.querySelectorAll('.recruit-preview')) {
       expect(preview.querySelector('[data-animation="resting"][data-art-only="true"]')).not.toBeNull()
       expect(preview.querySelector('title')!.textContent).toMatch(/^Best muster: /)
