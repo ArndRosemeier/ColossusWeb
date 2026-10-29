@@ -18,6 +18,7 @@ export function VictoryCelebration({ celebrationId, winner, onDismiss, onError, 
   useLayoutEffect(() => {
     const dialog = dialogRef.current!
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const fallbackFocus = returnFocusRef.current
     try { dialog.showModal(); viewRef.current?.focus({ preventScroll: true }) }
     catch (error) {
       callbacks.current.onError(`Victory celebration: ${error instanceof Error ? error.message : String(error)}`)
@@ -26,7 +27,7 @@ export function VictoryCelebration({ celebrationId, winner, onDismiss, onError, 
     }
     return () => {
       if (dialog.open) dialog.close()
-      const target = previous && previous !== document.body && previous.isConnected && !previous.matches(':disabled') ? previous : returnFocusRef.current
+      const target = previous && previous !== document.body && previous.isConnected && !previous.matches(':disabled') ? previous : fallbackFocus
       target?.focus({ preventScroll: true })
     }
   }, [celebrationId, returnFocusRef])
