@@ -18,7 +18,7 @@ function extraLegion(state: GameState, original: Legion, id: string, hexLabel: s
 }
 
 describe('Easy uses simpler legion coordination with shared safety', () => {
-  it.each(Object.values(AI_PROFILES))('keeps Easy/Normal quiet coordination while Hard takes a proven legal HOLD for $id', profile => {
+  it.each(Object.values(AI_PROFILES))('keeps Easy quiet coordination and Normal/Hard ordinary growth when depth is incomplete for $id', profile => {
     for (const level of AI_DIFFICULTY_CHOICES) {
       const state = twoPlayerGame(71), moved = state.legions[0]
       state.turnNumber = 3; state.phase = 'Move'; state.movementRoll = 3
@@ -38,18 +38,17 @@ describe('Easy uses simpler legion coordination with shared safety', () => {
         expect(command).toMatchObject({ type: 'move', legionId: useful.id })
         expect(next.legions.find(legion => legion.id === useful.id)!.moved).toBe(true)
       } else {
-        // This quiet route has no current recruit. New legal two-turn HOLD can
-        // beat moving; require the complete proof, not a blanket Hard stop cap.
+        // A comparable whole-round continuation now costs more than the old
+        // asymmetric HOLD tree. Incomplete work must keep the actual control.
         const ordinary = pickBestMove(state, profile, () => 0, true, new Set(), { masterLookahead: false })
         expect(ordinary).toMatchObject({ type: 'move', legionId: useful.id })
         const control = ranked.find(move => ordinary.type === 'move' && move.legionId === ordinary.legionId && move.hex === ordinary.toHex)!
         const proof = searchMasterMoves(state, [control, ...ranked.filter(move => move !== control)], profile,
           { compareHold: true, holdLegionId: useful.id, stopAfterHoldImprovement: true })
-        expect(proof.diagnostics.exhausted).toBe(false)
-        expect(proof.diagnostics.incomplete).toBe(false)
-        expect(proof.bestHold!.expectedArmyQuality).toBeGreaterThan(proof.candidates[0].expectedArmyQuality + 0.5)
-        expect(command).toEqual({ type: 'doneMove' })
-        expect(next.phase).not.toBe('Move')
+        expect(proof.diagnostics.exhausted).toBe(true)
+        expect(proof.best).toBeNull()
+        expect(command).toEqual(ordinary)
+        expect(next.legions.find(legion => legion.id === useful.id)!.moved).toBe(true)
       }
     }
   })

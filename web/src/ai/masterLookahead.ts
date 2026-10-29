@@ -22,6 +22,7 @@ export interface MasterSearchOptions {
   compareHold?: boolean
   holdLegionId?: string
   stopAfterHoldImprovement?: boolean
+  continuationLegionId?: string
 }
 export const HARD_MASTER_SEARCH = Object.freeze({ depth: 2 as const, maxNodes: 600, candidateLimit: 3, destinationsPerRoll: 2, maxGeneratedMoves: 6000, maxMovementQueries: 4096 })
 export interface MasterSearchDiagnostics {
@@ -36,6 +37,9 @@ export interface MasterSearchDiagnostics {
   futureMustersByLegion: Record<string, number>
   futureHolds: number
   companionHoldMoves: number
+  combinedFutureRounds: number
+  prunedUnsafeContinuations: number
+  continuationLegionId: string | null
   exhausted: boolean
   incomplete: boolean
   completeCandidates: number
@@ -48,12 +52,14 @@ export interface MasterCandidateValue {
   currentMusters: string[]
   holdArmyQuality: number | null
   holdCommand: MasterHoldValue['command'] | null
+  continuationLegionId: string
 }
 export interface MasterHoldValue {
   command: Extract<GameCommand, { type: 'move' | 'doneMove' }>
   heldLegionId: string
   expectedArmyQuality: number
   currentMusters: string[]
+  continuationLegionId: string
 }
 export interface MasterSearchResult {
   best: MasterCandidateValue | null
@@ -103,16 +109,22 @@ function enemyOn(state: GameState, hex: string, owner: string): boolean {
   return state.legions.some((l) => l.playerId !== owner && l.hexLabel === hex)
 }
 
-/** Greedy global current muster, using the SAME legal/provider/scorer as actual AI.
- * Every eligible friendly stack competes for stock; only cloned data is mutated.
+/** Mechanical projection of a move already supplied by the legal provider.
+ * Shared by actual roots, future focus moves and optional companion moves.
  */
-function landAndMuster(state: GameState, legion: Legion, hex: string, performMove: boolean): { state: GameState; legion: Legion; musters: string[] } {
+function moveProjection(state: GameState, legion: Legion, hex: string, teleport: boolean): GameState {
+  return { ...state,
+    players: state.players.map((p) => p.id === legion.playerId && teleport ? { ...p, hasTeleported: true } : p),
+    legions: state.legions.map((l) => l.id === legion.id ? { ...l, hexLabel: hex, moved: true, teleported: teleport } : l) }
+}
+
+/** ONE global greedy muster after ALL projected moves, with shared stock.
+ * Movement eligibility is preserved; this function never grants a stationary move.
+ */
+function musterProjection(state: GameState, legion: Legion): { state: GameState; legion: Legion; musters: string[] } {
   const next: GameState = { ...state, caretaker: { ...state.caretaker },
     legions: state.legions.map((l) => l.playerId === legion.playerId ? {
       ...l, creatures: l.creatures.map((c) => ({ ...c })),
-      ...(l.id === legion.id ? { hexLabel: hex, moved: l.moved || performMove,
-        recruited: performMove ? false : l.recruited,
-        musteredThisTurn: performMove ? null : l.musteredThisTurn } : {}),
     } : l) }
   const musters: string[] = []
   for (;;) {
@@ -151,7 +163,7 @@ export function searchMasterMoves(state: GameState, ranked: readonly ScoredMove[
     throw new Error('Invalid master lookahead budget')
   }
   const diagnostics: MasterSearchDiagnostics = { depth: limits.depth, reachedDepth: 0, nodes: 0, memoHits: 0,
-    expandedFutureMusters: 0, movementQueries: 0, generatedMoves: 0, futureRecruitCounts: {}, futureMustersByLegion: {}, futureHolds: 0, companionHoldMoves: 0, exhausted: false, incomplete: false, completeCandidates: 0, certifiedHoldEarlyExit: false }
+    expandedFutureMusters: 0, movementQueries: 0, generatedMoves: 0, futureRecruitCounts: {}, futureMustersByLegion: {}, futureHolds: 0, companionHoldMoves: 0, combinedFutureRounds: 0, prunedUnsafeContinuations: 0, continuationLegionId: null, exhausted: false, incomplete: false, completeCandidates: 0, certifiedHoldEarlyExit: false }
   const result: MasterSearchResult = { best: null, candidates: [], bestHold: null, diagnostics }
   if (state.phase !== 'Move' || state.movementRoll == null) return result
   const owner = state.players[state.activePlayerIndex].id
@@ -170,8 +182,16 @@ export function searchMasterMoves(state: GameState, ranked: readonly ScoredMove[
   for (const move of eligible) if (!diversified.includes(move)) diversified.push(move)
   const shortlist = diversified.slice(0, limits.candidateLimit)
   const rootMovers = new Set(ranked.map((move) => move.legionId))
+  // One policy focus for EVERY root, including HOLD labelled by another stack.
+  const focusId = limits.continuationLegionId ?? shortlist[0]?.legionId ?? limits.holdLegionId
+  if (!focusId) return result
+  const focus = state.legions.find((l) => l.id === focusId && l.playerId === owner)
+  if (!focus) throw new Error('Master continuation focus has no owned legion')
+  diagnostics.continuationLegionId = focusId
+  const initial = new Map(state.legions.map((l) => [l.id, l]))
+  const initialSurvival = new Map<string, number>()
   const baseQuality = armyQuality(state, owner)
-  const memo = new Map<string, number>()
+  const memo = new Map<string, number | 'unsafe'>()
   const reach: SpatialCache = { reachCounts: new Map(), candidateReach: new Map(), nextTurnMemo: new Map(), musterMemo: new Map(), movementQueries: 0 }
 
   function movementQuery(): boolean {
@@ -213,12 +233,17 @@ export function searchMasterMoves(state: GameState, ranked: readonly ScoredMove[
     certificate: { state: GameState; legion: Legion; musters: string[]; command: MasterHoldValue['command'] } | null
     alternativeMoves: boolean
   } {
-    if (canEndMovePhase(position)) {
-      // Done would recombine blocked stacks. Do not invent merged state here.
-      if (needsRecombination(position)) return { certificate: null, alternativeMoves: false }
-      return { certificate: { ...landAndMuster(position, mover, mover.hexLabel, false), command: { type: 'doneMove' } }, alternativeMoves: false }
-    }
     let best: { state: GameState; legion: Legion; musters: string[]; command: MasterHoldValue['command']; quality: number; heldSurvival: number } | null = null
+    if (canEndMovePhase(position)) {
+      if (needsRecombination(position)) return { certificate: null, alternativeMoves: false }
+      const baseline = { ...musterProjection(position, mover), command: { type: 'doneMove' as const } }
+      if (root) return { certificate: baseline, alternativeMoves: false }
+      const heldSurvival = survival(baseline.state, baseline.legion)
+      if (heldSurvival === null) return { certificate: null, alternativeMoves: false }
+      best = { ...baseline, quality: armyQuality(baseline.state, owner), heldSurvival }
+      // Future MOVE and HOLD both get the SAME optional safe companion chance,
+      // even though MOVE may already have satisfied the engine's obligation.
+    }
     let alternativeMoves = false
     for (const helper of position.legions) {
       if (helper.playerId !== owner || helper.id === mover.id || helper.moved || (root && !rootMovers.has(helper.id))) continue
@@ -233,11 +258,9 @@ export function searchMasterMoves(state: GameState, ranked: readonly ScoredMove[
         frontier.push({ hex, teleport: info.teleport, rank: recruit ? scoreRecruitOption(position, recruit, hex, helper) : 0 })
       }
       for (const leave of frontier.sort((a, b) => b.rank - a.rank).slice(0, limits.destinationsPerRoll)) {
-        const projected: GameState = { ...position,
-          players: position.players.map((p) => p.id === owner && leave.teleport ? { ...p, hasTeleported: true } : p),
-          legions: position.legions.map((l) => l.id === helper.id ? { ...l, hexLabel: leave.hex, moved: true, teleported: leave.teleport } : l) }
+        const projected = moveProjection(position, helper, leave.hex, leave.teleport)
         if (!canEndMovePhase(projected) || needsRecombination(projected)) continue
-        const grown = landAndMuster(projected, mover, mover.hexLabel, false)
+        const grown = musterProjection(projected, mover)
         const movedHelper = grown.state.legions.find((l) => l.id === helper.id)!
         const helperSurvival = survival(grown.state, movedHelper)
         if (helperSurvival === null) return { certificate: null, alternativeMoves }
@@ -252,13 +275,39 @@ export function searchMasterMoves(state: GameState, ranked: readonly ScoredMove[
     return { certificate: best, alternativeMoves }
   }
 
-  function visit(position: GameState, mover: Legion, depth: number): number | null {
+  function visit(position: GameState, depth: number): number | null | 'unsafe' {
+    const mover = position.legions.find((l) => l.id === focusId)!
     const key = memoKey(position, mover, depth)
     const hit = memo.get(key)
     if (hit !== undefined) { diagnostics.memoHits++; return hit }
     if (diagnostics.nodes >= limits.maxNodes) { diagnostics.exhausted = true; return null }
     diagnostics.nodes++
     diagnostics.reachedDepth = Math.max(diagnostics.reachedDepth, limits.depth - depth)
+    // Do not change perspective and silently count a moved nonfocus stack alive.
+    // Unsupported danger retains the actual Normal control instead of inventing
+    // global casualties. Same unchanged power/skill battle estimator/certificate.
+    for (const friend of position.legions) {
+      if (friend.playerId !== owner || friend.id === focusId) continue
+      const before = initial.get(friend.id)!
+      const changed = friend.hexLabel !== before.hexLabel || (friend.moved && !before.moved) ||
+        friend.creatures.map((c) => c.type).join(',') !== before.creatures.map((c) => c.type).join(',')
+      const safe = survival(position, friend)
+      if (safe === null) return null
+      let baseline = initialSurvival.get(friend.id)
+      if (baseline === undefined) {
+        const original = survival(state, before)
+        if (original === null) return null
+        baseline = original
+        initialSurvival.set(friend.id, baseline)
+      }
+      // A frozen nonfocus stack must not become exposed when another move
+      // vacates its blocker. Static original uncertainty is not new growth.
+      if ((changed && safe < 1) || safe < baseline) {
+        diagnostics.prunedUnsafeContinuations++
+        memo.set(key, 'unsafe')
+        return 'unsafe'
+      }
+    }
     const quality = armyQuality(position, owner)
     const alive = survival(position, mover)
     if (alive === null) return null
@@ -278,8 +327,8 @@ export function searchMasterMoves(state: GameState, ranked: readonly ScoredMove[
       if (!movementQuery()) return null
       const rolled: GameState = { ...readyState, movementRoll: roll }
       const legal = [...listAllMoves(rolled, ready, roll)]
-      const frontier: { hex: string; rank: number }[] = []
-      for (const [hex] of legal) {
+      const frontier: { hex: string; teleport: boolean; rank: number }[] = []
+      for (const [hex, info] of legal) {
         if (diagnostics.generatedMoves >= limits.maxGeneratedMoves ||
           reach.movementQueries + diagnostics.movementQueries > limits.maxMovementQueries) {
           diagnostics.exhausted = true
@@ -288,16 +337,26 @@ export function searchMasterMoves(state: GameState, ranked: readonly ScoredMove[
         diagnostics.generatedMoves++
         if (enemyOn(rolled, hex, owner)) continue
         const recruit = bestRecruitAt(rolled, ready, hex)
-        frontier.push({ hex, rank: recruit ? scoreRecruitOption(rolled, recruit, hex, ready) : 0 })
+        frontier.push({ hex, teleport: info.teleport, rank: recruit ? scoreRecruitOption(rolled, recruit, hex, ready) : 0 })
       }
-      const choices = frontier.sort((a, b) => b.rank - a.rank).slice(0, limits.destinationsPerRoll)
-        .map(({ hex }) => landAndMuster(rolled, ready, hex, true))
       const attempt = holdCertificate(rolled, ready, false)
       const hold = attempt.certificate
       if (diagnostics.exhausted) return null
+      const moveLimit = hold ? Math.max(1, limits.destinationsPerRoll - 1) : limits.destinationsPerRoll
+      const choices: { state: GameState; legion: Legion; musters: string[] }[] = []
+      for (const leave of frontier.sort((a, b) => b.rank - a.rank).slice(0, moveLimit)) {
+        // Both actions precede the SAME global muster. Never consume A's last
+        // recruit first and only then invent B's recruiting opportunity.
+        const projected = moveProjection(rolled, ready, leave.hex, leave.teleport)
+        const movedFocus = projected.legions.find((l) => l.id === ready.id)!
+        const completed = holdCertificate(projected, movedFocus, false).certificate
+        if (diagnostics.exhausted) return null
+        if (completed) {
+          if (completed.command.type === 'move') diagnostics.combinedFutureRounds++
+          choices.push(completed)
+        }
+      }
       if (!hold && choices.length === 0 && attempt.alternativeMoves) {
-        // Other legal moves exist but this bounded model did not certify one.
-        // Do not pretend that the held legion must attack and die.
         diagnostics.incomplete = true
         return null
       }
@@ -320,10 +379,12 @@ export function searchMasterMoves(state: GameState, ranked: readonly ScoredMove[
           diagnostics.futureMustersByLegion[legionId] = (diagnostics.futureMustersByLegion[legionId] ?? 0) + 1
           diagnostics.futureRecruitCounts[type] = (diagnostics.futureRecruitCounts[type] ?? 0) + 1
         }
-        const value = visit(choice.state, choice.legion, depth - 1)
+        const value = visit(choice.state, depth - 1)
         if (value === null) return null // incomplete chance nodes cannot earn positive value
+        if (value === 'unsafe') continue // no surviving nonfocus stack is fabricated
         best = Math.max(best, value)
       }
+      if (best === -Infinity) { diagnostics.incomplete = true; return null }
       expected += best / 6
     }
     const value = alive * (0.85 * expected + 0.15 * quality) + (1 - alive) * deathValue
@@ -336,10 +397,10 @@ export function searchMasterMoves(state: GameState, ranked: readonly ScoredMove[
     if (holds.has(legion.id)) return holds.get(legion.id)!
     const certificate = holdCertificate(state, legion, true).certificate
     if (!certificate) { holds.set(legion.id, null); return null }
-    const value = visit(certificate.state, certificate.legion, limits.depth)
-    if (value === null) return null
+    const value = visit(certificate.state, limits.depth)
+    if (value === null || value === 'unsafe') { holds.set(legion.id, null); return null }
     const hold: MasterHoldValue = { command: certificate.command, heldLegionId: legion.id,
-      expectedArmyQuality: value, currentMusters: certificate.musters }
+      expectedArmyQuality: value, currentMusters: certificate.musters, continuationLegionId: focusId }
     holds.set(legion.id, hold)
     if (!result.bestHold || value > result.bestHold.expectedArmyQuality) result.bestHold = hold
     return hold
@@ -351,21 +412,25 @@ export function searchMasterMoves(state: GameState, ranked: readonly ScoredMove[
     if (!movementQuery()) { result.candidates = []; break }
     const legal = listAllMoves(state, legion, state.movementRoll).get(move.hex)
     if (!legal || legal.teleport !== move.teleport) throw new Error('Master lookahead received stale/illegal candidate')
-    const grown = landAndMuster(state, legion, move.hex, true)
+    const landed = moveProjection(state, legion, move.hex, move.teleport)
+    const grown = musterProjection(landed, landed.legions.find((l) => l.id === legion.id)!)
     if (needsRecombination(grown.state)) {
       // The ordinary root would still need a merge/separation before its turn
       // can finish. This local rollout does not invent that whole-player state.
       diagnostics.incomplete = true
       break
     }
-    const value = visit(grown.state, grown.legion, limits.depth)
-    if (value === null) { result.candidates = []; result.best = null; break }
+    const value = visit(grown.state, limits.depth)
+    if (value === null || value === 'unsafe') {
+      if (value === 'unsafe') diagnostics.incomplete = true
+      result.candidates = []; result.best = null; break
+    }
     const hold = limits.compareHold ? rootHold(legion) : null
     if (diagnostics.exhausted || diagnostics.incomplete) { result.candidates = []; result.best = null; result.bestHold = null; break }
     const holdArmyQuality = hold?.expectedArmyQuality ?? null
     diagnostics.completeCandidates++
     result.candidates.push({ move, expectedArmyQuality: value,
-      utility: (value - (holdArmyQuality ?? baseQuality)) * profile.recruitPreference + move.score * 0.1, currentMusters: grown.musters, holdArmyQuality, holdCommand: hold?.command ?? null })
+      utility: (value - (holdArmyQuality ?? baseQuality)) * profile.recruitPreference + move.score * 0.1, currentMusters: grown.musters, holdArmyQuality, holdCommand: hold?.command ?? null, continuationLegionId: focusId })
     // The first root is the actual Normal control. A fully completed superior
     // legal HOLD is already a proven improvement; do not spend the remaining
     // budget on optional roots and then discard that completed comparison.
