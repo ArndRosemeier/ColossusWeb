@@ -54,6 +54,8 @@ independently names the verified base. See decision-ledger row 4.
 ```
 reconciled: 6ff7115638d26f3b31d1de625ba17b7e0088d028 · 2026-09-27T23:10Z
 
+IN-FLIGHT | row=18 | worktree=C:\Users\windo\Documents\ChatGPT\ColossusWeb\source\worktrees\animated-mode | branch=codex/animated-battles | base=ccb661e95bb2bc5e653bab4ecb1f90ba221cf4d1 | state=BUILT-LOCAL; ready for independent verification | lands=this commit | scope=local classic/animated preference; 24 approved animated battle creatures; unchanged combat engine/network/save; dead Strikeback preserved | writer_gate=0; 418 passed, 2 todo; 64 files passed, 1 skipped; peak NOT MEASURED | focused=43 passed | differential=A 11 passed; B 1 failed/10 passed; C 11 passed, hashes restored | logs=worktree/.gate-logs/animated-full-final, animated-strikeback-focused, animated-differential | docs=ARCHITECTURE, TESTING, DECISION-LEDGER row 18, design/animated-presentation, briefs/animated-mode | no push/deploy; dispatcher browser/combat verification and integrated full gate OWED
+
 SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=LIVE-TESTING with the owner, mid-game. S1-S9 landed, dispatcher-verified and retired; S9 (give up + delete your games) is PUBLISHED. **The owner still owes ONE action: grant `delete` on his player keys or the delete will correctly refuse with 403**
 
 QUEUE | row=1 | owner: "be my chief of staff" — a designation, not yet a work order; awaiting the first task

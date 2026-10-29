@@ -3,7 +3,10 @@ import type { BattleState, GameState } from '../engine/types'
 import type { BattleMoveAnim } from '../ui/moveAnimation'
 import { pointsToSvg, usePathTween } from '../ui/usePathTween'
 import { hazardImageUrl } from '../variant/assets'
-import { CreatureChit } from './CreatureChit'
+import { BattleCreature } from './BattleCreature'
+import { usePresentationMode, type PresentationMode } from '../ui/presentationMode'
+import { hasCreatureAnimation } from '../ui/creatureAnimations'
+import { useBattleStrikePresentation, useReducedMotion } from '../ui/battlePresentation'
 import { SafeSvgImage } from './SafeSvgImage'
 
 const SQRT3 = Math.sqrt(3)
@@ -288,6 +291,7 @@ interface Props {
   onUnitClick: (unitId: string) => void
   moveAnim?: BattleMoveAnim | null
   onMoveAnimDone?: () => void
+  onAssetError: (message: string) => void
 }
 
 function BattleAnimOverlay({
@@ -296,6 +300,9 @@ function BattleAnimOverlay({
   chit,
   anim,
   mapCenter,
+  mode,
+  reducedMotion,
+  onAssetError,
   onDone,
 }: {
   land: ReturnType<typeof battleLand>
@@ -303,6 +310,9 @@ function BattleAnimOverlay({
   chit: number
   anim: BattleMoveAnim
   mapCenter: { x: number; y: number }
+  mode: PresentationMode
+  reducedMotion: boolean
+  onAssetError: (message: string) => void
   onDone: () => void
 }) {
   const centers = anim.pathLabels.map(
@@ -320,7 +330,7 @@ function BattleAnimOverlay({
       ...centers,
     ]
   }
-  const { pos, trail } = usePathTween(points, anim.durationMs, false, onDone)
+  const { pos, trail } = usePathTween(points, mode === 'animated' ? (reducedMotion ? 1 : Math.max(900, anim.durationMs)) : anim.durationMs, false, onDone)
   const trailD = trail.length >= 2 ? pointsToSvg(trail) : ''
 
   return (
@@ -337,9 +347,14 @@ function BattleAnimOverlay({
           strokeDasharray="4 3"
         />
       )}
-      <foreignObject x={pos.x - chit / 2} y={pos.y - chit / 2} width={chit} height={chit}>
-        <div className={['battle-chit', 'moving', anim.isAttacker ? 'attacker' : 'defender'].filter(Boolean).join(' ')}>
-          <CreatureChit
+      <foreignObject data-unit-id={anim.pieceId} x={pos.x - chit / 2} y={pos.y - chit / 2} width={chit} height={chit}>
+        <div className={['battle-chit', 'moving', mode === 'animated' && hasCreatureAnimation(anim.creatureType) ? 'animated-art' : '', anim.isAttacker ? 'attacker' : 'defender'].filter(Boolean).join(' ')}>
+          <BattleCreature
+            mode={mode}
+            reducedMotion={reducedMotion}
+            isAttacker={anim.isAttacker}
+            moving
+            onAssetError={onAssetError}
             creature={anim.creatureType}
             power={anim.power}
             skill={anim.skill}
@@ -396,7 +411,11 @@ export function BattleBoardView({
   onUnitClick,
   moveAnim = null,
   onMoveAnimDone,
+  onAssetError,
 }: Props) {
+  const mode = usePresentationMode()
+  const reducedMotion = useReducedMotion()
+  const animatedStrike = useBattleStrikePresentation(state.pendingDice, state.diceRoll, mode === 'animated')
   // Colossus HexMap uses scale = 2 * Scale.get(); we pick a readable web size.
   // Battle chits are 4*Scale in Colossus while hex scale is 2*Scale → chit ≈ 2*scale.
   const scale = 14
@@ -498,7 +517,7 @@ export function BattleBoardView({
   const showStrikeArrow = Boolean(strikeFrom && strikeTo)
 
   return (
-    <div className="battle-wrap">
+    <div className="battle-wrap" data-presentation={mode}>
       <div className="battle-meta">
         <strong>{battle.terrain}</strong> battle — {battle.activeHalf} {battle.phase} (turn{' '}
         {battle.turn}/7)
@@ -641,6 +660,7 @@ export function BattleBoardView({
                   />
                 )}
                 <foreignObject
+                  data-unit-id={u.id}
                   x={x - chit / 2}
                   y={y - chit / 2}
                   width={chit}
@@ -654,13 +674,21 @@ export function BattleBoardView({
                   <div
                     className={[
                       'battle-chit',
+                      mode === 'animated' && hasCreatureAnimation(u.creatureType) ? 'animated-art' : '',
                       isAttacker ? 'attacker' : 'defender',
                       dead ? 'dead' : '',
                     ]
                       .filter(Boolean)
                       .join(' ')}
                   >
-                    <CreatureChit
+                    <BattleCreature
+                      mode={mode}
+                      reducedMotion={reducedMotion}
+                      isAttacker={isAttacker}
+                      attackId={animatedStrike?.attackerId === u.id ? animatedStrike.id : undefined}
+                      attackStartedAt={animatedStrike?.attackerId === u.id ? animatedStrike.startedAt : undefined}
+                      dead={dead}
+                      onAssetError={onAssetError}
                       creature={u.creatureType}
                       power={power}
                       skill={skill}
@@ -696,6 +724,7 @@ export function BattleBoardView({
                 strokeWidth={selected === u.id ? 2.5 : 1.25}
               />
               <foreignObject
+                data-unit-id={u.id}
                 x={pos.x - chit / 2}
                 y={pos.y - chit / 2}
                 width={chit}
@@ -709,6 +738,7 @@ export function BattleBoardView({
                 <div
                   className={[
                     'battle-chit',
+                    mode === 'animated' && hasCreatureAnimation(u.creatureType) ? 'animated-art' : '',
                     'staging',
                     isAttacker ? 'attacker' : 'defender',
                     selected === u.id ? 'selected' : '',
@@ -717,7 +747,11 @@ export function BattleBoardView({
                     .filter(Boolean)
                     .join(' ')}
                 >
-                  <CreatureChit
+                  <BattleCreature
+                    mode={mode}
+                    reducedMotion={reducedMotion}
+                    isAttacker={isAttacker}
+                    onAssetError={onAssetError}
                     creature={u.creatureType}
                     power={power}
                     skill={skill}
@@ -740,6 +774,9 @@ export function BattleBoardView({
             chit={chit}
             anim={moveAnim}
             mapCenter={mapCenter}
+            mode={mode}
+            reducedMotion={reducedMotion}
+            onAssetError={onAssetError}
             onDone={onMoveAnimDone}
           />
         )}

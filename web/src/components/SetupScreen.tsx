@@ -9,6 +9,7 @@ import type { LocalPlayer } from '../net/identity'
 import type { HubSession } from '../net/session'
 import type { SavedGameMeta } from '../persistence/saveGame'
 import { KNOWN_VARIANTS } from '../variant/loadVariant'
+import { PresentationModeSelect } from './PresentationModeSelect'
 import { BackgroundAtmosphereSelect } from './BackgroundAtmosphere'
 import { CuedBadge } from './CuedBadge'
 import { LobbyPanel } from './LobbyPanel'
@@ -165,7 +166,8 @@ export function SetupScreen({
       )}
 
       <section className="setup-panel" aria-label="Appearance">
-        <h2>Background</h2>
+        <h2>Appearance</h2>
+        <PresentationModeSelect showBlurb className="bg-atmosphere-select setup-bg" />
         <BackgroundAtmosphereSelect showBlurb className="bg-atmosphere-select setup-bg" />
       </section>
 

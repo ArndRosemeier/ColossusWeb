@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.02",
+    "date": "2026-10-29",
+    "changes": [
+      "New optional Animated presentation mode brings the 24 standard creatures to life in battles, with resting, moving and attacking artwork. Classic remains the default; reduced motion shows still artwork."
+    ]
+  },
+  {
     "version": "1.01",
     "date": "2026-10-28",
     "changes": [

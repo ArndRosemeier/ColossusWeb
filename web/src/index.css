@@ -2037,3 +2037,19 @@ button:disabled {
 .whats-new-entry li + li {
   margin-top: 0.3rem;
 }
+
+/* Animated creatures retain the side ring while only the illustration faces the enemy. */
+.battle-chit.animated-art { transform: none; }
+.battle-chit.animated-art::after { content: ''; position: absolute; inset: 0; border: 1px solid; border-radius: 2px; pointer-events: none; }
+.battle-chit.animated-art.attacker::after { border-color: #b72424; }
+.battle-chit.animated-art.defender::after { border-color: #258b3b; }
+.animated-creature { position: relative; overflow: hidden; background: white; font-family: sans-serif; font-weight: bold; }
+.animated-creature-art { position: absolute; inset: 0; background-repeat: no-repeat; }
+.animated-creature-name, .animated-creature-power, .animated-creature-skill {
+  position: absolute; line-height: 1; text-shadow: -1px 0 white, 1px 0 white, 0 -1px white, 0 1px white;
+}
+.animated-creature-name { top: 1px; left: 0; width: 100%; text-align: center; font-size: 5px; }
+.animated-creature-power { bottom: 1px; left: 1px; font-size: 7px; }
+.animated-creature-skill { bottom: 1px; right: 1px; font-size: 7px; }
+.animated-creature-hits { position: absolute; top: 7px; left: 1px; color: #e01818; background: white; font-size: 9px; line-height: 1; }
+.animated-creature-error { position: absolute; inset: 6px 1px; color: #a00000; font-size: 6px; text-align: center; }
