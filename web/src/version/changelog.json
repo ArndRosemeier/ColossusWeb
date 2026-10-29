@@ -3,7 +3,8 @@
     "version": "1.08",
     "date": "2026-10-29",
     "changes": [
-      "Computer players plan safer splits and movement, protect developed legions, use available reinforcements and summons, and fight more carefully around Titans and the battle clock."
+      "Computer players plan safer splits and movement, protect developed legions, use available reinforcements and summons, and fight more carefully around Titans and the battle clock.",
+      "Choose Easy, Normal or Hard for each computer player independently of personality. Older campaigns continue on Normal."
     ]
   },
   {

@@ -4,6 +4,7 @@ import { legalBattleMoves } from '../engine/battleMovement'
 import { getStrikeDice, getStrikeNumber, getUnitPower, isUnitAlive, legalStrikes } from '../engine/battleStrike'
 import { hazardDamageToCreature, meleeNeighbors } from '../engine/battleland'
 import { strikeExpectations } from './battleProbability'
+import { AI_DIFFICULTIES } from './difficulty'
 
 export interface BattlePlannerOptions {
   /** Non-deployment candidate moves, in addition to the complete hold position. */
@@ -12,7 +13,7 @@ export interface BattlePlannerOptions {
   maxResponseNodes: number
 }
 
-export const NORMAL_BATTLE_PLANNER: Readonly<BattlePlannerOptions> = Object.freeze({ candidateLimit: 8, maxResponseNodes: 2048 })
+export const NORMAL_BATTLE_PLANNER: Readonly<BattlePlannerOptions> = AI_DIFFICULTIES.normal.battle
 
 export function battlePlannerOptions(options: Partial<BattlePlannerOptions> = {}): BattlePlannerOptions {
   const resolved = { ...NORMAL_BATTLE_PLANNER, ...options }

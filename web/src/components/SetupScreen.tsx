@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { WhatsNewButton } from './WhatsNew'
 import type { AiProfileId } from '../ai/profiles'
 import { AI_PROFILE_CHOICES } from '../ai/profiles'
+import { AI_DIFFICULTY_CHOICES, normalizeAiDifficulty, type AiDifficultyId } from '../ai/difficulty'
 import type { NewGameOptions, PlayerKind } from '../engine/types'
 import { PLAYER_COLORS } from '../engine/types'
 import type { CuedPlayer } from '../net/cuedPlayer'
@@ -35,6 +36,7 @@ interface Row {
   kind: PlayerKind
   colorId: string
   aiProfileId: AiProfileId
+  aiDifficultyId: AiDifficultyId
 }
 
 const VARIANT_META: Record<string, { label: string; maxPlayers: number; blurb: string }> = {
@@ -83,9 +85,9 @@ export function SetupScreen({
   const maxPlayers = meta.maxPlayers
 
   const [rows, setRows] = useState<Row[]>([
-    { name: 'Player 1', kind: 'human', colorId: 'Red', aiProfileId: 'random' },
-    { name: 'CPU 1', kind: 'ai', colorId: 'Blue', aiProfileId: 'random' },
-    { name: 'CPU 2', kind: 'ai', colorId: 'Green', aiProfileId: 'random' },
+    { name: 'Player 1', kind: 'human', colorId: 'Red', aiProfileId: 'random', aiDifficultyId: 'normal' },
+    { name: 'CPU 1', kind: 'ai', colorId: 'Blue', aiProfileId: 'random', aiDifficultyId: 'normal' },
+    { name: 'CPU 2', kind: 'ai', colorId: 'Green', aiProfileId: 'random', aiDifficultyId: 'normal' },
   ])
 
   const cappedRows = useMemo(() => rows.slice(0, maxPlayers), [rows, maxPlayers])
@@ -99,7 +101,7 @@ export function SetupScreen({
         name: `Player ${cappedRows.length + 1}`,
         kind: 'ai',
         colorId: color.id,
-        aiProfileId: 'random',
+        aiProfileId: 'random', aiDifficultyId: 'normal',
       },
     ])
   }
@@ -236,6 +238,21 @@ export function SetupScreen({
                     ) : (
                       <div className="setup-player-personality setup-human-note"><span>Personality</span><p>You decide</p></div>
                     )}
+                    {row.kind === 'ai' ? (
+                      <label className="setup-player-difficulty">
+                        <span>Difficulty</span>
+                        <select value={row.aiDifficultyId} aria-label={`${row.name} AI difficulty`}
+                          onChange={(e) => {
+                            const next = [...cappedRows]
+                            next[i] = { ...row, aiDifficultyId: normalizeAiDifficulty(e.target.value) }
+                            setRows(next)
+                          }}>
+                          {AI_DIFFICULTY_CHOICES.map(choice => <option key={choice.id} value={choice.id}>{choice.label}</option>)}
+                        </select>
+                      </label>
+                    ) : (
+                      <div className="setup-player-difficulty setup-human-note" aria-hidden="true"><span>Difficulty</span><p>—</p></div>
+                    )}
                     <label className="setup-player-color">
                       <span>Color</span>
                       <select value={row.colorId} aria-label={`${row.name} color`}
@@ -269,6 +286,7 @@ export function SetupScreen({
                     kind: r.kind,
                     colorId: r.colorId,
                     aiProfileId: r.kind === 'ai' ? r.aiProfileId : undefined,
+                    ...(r.kind === 'ai' ? { aiDifficultyId: r.aiDifficultyId } : {}),
                   })),
                 })}>
                 Begin campaign <span aria-hidden="true">→</span>

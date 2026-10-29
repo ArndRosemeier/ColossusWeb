@@ -1,5 +1,6 @@
 import type { LoadedVariant } from '../variant/loadVariant'
 import type { AiProfileId, ResolvedAiProfileId } from '../ai/profiles'
+import type { AiDifficultyId } from '../ai/difficulty'
 
 export type Phase = 'Split' | 'Move' | 'Fight' | 'Muster' | 'Battle'
 export type PlayerKind = 'human' | 'ai'
@@ -76,6 +77,8 @@ export interface PlayerState {
   kind: PlayerKind
   /** Resolved AI personality; null for humans */
   aiProfileId: ResolvedAiProfileId | null
+  /** Planning strength, independent of personality and presentation speed. */
+  aiDifficultyId: AiDifficultyId
   /** Board/battle evaluator. `spatial` is the reference; others are research forks. */
   aiHeuristicId: AiHeuristicId
   startingTower: string
@@ -346,6 +349,8 @@ export interface NewGameOptions {
     colorId?: string
     /** AI personality; `random` is resolved at createGame */
     aiProfileId?: AiProfileId
+    /** Planning strength; omitted means Normal. */
+    aiDifficultyId?: AiDifficultyId
     /** Evaluator generation; omitted means `spatial`. */
     aiHeuristicId?: AiHeuristicId
   }[]

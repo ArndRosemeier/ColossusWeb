@@ -1,3 +1,4 @@
+import { normalizeAiDifficulty } from '../ai/difficulty'
 import type { LoadedVariant } from '../variant/loadVariant'
 import { aiDefenderShouldFlee } from '../ai/engagementDecision'
 import { resolveAiProfileId } from '../ai/profiles'
@@ -193,6 +194,7 @@ export function createGame(variant: LoadedVariant, options: NewGameOptions): Gam
       color,
       kind: p.kind,
       aiProfileId,
+      aiDifficultyId: normalizeAiDifficulty(p.aiDifficultyId),
       aiHeuristicId: p.kind === 'ai' ? (p.aiHeuristicId ?? 'spatial') : 'spatial',
       startingTower: towers[i],
       score: 0,

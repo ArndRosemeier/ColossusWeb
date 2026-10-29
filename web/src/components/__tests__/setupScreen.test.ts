@@ -73,7 +73,7 @@ describe('redesigned title screen preserves setup authority', () => {
     await click(button('Begin campaign'))
     expect(onStart).toHaveBeenCalledExactlyOnceWith({ variantName: 'Abyssal6', players: [
       { name: 'Ariadne', kind: 'human', colorId: 'Gold', aiProfileId: undefined },
-      { name: 'CPU 1', kind: 'ai', colorId: 'Blue', aiProfileId: 'aggressive' },
+      { name: 'CPU 1', kind: 'ai', colorId: 'Blue', aiProfileId: 'aggressive', aiDifficultyId: 'normal' },
     ] })
   })
   it('enforces the original two-player minimum and variant caps of three, six and nine', async () => {
@@ -162,5 +162,30 @@ describe('redesigned title screen preserves setup authority', () => {
     await render()
     expect(host.querySelector<HTMLInputElement>('input[aria-label="Animated mode"]')!.checked).toBe(false)
     expect(server.connects).toHaveLength(1)
+  })
+})
+
+describe('per-seat AI difficulty setup', () => {
+  it('keeps difficulty independent of personality and retains it across kind toggles', async () => {
+    await render()
+    expect(host.querySelector<HTMLSelectElement>('[aria-label="CPU 1 AI difficulty"]')!.value).toBe('normal')
+    await edit('CPU 1 AI difficulty', 'hard'); await edit('CPU 1 AI personality', 'cautious')
+    await edit('CPU 1 type', 'human')
+    expect(host.querySelector('[aria-label="CPU 1 AI difficulty"]')).toBeNull()
+    await click(button('Begin campaign'))
+    expect(onStart.mock.calls[0][0].players[1]).not.toHaveProperty('aiDifficultyId')
+    onStart.mockReset(); await edit('CPU 1 type', 'ai')
+    expect(host.querySelector<HTMLSelectElement>('[aria-label="CPU 1 AI difficulty"]')!.value).toBe('hard')
+    expect(host.querySelector<HTMLSelectElement>('[aria-label="CPU 1 AI personality"]')!.value).toBe('cautious')
+    await edit('CPU 2 AI difficulty', 'easy'); await click(button('Begin campaign'))
+    expect(onStart.mock.calls[0][0].players.map((p: { aiDifficultyId?: string }) => p.aiDifficultyId)).toEqual([undefined, 'hard', 'easy'])
+    expect(onStart.mock.calls[0][0].players[0]).not.toHaveProperty('aiDifficultyId')
+    expect(server.connects).toHaveLength(1)
+  })
+  it('adds Normal seats and retains other selections when removing a player', async () => {
+    await render(); await edit('CPU 1 AI difficulty', 'hard'); await click(button('Add player'))
+    expect(host.querySelector<HTMLSelectElement>('[aria-label="Player 4 AI difficulty"]')!.value).toBe('normal')
+    await click(host.querySelector('[aria-label="Remove CPU 2"]')!); await click(button('Begin campaign'))
+    expect(onStart.mock.calls[0][0].players.map((p: { aiDifficultyId?: string }) => p.aiDifficultyId)).toEqual([undefined, 'hard', 'normal'])
   })
 })

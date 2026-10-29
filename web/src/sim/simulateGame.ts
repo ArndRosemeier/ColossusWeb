@@ -1,4 +1,5 @@
 import { pickAiCommand } from '../ai/simpleAi'
+import type { AiDifficultyId } from '../ai/difficulty'
 import type { AiProfileId, ResolvedAiProfileId } from '../ai/profiles'
 import { createGame, createRng, dispatch } from '../engine/GameEngine'
 import type { AiHeuristicId, GameCommand, GameState, NewGameOptions } from '../engine/types'
@@ -39,6 +40,8 @@ export type SimulateOptions = {
    * When omitted, profiles rotate by seed as before.
    */
   profiles?: ResolvedAiProfileId[]
+  /** Planning difficulty per seat; missing means Normal. */
+  difficulties?: AiDifficultyId[]
   /**
    * Evaluator generation per seat. When set, player names become
    * `spatial` / `legacy` (or `spatial-aggressive` if profiles differ).
@@ -51,6 +54,7 @@ function aiPlayers(
   seed: number,
   profiles?: ResolvedAiProfileId[],
   heuristics?: AiHeuristicId[],
+  difficulties?: AiDifficultyId[],
 ): NewGameOptions['players'] {
   const rotate: ResolvedAiProfileId[] = ['balanced', 'aggressive', 'cautious', 'expander']
   return Array.from({ length: count }, (_, i) => {
@@ -70,6 +74,7 @@ function aiPlayers(
       kind: 'ai' as const,
       aiProfileId: profile as AiProfileId,
       aiHeuristicId: heuristic,
+      ...(difficulties ? { aiDifficultyId: difficulties[i] } : {}),
     }
   })
 }
@@ -80,7 +85,7 @@ function aiPlayers(
  */
 export function simulateGame(variant: LoadedVariant, options: SimulateOptions): SimResult {
   const seed = options.seed
-  const players = options.players ?? options.profiles?.length ?? 2
+  const players = options.players ?? options.profiles?.length ?? options.difficulties?.length ?? 2
   const maxTurns = options.maxTurns ?? 400
   const maxSteps = options.maxSteps ?? 50_000
   const stuckLimit = options.stuckLimit ?? 40
@@ -95,10 +100,13 @@ export function simulateGame(variant: LoadedVariant, options: SimulateOptions): 
       `heuristics length ${options.heuristics.length} does not match players ${players}`,
     )
   }
+  if (options.difficulties && options.difficulties.length !== players) {
+    throw new Error(`difficulties length ${options.difficulties.length} does not match players ${players}`)
+  }
 
   const rng = createRng(seed)
   let state: GameState = createGame(variant, {
-    players: aiPlayers(players, seed, options.profiles, options.heuristics),
+    players: aiPlayers(players, seed, options.profiles, options.heuristics, options.difficulties),
     seed,
   })
 

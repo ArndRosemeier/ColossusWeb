@@ -8,6 +8,7 @@ import { AI_PROFILES } from '../profiles'
 import { evaluateBattleHex, evaluateBattleStrike, pickBestBattleMove, pickBestBattleStrike, planBattleManeuver } from '../evaluateBattle'
 import { legalEnemyResponse, NORMAL_BATTLE_PLANNER } from '../battleResponse'
 import { strikeExpectations } from '../battleProbability'
+import { AI_DIFFICULTY_CHOICES } from '../difficulty'
 
 function fixture(terrain = 'Plains', ownTypes = ['Titan'], enemyTypes = ['Ogre']) {
   const state = twoPlayerGame(42), attacker = state.legions[0], defender = state.legions[1]
@@ -48,6 +49,44 @@ describe('exact strike distributions', () => {
 })
 
 describe('bounded battle response planning', () => {
+  it('uses the actual battle owner difficulty for measurable Easy/Normal/Hard planning work', () => {
+    const { state, battle, own, enemy } = fixture('Plains', ['Titan', 'Ogre', 'Centaur'], ['Ogre', 'Lion'])
+    battle.turn = 5; state.activePlayerIndex = 0; state.players[0].aiDifficultyId = 'easy'
+    own[0].hex = 'A3'; own[1].hex = 'B3'; own[2].hex = 'C5'; enemy[0].hex = 'D1'; enemy[1].hex = 'E2'
+    const work = AI_DIFFICULTY_CHOICES.map(level => {
+      state.players[1].aiDifficultyId = level.id
+      const before = structuredClone(state)
+      const plan = planBattleManeuver(state, battle, AI_PROFILES.balanced)
+      expect(state).toEqual(before)
+      expect(plan.work.responseNodes).toBeLessThanOrEqual(level.battle.maxResponseNodes)
+      expect(plan.work.candidatesEvaluated).toBeLessThanOrEqual(level.battle.candidateLimit + 1)
+      return { level: level.id, ...plan.work }
+    })
+    console.log('Difficulty actual battle work', JSON.stringify(work))
+    expect(work.map(level => level.candidatesEvaluated)).toEqual([3, 9, 17])
+    expect(work[2].responseNodes).toBeGreaterThan(work[1].responseNodes)
+    expect(work[1].responseNodes).toBeGreaterThan(work[0].responseNodes)
+    expect(work.every(level => level.safetyNodes === work[0].safetyNodes)).toBe(true)
+  })
+  it('keeps exact strike, clock, lethal and delayed terrain safety at all three levels', () => {
+    for (const level of AI_DIFFICULTY_CHOICES) {
+      const { state, battle, own, enemy, land } = fixture('Tundra')
+      state.players[1].aiDifficultyId = level.id
+      own[0].hex = 'C4'; own[0].hits = 4; enemy[0].hex = 'A1'
+      const command = pickBestBattleMove(state, battle, AI_PROFILES.balanced, () => 0)
+      expect(command.type).toBe('battleMove')
+      if (command.type === 'battleMove') expect(hazardDamageToCreature(land.hexByLabel[command.toHex].terrain, state.variant.creatures.Titan)).toBe(0)
+      const safe = fixture()
+      safe.state.players[1].aiDifficultyId = level.id
+      safe.own[0].hex = 'A3'; safe.own[0].hits = 5; safe.enemy[0].hex = 'C1'
+      expect(pickBestBattleMove(safe.state, safe.battle, AI_PROFILES.balanced, () => 0)).toEqual({ type: 'battleDonePhase' })
+      const ranged = fixture('Plains', ['Hydra'], ['Colossus', 'Centaur'])
+      ranged.state.players[1].aiDifficultyId = level.id
+      ranged.own[0].hex = 'C3'; ranged.enemy[0].hex = 'C5'; ranged.enemy[0].hits = 8
+      ranged.enemy[1].hex = 'E3'; ranged.enemy[1].hits = 2; ranged.battle.phase = 'Strike'; ranged.battle.turn = 4
+      expect(pickBestBattleStrike(ranged.state, ranged.battle, AI_PROFILES.balanced, () => 0)).toMatchObject({ defenderId: ranged.enemy[0].id })
+    }
+  })
   it('never moves a one-HP Titan onto Drift, including with the smallest optional budget', () => {
     const { state, battle, own, enemy, land } = fixture('Tundra')
     own[0].hex = 'A3'; own[0].hits = 5; enemy[0].hex = 'C2'

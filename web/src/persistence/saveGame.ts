@@ -2,6 +2,7 @@ import type { LoadedVariant } from '../variant/loadVariant'
 import { allMarkersForColor, ensureUniqueLegionIds } from '../engine/GameEngine'
 import { canFlee } from '../engine/engagement'
 import type { GameState, PlayerState } from '../engine/types'
+import { normalizeAiDifficulty } from '../ai/difficulty'
 
 export const SAVE_STORAGE_KEY = 'colossusweb.save.v1'
 export const SAVE_VERSION = 1 as const
@@ -26,7 +27,9 @@ export interface SavedGameMeta {
 
 function stripVariant(state: GameState): SavedGameState {
   const { variant: _variant, ...rest } = state
-  return structuredClone(rest)
+  const saved = structuredClone(rest)
+  for (const player of saved.players) player.aiDifficultyId = normalizeAiDifficulty(player.aiDifficultyId)
+  return saved
 }
 
 export function serializeGame(state: GameState): SavedGameBlob {
@@ -114,6 +117,7 @@ export function deserializeGame(blob: SavedGameBlob, variant: LoadedVariant): Ga
     throw new Error('Save file is corrupt or incomplete')
   }
   const state = { ...structuredClone(s), variant } as GameState
+  for (const player of state.players) player.aiDifficultyId = normalizeAiDifficulty(player.aiDifficultyId)
   if (state.battle && !Array.isArray(state.battle.fallen)) {
     state.battle.fallen = []
   }

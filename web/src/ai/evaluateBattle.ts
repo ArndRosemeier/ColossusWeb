@@ -22,6 +22,7 @@ import {
 import { legalBattleMoves } from '../engine/battleMovement'
 import { battleNeighbors, hazardDamageToCreature } from '../engine/battleland'
 import { strikeExpectations } from './battleProbability'
+import { difficultyForPlayer } from './difficulty'
 import { battlePlannerOptions, legalEnemyResponse, type BattlePlannerOptions } from './battleResponse'
 import type { BattleState, BattleUnit, GameCommand, GameState } from '../engine/types'
 import {
@@ -819,7 +820,7 @@ export interface BattlePlanResult {
 
 function searchBattleManeuver(state: GameState, battle: BattleState, profile: AiProfile,
   ranked: ScoredBattleMove[], options: Partial<BattlePlannerOptions>): BattlePlanResult {
-  const settings = battlePlannerOptions(options)
+  const settings = battlePlannerOptions({ ...difficultyForPlayer(state, battle.activePlayerId).battle, ...options })
   const budget = { nodes: 0, limit: settings.maxResponseNodes }
   const work = { responseNodes: 0, safetyNodes: 0, safetyExhausted: false, candidatesEvaluated: 0, exhausted: false }
   const hold: GameCommand = { type: 'battleDonePhase' }
