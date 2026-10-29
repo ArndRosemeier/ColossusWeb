@@ -16,6 +16,8 @@ Layout lives in separately imported `web/src/components/setup.css` with setup-on
 
 Independent Chrome review found that the fixed atmosphere sibling could paint its lattice over the new unpositioned campaign form. The setup shell now establishes `position: relative; z-index: 1`, placing all title content above that sibling without changing atmosphere, body or in-game stacking. This is a setup-only compositing correction.
 
+Measured text contrast also prompted a darker copper treatment for the hero CTA and `.setup button.primary`: white text over `#92562d`→`#71381f`, with hero hover `#9d5f32` and the bright copper border retained. This fixes the former bright stop's 2.82:1 contrast at small text sizes while leaving global in-game button colors, disabled behavior and layout unchanged.
+
 ## Approved illustration and provenance
 
 - Asset: `web/public/title-screen/colossus-landscape-v1.png`, original PNG **1983 × 793**, **2,395,586 bytes**.

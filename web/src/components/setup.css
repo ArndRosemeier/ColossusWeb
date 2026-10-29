@@ -27,8 +27,8 @@
 .setup-hero-description { max-width: 470px; margin: 0; font-size: 14px; line-height: 1.8; color: #bdc6cb; }
 .setup-hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
 .setup-primary-action, .setup-secondary-action { min-height: 46px; display: inline-flex; align-items: center; justify-content: center; gap: 22px; padding: 11px 20px; border: 1px solid; border-radius: 2px; font-size: 13px; text-decoration: none; font-weight: 600; }
-.setup-primary-action { background: linear-gradient(135deg, #ca8649, #9e4f28); border-color: #dc9b60; color: #fff7ec; }
-.setup-primary-action:hover { background: #b7743f; }
+.setup-primary-action, .setup button.primary { background: linear-gradient(135deg, #92562d, #71381f); border-color: #dc9b60; color: #fff7ec; }
+.setup-primary-action:hover { background: #9d5f32; }
 .setup-secondary-action { background: rgba(9, 15, 20, .52); border-color: #657078; color: #e3e8eb; }
 .setup-secondary-action:hover { background: #202a31; border-color: #adbac2; }
 .setup-hero-note { margin: 17px 0 0; font-size: 11px; color: #a0afb8; }

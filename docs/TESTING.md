@@ -308,3 +308,6 @@ Hooks: `.setup-hero-art`, `.setup-resume`, `.setup-workbench`, `#local-setup`, `
 
 
 Row 21 follow-up: independent Chrome review found the fixed atmospheric lattice painting over the unpositioned campaign form. Added only `position: relative; z-index: 1` to `.setup`; no body, atmosphere or game stacking changes. Cheap gate **exit 2**, typecheck/build successful, `.gate-logs/title-stacking-cheap/gate.log`, 1024 MB ceiling. No new test/full-suite run for this two-line CSS correction; dispatcher verifies final pixels/tree independently.
+
+
+Row 21 contrast follow-up: independent review measured only 2.82:1 at the original bright hero CTA stop. Scoped `.setup-primary-action` and `.setup button.primary` to white-on-dark copper (`#92562d`→`#71381f`, hero hover `#9d5f32`), retaining the highlight border, global game buttons and disabled/layout semantics. Cheap gate **exit 2**, typecheck/build passed, 1024 MB ceiling; raw `.gate-logs/title-contrast-cheap/gate.log`. No new behavior test for this surgical color change; dispatcher owns final full/browser checks.
