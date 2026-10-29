@@ -11,6 +11,7 @@
 .setup-nav { min-height: 84px; display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding: 18px 0; }
 .setup-wordmark { font-family: var(--font-display); font-size: 24px; font-weight: 700; letter-spacing: .19em; text-transform: uppercase; color: #efc29a; text-decoration: none; }
 .setup-nav-actions { max-width: 100%; display: flex; align-items: center; justify-content: flex-end; gap: clamp(16px, 2vw, 32px); flex-wrap: wrap; min-width: 0; }
+.setup-preferences { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; }
 .setup-nav-link { color: #b5c0ca; font-size: 13px; text-decoration: none; }
 .setup-nav-link:hover { color: #f4d6ba; }
 .setup .cued-badge { min-width: 0; max-width: 100%; overflow-wrap: anywhere; margin: 0; }
@@ -92,7 +93,7 @@
 .setup-appearance summary::after { content: '+'; font-family: var(--font-body); font-size: 19px; font-weight: 300; margin-left: auto; }
 .setup-appearance[open] summary::after { content: '−'; }
 .setup-appearance .setup-appearance-hint { color: #8195a5; font-family: var(--font-body); font-size: 11px; }
-.setup-appearance-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; padding: 4px 24px 24px; }
+.setup-appearance-controls { display: grid; grid-template-columns: minmax(0, 1fr); max-width: 760px; gap: 28px; padding: 4px 24px 24px; }
 .setup .setup-appearance-controls .setup-bg { display: grid; grid-template-columns: auto minmax(120px, 200px); align-content: start; align-items: center; gap: 12px 20px; }
 .setup .setup-bg > .hint { grid-column: 1 / -1; margin: 0; color: #8fa3b3; font-size: 11px; line-height: 1.7; }
 .setup-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding-top: 26px; color: #708596; font-size: 10px; }
@@ -104,6 +105,9 @@
   .setup .lobby-panel .connect-row { max-width: none; }
   .setup-hero-copy { width: min(100%, 660px); }
   .setup-resume-action { gap: 12px; }
+}
+@media (max-width: 480px) {
+  .setup-nav-actions, .setup-preferences { width: 100%; justify-content: space-between; }
 }
 @media (max-width: 700px) {
   .setup-nav { min-height: 74px; gap: 12px; }

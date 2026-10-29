@@ -8,7 +8,7 @@ import { FakeHubServer } from '../../net/__tests__/fakeHub'
 import { NO_CUED_PLAYER } from '../../net/cuedPlayer'
 import { twoPlayerGame } from '../../engine/__tests__/helpers'
 import { peekSavedGameMeta, saveGameToLocalStorage } from '../../persistence/saveGame'
-import { setPresentationMode } from '../../ui/presentationMode'
+import { getPresentationMode, setPresentationMode } from '../../ui/presentationMode'
 
 vi.mock('../../variant/assets', async original => ({
   ...await original<typeof import('../../variant/assets')>(), loadAssetManifest: () => new Promise(() => {}),
@@ -45,7 +45,7 @@ async function edit(label: string, value: string) {
 
 beforeEach(() => {
   localStorage.clear()
-  setPresentationMode('classic')
+  setPresentationMode('animated')
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   onStart.mockReset(); onContinue.mockReset(); onOnlineEnter.mockReset()
   server = new FakeHubServer()
@@ -100,7 +100,7 @@ describe('redesigned title screen preserves setup authority', () => {
     expect(server.connects).toHaveLength(1)
     const details = host.querySelector('details')!
     details.open = true
-    await edit('Presentation mode', 'animated')
+    await click(host.querySelector('input[aria-label="Animated mode"]')!)
     await edit('Game variant', 'Abyssal9')
     expect(host.querySelector('.lobby-panel')).toBe(panel)
     expect(server.connects).toHaveLength(1)
@@ -128,6 +128,7 @@ describe('redesigned title screen preserves setup authority', () => {
     expect(host.querySelector('[aria-label="Continue saved game"]')).toBeNull()
   })
   it('provides native hero anchors to always-mounted setup/lobby targets and a local decorative hero in both modes', async () => {
+    setPresentationMode('classic')
     await render()
     for (const link of host.querySelectorAll<HTMLAnchorElement>('.setup-hero-actions a')) {
       const target = host.querySelector(link.getAttribute('href')!)!
@@ -143,5 +144,23 @@ describe('redesigned title screen preserves setup authority', () => {
     expect(host.querySelector('.setup-hero-art')).toBe(art)
     expect(onStart).not.toHaveBeenCalled()
     expect(onOnlineEnter).not.toHaveBeenCalled()
+  })
+  it('exposes one checked Animated mode checkbox outside closed Appearance and retains Classic after remount', async () => {
+    await render()
+    const checkbox = host.querySelector<HTMLInputElement>('.setup-nav input[aria-label="Animated mode"]')!
+    expect(checkbox.type).toBe('checkbox')
+    expect(checkbox.checked).toBe(true)
+    expect(host.querySelectorAll('input[aria-label="Animated mode"]')).toHaveLength(1)
+    expect(host.querySelector('details')!.open).toBe(false)
+    expect(checkbox.closest('details')).toBeNull()
+    expect(host.querySelector('details select[aria-label="Background atmosphere"]')).not.toBeNull()
+    await click(checkbox)
+    expect(checkbox.checked).toBe(false)
+    expect(getPresentationMode()).toBe('classic')
+    expect(localStorage.getItem('colossus.presentationMode')).toBe('classic')
+    await act(async () => root.render(null))
+    await render()
+    expect(host.querySelector<HTMLInputElement>('input[aria-label="Animated mode"]')!.checked).toBe(false)
+    expect(server.connects).toHaveLength(1)
   })
 })

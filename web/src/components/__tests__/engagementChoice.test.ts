@@ -13,11 +13,16 @@
  */
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { setPresentationMode } from '../../ui/presentationMode'
 import { dispatch } from '../../engine/GameEngine'
 import type { GameCommand, GameState, Legion } from '../../engine/types'
 import { twoPlayerGame } from '../../engine/__tests__/helpers'
 import { BoardDecisionOverlay } from '../BoardDecisionOverlay'
+
+// These authority/markup pins explicitly use Classic artwork; they need no
+// browser asset/error provider and do not depend on the application's default.
+beforeEach(() => setPresentationMode('classic'))
 
 /** Two HUMAN seats around a revealed engagement whose defender can flee. */
 function engagementState(seed = 71): {

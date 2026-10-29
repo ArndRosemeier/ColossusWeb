@@ -14,7 +14,7 @@ export function getPresentationMode(): PresentationMode {
   if (preferred === undefined) {
     let stored: unknown
     try { stored = localStorage.getItem(STORAGE_KEY) } catch { /* Optional preference unavailable. */ }
-    preferred = isPresentationMode(stored) ? stored : 'classic'
+    preferred = isPresentationMode(stored) ? stored : 'animated'
   }
   return preferred
 }
@@ -32,5 +32,7 @@ export function subscribePresentationMode(listener: () => void): () => void {
 }
 
 export function usePresentationMode(): PresentationMode {
-  return useSyncExternalStore(subscribePresentationMode, getPresentationMode, () => 'classic')
+  // The client app has no SSR server; static renderers still read the same
+  // available preference/default instead of injecting a Classic placeholder.
+  return useSyncExternalStore(subscribePresentationMode, getPresentationMode, getPresentationMode)
 }

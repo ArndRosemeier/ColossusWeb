@@ -9,7 +9,7 @@ import type { LocalPlayer } from '../net/identity'
 import type { HubSession } from '../net/session'
 import type { SavedGameMeta } from '../persistence/saveGame'
 import { KNOWN_VARIANTS } from '../variant/loadVariant'
-import { PresentationModeSelect } from './PresentationModeSelect'
+import { PresentationModeToggle } from './PresentationModeToggle'
 import { BackgroundAtmosphereSelect } from './BackgroundAtmosphere'
 import { CuedBadge } from './CuedBadge'
 import { LobbyPanel } from './LobbyPanel'
@@ -117,7 +117,10 @@ export function SetupScreen({
         <nav className="setup-nav-actions" aria-label="Title screen navigation">
           <a className="setup-nav-link" href="#local-setup">Local game</a>
           <a className="setup-nav-link" href="#online-lobby">Online play</a>
-          <WhatsNewButton compact />
+          <div className="setup-preferences">
+            <PresentationModeToggle />
+            <WhatsNewButton compact />
+          </div>
           <CuedBadge cued={cued} compact />
         </nav>
       </header>
@@ -282,7 +285,6 @@ export function SetupScreen({
         <details className="setup-appearance">
           <summary><span>Appearance</span><span className="setup-appearance-hint">Make the war table yours</span></summary>
           <div className="setup-appearance-controls">
-            <PresentationModeSelect showBlurb className="bg-atmosphere-select setup-bg" />
             <BackgroundAtmosphereSelect showBlurb className="bg-atmosphere-select setup-bg" />
           </div>
         </details>

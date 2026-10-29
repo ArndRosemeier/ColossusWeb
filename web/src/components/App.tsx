@@ -52,7 +52,7 @@ import { DiceOverlay, shouldAnimateDice } from './DiceOverlay'
 import { GameControls } from './GameControls'
 import { phaseEndCommand, applyEnterKeyPhaseEnd } from './LegionActions'
 import { MasterBoardView } from './MasterBoardView'
-import { PresentationModeSelect } from './PresentationModeSelect'
+import { PresentationModeToggle } from './PresentationModeToggle'
 import { CreatureAssetErrorContext } from '../ui/creaturePresentation'
 import { BackgroundAtmosphereSelect } from './BackgroundAtmosphere'
 import { CuedBadge } from './CuedBadge'
@@ -707,7 +707,7 @@ export default function App() {
         {state.draw && <span className="winner">Draw!</span>}
         <span className="topbar-spacer" />
         {saveFlash && <span className="save-flash">{saveFlash}</span>}
-        <PresentationModeSelect className="ai-speed bg-atmosphere-select" />
+        <PresentationModeToggle className="ai-speed" />
         <BackgroundAtmosphereSelect className="ai-speed bg-atmosphere-select" />
         {!gameOver && !online && (
           <label className="ai-speed">

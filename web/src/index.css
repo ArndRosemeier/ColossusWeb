@@ -300,6 +300,33 @@ html[data-bg-atmosphere='ash'] .bg-ash-mote {
   font: inherit;
 }
 
+.presentation-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--bone);
+  font-size: 0.85rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.presentation-mode-toggle input[type='checkbox'],
+.setup .presentation-mode-toggle input[type='checkbox'] {
+  width: 17px;
+  height: 17px;
+  min-height: 0;
+  flex: 0 0 17px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--copper);
+  cursor: pointer;
+}
+
+.presentation-mode-toggle input[type='checkbox']:focus-visible {
+  outline: 2px solid var(--copper);
+  outline-offset: 3px;
+}
+
 .setup-bg {
   width: 100%;
 }

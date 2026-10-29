@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AnimatedCreature } from '../AnimatedCreature'
 import { BattleCreature } from '../BattleCreature'
 import { BattleBoardView } from '../BattleBoardView'
-import { PresentationModeSelect } from '../PresentationModeSelect'
+import { PresentationModeToggle } from '../PresentationModeToggle'
 import { CREATURE_ANIMATIONS, loadCreatureAtlas } from '../../ui/creatureAnimations'
 import { setPresentationMode } from '../../ui/presentationMode'
 import { startBattle, battleLand } from '../../engine/battle'
@@ -181,12 +181,15 @@ describe('battle presentation wiring', () => {
     expect(host.querySelector('canvas')!.title).toContain('Animated artwork unavailable for this variant creature')
     expect(loadCreatureAtlas).not.toHaveBeenCalled()
   })
-  it('shares one local preference between setup and game selectors', async () => {
-    await render(createElement('div', null, createElement(PresentationModeSelect), createElement(PresentationModeSelect)))
-    const selects = host.querySelectorAll('select')
-    expect([...selects].map(s => s.value)).toEqual(['classic', 'classic'])
-    await act(async () => { selects[0].value = 'animated'; selects[0].dispatchEvent(new Event('change', { bubbles: true })) })
-    expect([...selects].map(s => s.value)).toEqual(['animated', 'animated'])
+  it('shares one local preference between setup and game native checkboxes', async () => {
+    await render(createElement('div', null, createElement(PresentationModeToggle), createElement(PresentationModeToggle)))
+    const checkboxes = host.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
+    expect([...checkboxes].map(input => input.checked)).toEqual([false, false])
+    await act(async () => { checkboxes[0].dispatchEvent(new MouseEvent('click', { bubbles: true })) })
+    expect([...checkboxes].map(input => input.checked)).toEqual([true, true])
+    await act(async () => { checkboxes[1].dispatchEvent(new MouseEvent('click', { bubbles: true })) })
+    expect([...checkboxes].map(input => input.checked)).toEqual([false, false])
+    expect(localStorage.getItem('colossus.presentationMode')).toBe('classic')
   })
   it('rests on board and staging, attacks once for pending→settled same ID, and handles a new instant roll', async () => {
     setPresentationMode('animated')
