@@ -6,6 +6,13 @@ import { loadDefaultVariant } from '../../engine/__tests__/helpers'
 import { deserializeGame, serializeGame } from '../../persistence/saveGame'
 import type { NewGameOptions } from '../../engine/types'
 import { simulateGame } from '../../sim/simulateGame'
+import { twoPlayerGame } from '../../engine/__tests__/helpers'
+import { dispatch } from '../../engine/GameEngine'
+import { planOptionalSplit } from '../splitPlanning'
+import { pickAiCommand } from '../simpleAi'
+import { AI_PROFILES } from '../profiles'
+import { incomingThreatScore } from '../boardSpatial'
+import { legionPointValue } from '../battleEstimate'
 
 function options(difficulty?: AiDifficultyId): NewGameOptions {
   return { seed: 84, players: [{ name: 'Alice', kind: 'human' },
@@ -66,5 +73,68 @@ describe('per-seat planning difficulty boundary', () => {
       expect(() => simulateGame(variant, { seed: 84, players: 3, difficulties: ['easy', 'hard'], maxSteps: 0 })).toThrow('difficulties length')
       expect(() => simulateGame(variant, { seed: 84, difficulties: ['invalid' as never, 'normal'], maxSteps: 0 })).toThrow('Invalid AI difficulty')
     } finally { spy.mockRestore() }
+  })
+  it('uses the legion owner level for actual split work and safely executes every approved roll', () => {
+    const records = []
+    for (const level of Object.values(AI_DIFFICULTIES)) {
+      const state = twoPlayerGame(71), own = state.legions[0]
+      state.turnNumber = 3; state.phase = 'Split'; state.players[0].kind = 'ai'; state.players[0].aiProfileId = 'balanced'
+      state.players[0].aiDifficultyId = level.id; state.players[1].aiDifficultyId = 'easy'
+      own.creatures = ['Titan', 'Cyclops', 'Cyclops', 'Cyclops', 'Lion', 'Ogre', 'Ogre'].map(type => ({ type, hits: 0 }))
+      own.hexLabel = '100'; state.legions = [own]
+      const before = JSON.stringify(state), start = performance.now()
+      const plan = planOptionalSplit(state, own, AI_PROFILES.balanced)
+      const elapsedMs = performance.now() - start
+      expect(plan).toEqual(planOptionalSplit(state, own, AI_PROFILES.balanced, level.split))
+      expect(plan.plans).toBeLessThanOrEqual(level.split.maxPlans)
+      expect(JSON.stringify(state)).toBe(before)
+      records.push({ level: level.id, plans: plan.plans, queries: plan.movementQueries, exhausted: plan.exhausted, split: plan.childCreatures, elapsedMs })
+      if (!plan.childCreatures) continue // An incomplete optional proof may HOLD; safety is never lowered.
+      for (let roll = 1; roll <= 6; roll++) {
+        const split = dispatch(state, { type: 'split', parentId: own.id, childCreatures: plan.childCreatures })
+        let next = dispatch(split, { type: 'doneSplit' }, () => (roll - 0.5) / 6)
+        let steps = 0
+        while (next.phase === 'Move' && steps++ < 4) {
+          const command = pickAiCommand(next, () => 0.5)!
+          const input = JSON.stringify(next)
+          expect(pickAiCommand(next, () => 0.5)).toEqual(command); expect(JSON.stringify(next)).toBe(input)
+          next = dispatch(next, command)
+        }
+        expect(next.phase).not.toBe('Move')
+        expect(new Set(next.legions.map(piece => piece.hexLabel)).size).toBe(2)
+        expect(next.message).not.toMatch(/illegal|cannot|must move/i)
+      }
+    }
+    console.log('Difficulty actual split work', JSON.stringify(records))
+    expect(records[2].queries).toBeGreaterThan(records[1].queries)
+    expect(records[1].queries).toBeGreaterThan(records[0].queries)
+  })
+  it('keeps the audited forced-loss Hydra stack together at every level', () => {
+    for (const level of Object.values(AI_DIFFICULTIES)) {
+      const state = twoPlayerGame(71), own = state.legions[0], enemy = state.legions[1]
+      state.turnNumber = 3; state.phase = 'Split'; state.players[0].kind = 'ai'; state.players[0].aiProfileId = 'balanced'
+      state.players[0].aiDifficultyId = level.id
+      own.creatures = ['Titan', 'Hydra', 'Wyvern', 'Wyvern', 'Ogre', 'Ogre', 'Centaur'].map(type => ({ type, hits: 0 }))
+      own.hexLabel = '4'; enemy.hexLabel = '103'; enemy.creatures = Array.from({ length: 7 }, () => ({ type: 'Hydra', hits: 0 }))
+      expect(pickAiCommand(state, () => 0.5)).toEqual({ type: 'doneSplit' })
+      expect(own.creatures).toHaveLength(7)
+    }
+  })
+  it('retains the current safe split continuation instead of sending a held child to the threatened bait at any level', () => {
+    for (const level of Object.values(AI_DIFFICULTIES)) {
+      const state = twoPlayerGame(71), own = state.legions[0], enemy = state.legions[1]
+      state.turnNumber = 3; state.phase = 'Split'; state.players[0].kind = 'ai'; state.players[0].aiProfileId = 'balanced'; state.players[0].aiDifficultyId = level.id
+      own.creatures = ['Titan', 'Cyclops', 'Cyclops', 'Cyclops', 'Lion', 'Ogre', 'Ogre'].map(type => ({ type, hits: 0 }))
+      own.hexLabel = '100'; enemy.hexLabel = '37'; enemy.creatures = ['Hydra', 'Hydra', 'Hydra'].map(type => ({ type, hits: 0 }))
+      const command = pickAiCommand(state, () => 0.5)!
+      if (command.type === 'doneSplit') { expect(own.creatures).toHaveLength(7); continue }
+      expect(command.type).toBe('split')
+      let next = dispatch(dispatch(state, command), { type: 'doneSplit' }, () => (3 - 0.5) / 6)
+      for (let step = 0; step < 4 && next.phase === 'Move'; step++) next = dispatch(next, pickAiCommand(next, () => 0.5)!)
+      expect(next.phase).not.toBe('Move')
+      for (const piece of next.legions.filter(legion => legion.playerId === own.playerId)) {
+        expect(incomingThreatScore(next, piece, piece.hexLabel)).toBeLessThanOrEqual(Math.max(1, legionPointValue(next, piece)) * 0.2)
+      }
+    }
   })
 })

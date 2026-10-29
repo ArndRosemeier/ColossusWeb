@@ -12,6 +12,7 @@ import { dispatch } from '../../engine/GameEngine'
 import type { EntrySide, GameState } from '../../engine/types'
 import { twoPlayerGame } from '../../engine/__tests__/helpers'
 import { pickAiCommand } from '../simpleAi'
+import type { AiDifficultyId } from '../difficulty'
 
 const LEGIONS = [
   ['Titan', 'Gorgon', 'Gorgon', 'Cyclops', 'Cyclops', 'Behemoth', 'Ogre'],
@@ -19,9 +20,10 @@ const LEGIONS = [
 ]
 
 /** A human attacks a 7-high AI legion in Woods; returns the state after the AI moved in. */
-function aiDefenderMovesIn(side: EntrySide, creatures: string[], seed: number): GameState {
+function aiDefenderMovesIn(side: EntrySide, creatures: string[], seed: number, difficulty: AiDifficultyId = 'normal'): GameState {
   const s = twoPlayerGame(seed)
   s.players[1]!.kind = 'ai'
+  s.players[1]!.aiDifficultyId = difficulty
   const hex = s.variant.data.map.hexes.find((h) => h.terrain === 'Woods')!
   const attacker = s.legions[0]!
   const defender = s.legions[1]!
@@ -59,3 +61,11 @@ describe('AI battle entry keeps room for every creature', () => {
     }
   }
 })
+
+for (const level of ['easy', 'hard'] as const) {
+  it(`${level} keeps the same mandatory deployment safety as Normal`, () => {
+    const game = aiDefenderMovesIn('Left', LEGIONS[0], 1, level)
+    expect(game.log.filter(line => /failed to enter/.test(line))).toEqual([])
+    expect(game.winnerId).toBeFalsy()
+  })
+}

@@ -6,6 +6,7 @@ import { buildSpatialCache, incomingThreatScore, type SpatialCache } from './boa
 import { estimateBattleOutcome, legionPointValue } from './battleEstimate'
 import { chooseCreaturesToSplitOut } from './splitChoice'
 import type { AiProfile } from './profiles'
+import { difficultyForPlayer } from './difficulty'
 
 /** Optimization limits only: an unfinished safety screen always chooses HOLD. */
 export interface SplitPlanningBudget {
@@ -174,9 +175,9 @@ export interface SplitMovePolicy {
 export function splitMovePolicy(state: GameState, budget: SplitPlanningBudget = {}): SplitMovePolicy {
   const result: SplitMovePolicy = { command: null, heldLegionIds: [], status: 'none' }
   if (state.phase !== 'Move' || state.movementRoll == null) return result
-  const limits = planningLimits(budget)
   const groups = splitMoveGroups(state)
   if (groups.length === 0) return result
+  const limits = planningLimits(state, groups[0][0].playerId, budget)
   const ctx: SearchContext = { cache: buildSpatialCache(state), plans: 0, queries: 0,
     maxPlans: limits.maxPlans, exhausted: false }
   for (const group of groups) {
@@ -210,9 +211,10 @@ export function splitMovePolicy(state: GameState, budget: SplitPlanningBudget = 
   return result
 }
 
-function planningLimits(budget: SplitPlanningBudget): { maxPlans: number; destinations: number } {
-  const maxPlans = budget.maxPlans ?? 1024
-  const destinations = budget.destinationsPerRoll ?? 4
+function planningLimits(state: GameState, playerId: string, budget: SplitPlanningBudget): { maxPlans: number; destinations: number } {
+  const defaults = difficultyForPlayer(state, playerId).split
+  const maxPlans = budget.maxPlans ?? defaults.maxPlans
+  const destinations = budget.destinationsPerRoll ?? defaults.destinationsPerRoll
   if (!Number.isInteger(maxPlans) || maxPlans < 1 || maxPlans > 8192 ||
     !Number.isInteger(destinations) || destinations < 1 || destinations > 12) {
     throw new Error('Invalid split planning budget')
@@ -242,7 +244,7 @@ function candidatesFor(state: GameState, legion: Legion): string[][] {
 export function planOptionalSplit(state: GameState, legion: Legion, profile: AiProfile,
   budget: SplitPlanningBudget = {},
 ): SplitPlan {
-  const { maxPlans, destinations } = planningLimits(budget)
+  const { maxPlans, destinations } = planningLimits(state, legion.playerId, budget)
   const result: SplitPlan = { childCreatures: null, score: 0, holdScore: 0,
     candidates: 0, plans: 0, exhausted: false, movementQueries: 0 }
   if (legion.creatures.length !== 7 || legion.splitThisTurn || state.turnNumber === 1) return result

@@ -246,29 +246,33 @@ export default function App() {
   }, [session, stopOnline, putState])
 
   const continueSaved = useCallback(async () => {
-    stopOnline()
-    const meta = peekSavedGameMeta()
-    const name = meta?.variantName ?? 'Default'
-    const variant = await loadVariant(name)
-    await loadAssetManifest(name)
-    variantRef.current = variant
-    const loaded = loadGameFromLocalStorage(variant)
-    if (!loaded) {
-      setSaveMeta(null)
-      return
+    try {
+      stopOnline()
+      const meta = peekSavedGameMeta()
+      const name = meta?.variantName ?? 'Default'
+      const variant = await loadVariant(name)
+      await loadAssetManifest(name)
+      variantRef.current = variant
+      const loaded = loadGameFromLocalStorage(variant)
+      if (!loaded) {
+        setSaveMeta(null)
+        return
+      }
+      // Resume in the UI with physical dice; clear any mid-throw pending
+      loaded.diceMode = 'physical'
+      if (loaded.pendingDice) {
+        putState(engDispatch(loaded, { type: 'commitDice' }), true)
+      } else {
+        putState(loaded, true)
+      }
+      setSaveFlash(null)
+      setMoveAnim(null)
+      setPendingStrike(null)
+      pendingCmdRef.current = null
+      animatingRef.current = false
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
     }
-    // Resume in the UI with physical dice; clear any mid-throw pending
-    loaded.diceMode = 'physical'
-    if (loaded.pendingDice) {
-      putState(engDispatch(loaded, { type: 'commitDice' }), true)
-    } else {
-      putState(loaded, true)
-    }
-    setSaveFlash(null)
-    setMoveAnim(null)
-    setPendingStrike(null)
-    pendingCmdRef.current = null
-    animatingRef.current = false
   }, [stopOnline, putState])
 
   const save = useCallback(() => {

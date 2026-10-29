@@ -29,3 +29,5 @@ resources/RNG, save migration, setup payload/add/remove/toggles, all-level safet
 actual bounded planning work. Writer uses focused/cheap gates only, Node1024/worker1.
 Parent owns integrated full suite, independent mutation, paired comparison and Chrome.
 Commit before any source differential. No writer merge/push/deploy or lasting process.
+
+Integration: STRATEGY-READY received; foundation rebased onto9157fc6 with mechanical TESTING union only, no source conflicts. Scope expansion approved by parent: App.continueSaved catches loading/deserialization errors into existing setError, with save bytes preserved. No other App changes.

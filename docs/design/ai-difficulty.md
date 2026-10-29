@@ -30,9 +30,7 @@ measure actual candidate/reply work; larger limits need not change every decisio
 Normal is the previous strengthened behavior. Hard considers more alternatives;
 these labels are not a universal head-to-head win-rate guarantee.
 
-Split-owner default wiring is pending the strategy execution writer's ready signal
-and rebase. The safe execution policy must remain unchanged; an incomplete safety
-screen holds. This paragraph is replaced when that sequential integration is verified.
+After STRATEGY-READY the foundation was rebased onto9157fc648e04c727fac6b82081ea3beea7e635f1. Both planOptionalSplit and splitMovePolicy resolve the actual legion/group owner through the shared settings seam. Explicit diagnostic overrides remain available. SafeJointRoute, fixed moved siblings, held-piece exclusion and explicit least-loss fallback retain the strategy writer's current execution policy; no simpleAi/evaluateMove behavior was changed. All-level tests execute approved splits through all six rolls and retain the held child against the threatened bait. Lower optional budgets may approve fewer splits, never relax the safety test.
 
 Offline simulateGame optionally accepts per-seat difficulties and validates their
 length against player count before running. Missing settings keepNormal; invalid IDs
@@ -46,3 +44,5 @@ metadata, including resolved random personality. Presentation timing is untouche
 
 Writer evidence and raw logs are in TESTING. Independent full/negative/browser and
 paired strength results belong to parent. The integrated release remains1.08.
+
+Parent's independent browser found that strict invalid save data exposed a pre-existing missing catch around App.continueSaved. Approved scope expansion adds only that catch, reporting variant/manifest/deserialization failures through existing setError. The original save remains untouched. Actual App tests pin all three failure sources and parent repeats the browser case.
