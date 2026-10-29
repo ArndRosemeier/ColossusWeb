@@ -12,8 +12,6 @@ export interface AiProfile {
   id: ResolvedAiProfileId
   label: string
   blurb: string
-  /** Chance to optionally split mid-game stacks below height 7 (unused; AI always splits 7s). */
-  splitChance: number
   /** Prefer leaving Titan on parent when splitting turn 1 (Angel goes to child) */
   preferAngelOnTurn1: number
   /** After first move, chance to keep moving other legions */
@@ -45,10 +43,6 @@ export interface AiProfile {
   battleTitanValue: number
   /** After someone moved, end Move when best hex score ≤ this */
   battleMoveThreshold: number
-  /** Chance to skip reinforce when options exist */
-  skipReinforceChance: number
-  /** Chance to skip summon when options exist */
-  skipSummonChance: number
   /** 0 = random among near-best muster scores, 1 = always global best */
   musterGreed: number
   /** Chance to concede battle when alive units << enemy alive */
@@ -62,7 +56,6 @@ export const AI_PROFILES: Record<ResolvedAiProfileId, AiProfile> = {
     id: 'balanced',
     label: 'Balanced',
     blurb: 'Grows stacks first; attacks only when the prize is clear.',
-    splitChance: 0.35,
     preferAngelOnTurn1: 0.7,
     continueMovingChance: 0.75,
     preferAttackWeight: 12,
@@ -75,8 +68,6 @@ export const AI_PROFILES: Record<ResolvedAiProfileId, AiProfile> = {
     battleApproachEnemy: 1,
     battleTitanValue: 80,
     battleMoveThreshold: 0,
-    skipReinforceChance: 1,
-    skipSummonChance: 1,
     musterGreed: 1,
     // Mid-battle concede = full points; never gift that when combat wipe is half
     concedeWhenHopelessChance: 0,
@@ -85,7 +76,6 @@ export const AI_PROFILES: Record<ResolvedAiProfileId, AiProfile> = {
     id: 'aggressive',
     label: 'Aggressive',
     blurb: 'Hunts fights; growth is secondary.',
-    splitChance: 0.25,
     preferAngelOnTurn1: 0.55,
     continueMovingChance: 0.9,
     preferAttackWeight: 35,
@@ -99,8 +89,6 @@ export const AI_PROFILES: Record<ResolvedAiProfileId, AiProfile> = {
     battleApproachEnemy: 1.4,
     battleTitanValue: 120,
     battleMoveThreshold: -2,
-    skipReinforceChance: 0.4,
-    skipSummonChance: 0.3,
     musterGreed: 0.85,
     concedeWhenHopelessChance: 0,
   },
@@ -108,7 +96,6 @@ export const AI_PROFILES: Record<ResolvedAiProfileId, AiProfile> = {
     id: 'cautious',
     label: 'Cautious',
     blurb: 'Muster and avoid; flees bad fights.',
-    splitChance: 0.2,
     preferAngelOnTurn1: 0.85,
     continueMovingChance: 0.55,
     preferAttackWeight: 8,
@@ -121,8 +108,6 @@ export const AI_PROFILES: Record<ResolvedAiProfileId, AiProfile> = {
     battleApproachEnemy: 0.6,
     battleTitanValue: 100,
     battleMoveThreshold: 1,
-    skipReinforceChance: 0.5,
-    skipSummonChance: 0.6,
     musterGreed: 0.7,
     concedeWhenHopelessChance: 0,
   },
@@ -130,7 +115,6 @@ export const AI_PROFILES: Record<ResolvedAiProfileId, AiProfile> = {
     id: 'expander',
     label: 'Expander',
     blurb: 'Splits and musters hard; fights only juicy targets.',
-    splitChance: 0.65,
     preferAngelOnTurn1: 0.75,
     continueMovingChance: 0.8,
     preferAttackWeight: 14,
@@ -143,8 +127,6 @@ export const AI_PROFILES: Record<ResolvedAiProfileId, AiProfile> = {
     battleApproachEnemy: 1,
     battleTitanValue: 80,
     battleMoveThreshold: 0,
-    skipReinforceChance: 0.2,
-    skipSummonChance: 0.2,
     musterGreed: 1,
     concedeWhenHopelessChance: 0,
   },

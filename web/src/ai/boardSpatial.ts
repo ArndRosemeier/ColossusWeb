@@ -24,6 +24,8 @@ const SUPPORT_TITAN_MUL = 1.6
 export type SpatialCache = {
   /** legionId → destHex → how many rolls 1–6 can land there */
   reachCounts: Map<string, Map<string, number>>
+  candidateReach: Map<string, Map<string, number>>
+  movementQueries: number
   nextTurnMemo: Map<string, number>
   musterMemo: Map<string, number>
 }
@@ -57,7 +59,35 @@ export function buildSpatialCache(state: GameState): SpatialCache {
     }
     reachCounts.set(leg.id, counts)
   }
-  return { reachCounts, nextTurnMemo: new Map(), musterMemo: new Map() }
+  return { reachCounts, candidateReach: new Map(), movementQueries: state.legions.length * 6, nextTurnMemo: new Map(), musterMemo: new Map() }
+}
+
+/** Movement depends on occupancy and teleport capabilities, not stale original positions.
+ * Include every rule input used by listMovePreview; safe across in-place position edits.
+ */
+function occupancyKey(state: GameState): string {
+  return state.players.map((p) => `${p.id}:${p.score}`).join('|') + '/' +
+    state.legions.map((l) => `${l.id}:${l.playerId}@${l.hexLabel}:` +
+      `${l.creatures.some((c) => state.variant.creatures[c.type]?.lord)}:` +
+      `${l.creatures.some((c) => c.type === 'Titan')}`).join('|')
+}
+
+/** Six-roll enemy reach under the supplied candidate occupancy, cached per decision. */
+export function candidateReachCounts(state: GameState, legion: Legion, cache: SpatialCache): Map<string, number> {
+  const key = `${legion.id}/${occupancyKey(state)}`
+  const hit = cache.candidateReach.get(key)
+  if (hit) return hit
+  const counts = new Map<string, number>()
+  for (let roll = 1; roll <= 6; roll++) {
+    for (const [hex] of listMovePreview(state, legion, roll)) {
+      counts.set(hex, (counts.get(hex) ?? 0) + 1)
+    }
+  }
+  cache.movementQueries += 6
+  // Decision-local bounded FIFO; eviction affects cost, never the chosen legal routes.
+  if (cache.candidateReach.size >= 512) cache.candidateReach.delete(cache.candidateReach.keys().next().value!)
+  cache.candidateReach.set(key, counts)
+  return counts
 }
 
 function cacheOf(state: GameState, cache: SpatialCache | undefined): SpatialCache {
@@ -112,6 +142,7 @@ export function incomingThreatScore(
 ): number {
   const ctx = cacheOf(state, cache)
   const ghost: Legion = { ...legion, hexLabel: hex }
+  const previewState = { ...state, legions: state.legions.map((l) => l.id === ghost.id ? ghost : l) }
   const hasTitan = legionHasTitan(legion)
   const ourPv = Math.max(1, legionPointValue(state, ghost))
   let threat = 0
@@ -119,9 +150,9 @@ export function incomingThreatScore(
   for (const enemy of state.legions) {
     if (enemy.playerId === legion.playerId) continue
     if (enemy.hexLabel === hex) continue
-    const rolls = ctx.reachCounts.get(enemy.id)?.get(hex) ?? 0
+    const rolls = candidateReachCounts(previewState, enemy, ctx).get(hex) ?? 0
     if (rolls <= 0) continue
-    const { outcome } = estimateBattleOutcome(state, enemy, ghost, hex)
+    const { outcome } = estimateBattleOutcome(previewState, enemy, ghost, hex)
     if (outcome !== 'winMinimal' && outcome !== 'winHeavy') continue
     const p = rolls / 6
     const mul = hasTitan ? THREAT_TITAN_MUL : THREAT_WIN_MUL

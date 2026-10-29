@@ -1,6 +1,7 @@
 import type { LoadedVariant } from '../variant/loadVariant'
-import { canDonateSummon } from '../engine/battle'
-import { bestRecruitAt } from '../engine/recruit'
+import { planReinforcement, planSummon } from './supportPlanning'
+import { listBattleSummonSources } from '../engine/battle'
+import { listRecruitOptionsAt } from '../engine/recruit'
 import type { GameState, Legion } from '../engine/types'
 
 /** Flat bonus when a creature is on a non-Plains/Tower terrain whose muster tree includes it. */
@@ -64,21 +65,9 @@ export function findBestSummonable(
   state: GameState,
   attacker: Legion,
 ): { fromLegionId: string; creatureType: string } | null {
-  if (attacker.creatures.length >= 7) return null
-  let best: { fromLegionId: string; creatureType: string; value: number } | null = null
-  for (const donor of state.legions) {
-    if (!canDonateSummon(state, donor, attacker)) continue
-    for (const c of donor.creatures) {
-      const t = state.variant.creatures[c.type]
-      if (!t?.summonable) continue
-      const value = creatureCombatValue(state, c.type, attacker.hexLabel)
-      if (!best || value > best.value) {
-        best = { fromLegionId: donor.id, creatureType: c.type, value }
-      }
-    }
-  }
-  if (!best) return null
-  return { fromLegionId: best.fromLegionId, creatureType: best.creatureType }
+  const sources = state.battle && !state.battle.done && state.battle.attackerLegionId === attacker.id
+    ? listBattleSummonSources(state, state.battle) : state.legions
+  return planSummon(state, attacker, (type, hex) => creatureCombatValue(state, type, hex), sources)
 }
 
 /**
@@ -91,7 +80,10 @@ export function findBestBattleReinforce(
   hexLabel: string,
 ): string | null {
   if (defender.creatures.length >= 7) return null
-  return bestRecruitAt(state, defender, hexLabel)
+  if (state.battle && !state.battle.done && state.battle.defenderLegionId === defender.id &&
+    state.battle.defenderReinforced) return null
+  return planReinforcement(listRecruitOptionsAt(state, defender, hexLabel), hexLabel,
+    (type, hex) => creatureCombatValue(state, type, hex))
 }
 
 /**
@@ -147,7 +139,7 @@ export function legionCombatValue(
 
   if (options.engagementExtras) {
     if (role === 'attack') {
-      const summon = findBestSummonable(state, legion)
+      const summon = findBestSummonable(state, { ...legion, hexLabel })
       if (summon) {
         total += creatureCombatValue(state, summon.creatureType, hexLabel, titanPower)
       }
