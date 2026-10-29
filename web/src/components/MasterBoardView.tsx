@@ -212,7 +212,7 @@ export function MasterBoardView({
   const reducedMotion = useReducedMotion()
   const board = state.variant.board
   const scale = 14
-  const tokenScale = modern ? 1.2 : 1
+  const tokenScale = modern ? 1.44 : 1
   const markerSize = MARKER_SIZE * tokenScale
   const recruitChit = RECRUIT_CHIT * tokenScale
   const wrapRef = useRef<HTMLDivElement>(null)
