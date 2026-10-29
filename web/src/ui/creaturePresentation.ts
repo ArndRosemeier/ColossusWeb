@@ -4,7 +4,8 @@ import { usePresentationMode, type PresentationMode } from './presentationMode'
 
 export type CreatureAssetErrorHandler = (message: string) => void
 
-/** Scoped transport to App.notify, never a second error UI or game-state store. */
+/** Scoped visual-asset transport to App.notify (creatures and modern terrain),
+ * never a second error UI or game-state store. */
 export const CreatureAssetErrorContext = createContext<CreatureAssetErrorHandler | null>(null)
 
 export type CreatureArtworkProps = {

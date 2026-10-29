@@ -12,6 +12,7 @@ import { SafeSvgImage } from '../SafeSvgImage'
 import { terrainMotionProfile, terrainMotionSplit, terrainMotionTiming } from '../../ui/terrainMotion'
 import { setPresentationMode } from '../../ui/presentationMode'
 import { loadAssetManifest, setActiveVariant, terrainImageUrl } from '../../variant/assets'
+import { CreatureAssetErrorContext } from '../../ui/creaturePresentation'
 import { twoPlayerGame } from '../../engine/__tests__/helpers'
 
 const props = { href: '/variants/Default/images/Woods.gif', x: 120, y: 80, width: 84, height: 3 * Math.sqrt(3) * 14,
@@ -155,20 +156,23 @@ describe('art-only terrain presentation', () => {
   it('uses the existing mode and live reduced-motion subscriptions without moving board labels or click targets', async () => {
     const state = twoPlayerGame(31)
     const onHexClick = vi.fn(), onLegionClick = vi.fn()
-    await render(createElement(MasterBoardView, { state, onHexClick, onLegionClick }))
+    await render(createElement(CreatureAssetErrorContext.Provider, { value: vi.fn() }, createElement(MasterBoardView, { state, onHexClick, onLegionClick })))
     const classicMarkup = host.innerHTML
     expect(host.querySelector('.master-terrain-motion')).toBeNull()
-    const staticLabels = [...host.querySelectorAll('.master-board text')].map(text => text.outerHTML)
+    const classicHexNumbers = [...host.querySelectorAll('[data-hex] > text')].map(text => text.textContent)
     await act(async () => setPresentationMode('animated'))
     expect(host.querySelectorAll('.master-terrain-motion').length).toBeGreaterThan(0)
-    expect([...host.querySelectorAll('.master-board text')].map(text => text.outerHTML)).toEqual(staticLabels)
+    expect([...host.querySelectorAll('.modern-hex-number')].map(text => text.textContent)).toEqual(classicHexNumbers)
+    const fixedLabels = [...host.querySelectorAll('.modern-hex-labels')].map(label => label.outerHTML)
     const hex = host.querySelector('[data-hex]')!
     expect(hex.closest('.master-terrain-motion')).toBeNull()
     await act(async () => hex.dispatchEvent(new MouseEvent('click', { bubbles: true })))
     expect(onHexClick).toHaveBeenCalledWith(hex.getAttribute('data-hex'))
     await act(async () => { reduced = true; for (const listener of motionListeners) listener() })
     expect(host.querySelector('.master-terrain-motion')).toBeNull()
-    expect(host.innerHTML).toBe(classicMarkup)
+    expect(host.querySelector('.modern-board')).not.toBeNull()
+    expect(host.querySelectorAll('.modern-terrain-art')).toHaveLength(Object.keys(state.variant.board.hexByLabel).length)
+    expect([...host.querySelectorAll('.modern-hex-labels')].map(label => label.outerHTML)).toEqual(fixedLabels)
     await act(async () => { reduced = false; for (const listener of motionListeners) listener() })
     expect(host.querySelector('.master-terrain-motion')).not.toBeNull()
     await act(async () => setPresentationMode('classic'))

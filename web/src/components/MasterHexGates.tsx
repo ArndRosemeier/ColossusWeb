@@ -1,5 +1,7 @@
 import type { GateType } from '../types/variant'
 import { archGeometry, arrowTriple, blockOutline, gateLen, pts } from './gateGeometry'
+import type { PresentationMode } from '../ui/presentationMode'
+import { ModernGateShape } from './ModernGateShape'
 
 function GateShape({
   vx1,
@@ -75,15 +77,19 @@ export function MasterHexGates({
   exitType,
   entranceType,
   scale,
+  mode = 'classic',
+  metalId,
 }: {
   verts: [number, number][]
   inverted: boolean
   exitType: GateType[]
   entranceType: GateType[]
   scale: number
+  mode?: PresentationMode
+  metalId?: string
 }) {
   const start = inverted ? 0 : 1
-  const marks: { key: string; vx1: number; vy1: number; vx2: number; vy2: number; gate: GateType }[] =
+  const marks: { key: string; vx1: number; vy1: number; vx2: number; vy2: number; gate: GateType; edge: number; direction: 'exit' | 'entrance' }[] =
     []
   for (let i = start; i < 6; i += 2) {
     const n = (i + 1) % 6
@@ -91,17 +97,22 @@ export function MasterHexGates({
     const [bx, by] = verts[n]!
     const exit = exitType[i] ?? 'NONE'
     if (exit !== 'NONE') {
-      marks.push({ key: `ex-${i}`, vx1: ax, vy1: ay, vx2: bx, vy2: by, gate: exit })
+      marks.push({ key: `ex-${i}`, vx1: ax, vy1: ay, vx2: bx, vy2: by, gate: exit, edge: i, direction: 'exit' })
     }
     const entrance = entranceType[i] ?? 'NONE'
     if (entrance !== 'NONE') {
-      marks.push({ key: `en-${i}`, vx1: bx, vy1: by, vx2: ax, vy2: ay, gate: entrance })
+      marks.push({ key: `en-${i}`, vx1: bx, vy1: by, vx2: ax, vy2: ay, gate: entrance, edge: i, direction: 'entrance' })
     }
   }
   if (marks.length === 0) return null
   return (
     <g className="master-hex-gates" pointerEvents="none">
-      {marks.map((m) => (
+      {marks.map((m) => mode === 'animated' ? (
+        <g key={m.key} className="modern-gate" data-gate-type={m.gate} data-edge={m.edge} data-direction={m.direction}
+          data-from={`${m.vx1},${m.vy1}`} data-to={`${m.vx2},${m.vy2}`}>
+          <ModernGateShape vx1={m.vx1} vy1={m.vy1} vx2={m.vx2} vy2={m.vy2} gate={m.gate} scale={scale} metalId={metalId} />
+        </g>
+      ) : (
         <GateShape
           key={m.key}
           vx1={m.vx1}

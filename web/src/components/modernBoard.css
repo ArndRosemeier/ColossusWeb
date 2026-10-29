@@ -1,0 +1,16 @@
+/* Animated presentation only. Classic SVG attributes and global board rules remain. */
+.modern-board .modern-master-board { filter: none; }
+.modern-board .modern-hex-surface { stroke-linejoin: round; }
+.modern-board [data-hex]:hover .modern-hex-bevel { stroke-opacity: .48; }
+.modern-board .legal-hex-ring, .modern-board .preview-hex-ring, .modern-board .split-hex-ring { animation: none; opacity: .12; }
+.modern-board .legal-hex-stroke, .modern-board .preview-hex-stroke { animation: none; }
+.modern-board .legal-hex-stroke { stroke-linejoin: round; stroke-dasharray: none; }
+.modern-board .preview-hex-stroke { stroke-dasharray: 3 2; }
+.modern-board .legion-marker-dimmed { opacity: .72; }
+.modern-board .recruit-preview > rect { fill: #101e28; stroke: #d5b484; stroke-width: 1; rx: 3; }
+.modern-board .move-anim > polyline { stroke-width: 2; stroke-opacity: .65; }
+.modern-board .modern-hex-labels text { user-select: none; }
+.modern-gate { stroke-linecap: round; }
+.modern-legion-marker { flex-shrink: 0; overflow: visible; image-rendering: auto; }
+
+.modern-board [data-legion] > rect { stroke: #f2d6ab; stroke-width: 1.6; rx: 4; }

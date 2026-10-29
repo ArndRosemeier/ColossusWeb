@@ -1,0 +1,51 @@
+# Animated master-board visual system
+
+Owner intent: “Any idea how to glow up the actual board in animated mode? Should not be too distracting, but i think it could get an update to make it look more modern. Only in animated though, purists should still get the old experience.” Then: “gates and arrows look pretty basic right now, less good than even in the original game. And i think we can do better. With everything.” Finally: “Oh yea, we did not touch legion markers yet. They are a remnant. They need to stay clearly coloured though.”
+
+COPIES: 3→1 — MarkerArtwork carries Animated HTML/standing/moving legion art; Classic leaves retained for exact parity; MasterHexGates keeps one shared alternating-edge gate placement loop.
+
+This slice is the **main board and shared legion markers**. The owner's subsequent request to overhaul battle lands is a sequential follow-up (row25), explicitly not mixed into this landing. Approved creature-animation combat events, rules, data, variant integration, networking and save formats are untouched.
+
+## Board faces, artwork and information
+
+`MasterBoardView` still computes all polygon points, hex coordinates, marker centers, stacks, legal destinations and clicks through the existing helpers/`boardInteraction`. The presentation mode gates a new class/definition/artwork branch; switching back to Classic restores the original DOM and art path. Classic per-hex gate order, canvas marker body and raw standing/moving SVG marker leaves remain intact. Existing pointer/callback and move-tween completion code is retained.
+
+Animated mode gets a quiet dark table frame/pattern, twelve shared muted terrain-face gradients, a shallow inset bevel and approved colorful transparent terrain vignettes. Familiar yellow/green/brown/blue/red/purple terrain families remain recognizable. `ModernBoardDefs`, `ModernTerrainArt` and `ModernHexLabels` carry this visual system; `ui/modernBoard.ts` is the twelve-name art/palette registry. There are no per-tile SVG filters, heavy shadows, moving table noise or global arrow animation.
+
+The landscape PNGs contain no words. Native Sora terrain names sit in a stationary dark-backed top label; native hex IDs sit in a bottom pill. The existing 28px marker footprint ends near `cy+58.9`; number glyphs use baseline `cy+64.5`, above the bottom-edge gate corridor near `cy+68..78`. A writer Chrome preview exposed the initial lower number position sharing the arrow corridor; raising it fixed the obstruction. Long names fit within 32 SVG units to stay clear of slanted gate anchors. Preview rolls share the wider bottom ID pill rather than spilling outside an inverted hex. Labels have a fixed hex clip and never enter an artwork transform.
+
+Only the same existing seven grass/vegetation/wetland/desert profiles sway/shimmer, using the shared `terrainMotionKind` and `terrainMotionTiming` seam and existing gentle CSS. Hills, Mountains, Tower, Tundra and Abyss stay solid/still. Reduced motion keeps **all modern artwork, gates, markers and labels**, freezing only motion. Unknown/custom terrain intentionally uses its original classic illustration and a capability title; registered artwork failures show Art unavailable and send the precise path through the existing scoped App.notify callback (`CreatureAssetErrorContext`, now also used for board visual assets). No Unknown substitution hides a supported-art failure.
+
+## Gates and arrows
+
+`MasterHexGates` retains ONE original alternating-edge exit/entrance enumeration. Classic output remains the original `GateShape`; Animated dispatches to `ModernGateShape`. Both use the original `gateLen`, `blockOutline`, `archGeometry` and `arrowTriple` anchors/normals. Modern BLOCK is a squared inset stone/metal bar, ARCH has its actual semicircular cap and inner rounded portal, and ARROW/ARROWS have one/three direction-correct beveled heads with dark outlines and light facets. No movement semantics or edge counts changed; BLOCK is not relabeled as an impassable rule.
+
+Animated gates paint in one **final decorative gate layer after every terrain face/highlight/label and before markers/previews**. The old per-hex painter order could hide a sign's neighbor-side half under a later tile. Classic retains its original painter order for parity. `data-gate-hex` identifies the overlay's source hex without duplicating interactive `data-hex` groups. Each mark exposes `data-gate-type`, `data-edge`, `data-direction` and actual from/to anchors; arrow tests inspect real outline vertices, not only attributes. All decorative gate content has pointer events disabled. Shared board-scoped metal definitions and unique React-derived face/clip IDs support multiple boards safely.
+
+## Legion identity and color
+
+`MarkerArtwork` is the single pure SVG art used by `MarkerChit` (setup, panels, decisions), standing main-board markers and the existing positional movement overlay. It uses a chamfered dark/light beveled rim, the **exact provided owner color** on its dominant face, a deterministic full-ID-seeded heraldic crest, a printed **full marker ID** and a separate count badge. It does not frame or fetch old pixel art. The count remains legion height; the marker ID retains its original meaning. Provided owning color overrides the marker's original prefix for captures.
+
+Captured `Bu01` and native `Rd01` can therefore share a red face while retaining different full IDs/emblems. The nine actual PLAYER_COLORS remain unchanged; full-ID ink chooses the stronger dark/white contrast, with all nine tested at ≥4.5:1 (Purple is the limiting white-ink case, about 4.59:1). Black has a visible light rim/white identity; Gold/Silver retain their actual colors with dark identity. The vector has no generated DOM IDs/defs to collide and no random state. Original size, click/stack layout, title/custom-class behavior and color ownership remain. Classic `MarkerChit` routes to its unchanged private canvas leaf; Classic map rect/image/count attributes and positions remain unchanged.
+
+Independent WIP review caught a scale mismatch in the first count badge: 21 units inside a100-unit viewBox was only5.88px at the actual28px map footprint. The delivered badge uses33-unit type (9.24px), an18-unit radius and left-shifted full-ID caption, improving height readability without changing footprint or game data.
+
+Selection/legal feedback is restrained: modern destination/preview outlines are static, terrain hover only lightens the inset bevel, selected marker frames and recruit frames fit the same material palette, and recent/pending/destination recruit art retains original positioning/rotation/callbacks. New marker HTML naturally appears wherever the shared marker is used, including battle sidebars; battle-board rendering itself is not redesigned here.
+
+## Approved terrain assets and provenance
+
+Twelve registered terrains: Abyss, Brush, Desert, Hills, Jungle, Marsh, Mountains, Plains, Swamp, Tower, Tundra, Woods. Delivery: `web/public/board-art/terrain-v1/{Terrain}.png`, all **256×256 RGBA**, total **894,571 bytes**, local BASE_URL URLs and browser cache shared by repeated hexes. Classic mounts none of these image URLs. The registry is small bundled metadata; images load only when the modern board is shown.
+
+The dispatcher generated/viewed/approved the original transparent sheet with built-in image_gen, then packaged measured transparent-gutter crops with one uniform scale and preserved alpha. No repainting or generated pixel edits; this writer copied the approved delivery bytes unchanged. Source sheet **1448×1086**, SHA-256 `a430e62c5c59ebbc187a3e8e9484614ed94907c79352e2e406af92966f4c4f28`. The Tower's measured gutter avoids the nominal row cut crossing its roof. Every vignette has safe alpha margins and a common ground baseline.
+
+Final prompt: [modern-board-terrain.prompt.txt](modern-board-terrain.prompt.txt). All delivery hashes/crops/bounds: [modern-board-terrain.provenance.json](modern-board-terrain.provenance.json). Packaging reference: [modern-board-package-terrain.py](modern-board-package-terrain.py). The original source sheet/recipe live under the owner's `output/modern-board/`; the reference recipe expects that source sheet beside it and needs Pillow/numpy. No regeneration is part of the gate, npm convert or this implementation. Existing creature/GIF/variant files are untouched.
+
+## Verification hooks
+
+- `.master-board-wrap.modern-board[data-presentation="animated"]`; `.modern-hex-surface`, `.modern-hex-bevel`, `.modern-terrain-art[data-terrain]` and `.modern-hex-labels`.
+- `.modern-terrain-name`, `.modern-hex-number`, `.modern-number-pill`, `.modern-preview-roll`; motion is only `.modern-terrain-motion` (absent under live reduced motion).
+- `.modern-gate-layer [data-gate-hex] [data-gate-type][data-edge][data-direction]`; no duplicate `data-hex` groups.
+- `.modern-legion-marker[data-marker-id][data-owner-color][data-height]`, `.marker-owner-face`, `.marker-crest`, `.marker-full-id`, `.marker-count`.
+- Existing `.recruit-preview`, `.muster-pending`, `.muster-done`, `.board-creature-icon`, `.move-anim` and public checkbox hooks stay usable.
+
+Writer focused tests preserve the original Classic gate/crop pins, exercise the updated reduced-motion semantics, Classic roundtrip/hit polygons, metadata-exact gate overlay/ordering/direction/count, nine owner colors/captures/contrast/full identity, all approved PNG hashes/coverage, unknown capability and required-art notices. A bounded real Chrome preview at 1440×1080 rendered 96 terrain faces, 360 gate marks, native markers, zero page errors, with blocked WebSockets and cleanup in finally. Preview under `.gate-logs/modern-preview-1440.png` and `modern-board-preview.png`. Independent Classic pixel/DOM comparison, gameplay, larger/mobile/Abyssal9 and palette browser checks/full suite belong to the dispatcher; writer preview/unit results do not claim those.

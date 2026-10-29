@@ -12,14 +12,20 @@ const KINDS: Readonly<Record<string, TerrainMotionKind>> = {
   Marsh: 'shimmer', Swamp: 'shimmer', Desert: 'heat',
 }
 
+export function terrainMotionKind(terrain: string): TerrainMotionKind | null {
+  return Object.hasOwn(KINDS, terrain) ? KINDS[terrain] : null
+}
+
 /** Crops are measured against the actual Default GIF bytes, not terrain names or
  * hex orientation. Unfamiliar artwork must remain static so its text cannot move.
  */
 export function terrainMotionProfile(href: string): TerrainMotionProfile | null {
   const match = /(?:^|\/)variants\/Default\/images\/([A-Za-z]+)(_i)?\.gif$/.exec(href)
-  if (!match || !Object.hasOwn(KINDS, match[1])) return null
+  if (!match) return null
+  const kind = terrainMotionKind(match[1])
+  if (!kind) return null
   const orientation = match[2] ? 'inverted' : 'normal'
-  return { terrain: match[1], orientation, kind: KINDS[match[1]], split: match[2] ? 0.66 : 0.37 }
+  return { terrain: match[1], orientation, kind, split: match[2] ? 0.66 : 0.37 }
 }
 
 /** xMidYMid slice maps a square source through max(width,height), not height.

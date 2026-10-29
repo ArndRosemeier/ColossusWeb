@@ -175,7 +175,8 @@ describe('remaining actual creature token callers', () => {
       createElement(GameControls, { state, dispatch: apply, interactive: true }))
     await render(view())
     expect(host.querySelector('.muster-pending .board-creature-icon [data-animation="resting"]')).not.toBeNull()
-    const marker = host.querySelector('[data-legion] image')!.outerHTML
+    const marker = host.querySelector('[data-legion] .modern-legion-marker')!
+    const markerIdentity = [marker.getAttribute('data-marker-id'), marker.getAttribute('data-owner-color'), marker.querySelector('.marker-crest')!.getAttribute('d')]
     await click(host.querySelector('.muster-form .recruit-btn')!)
     expect(commands[0]).toEqual({ type: 'recruit', legionId: id, creatureType: creature })
     expect(state.legions.find(l => l.id === id)!.musteredThisTurn).toBe(creature)
@@ -184,7 +185,9 @@ describe('remaining actual creature token callers', () => {
     expect(recent.querySelector('.board-creature-icon [data-animation="resting"]')).not.toBeNull()
     expect(recent.getAttribute('transform')).toMatch(/^rotate\(-18 /)
     expect(recent.querySelector('title')!.textContent).toContain(`Mustered: ${creature}`)
-    expect(host.querySelector('[data-legion] image')!.outerHTML).toBe(marker)
+    const afterMarker = host.querySelector('[data-legion] .modern-legion-marker')!
+    expect([afterMarker.getAttribute('data-marker-id'), afterMarker.getAttribute('data-owner-color'), afterMarker.querySelector('.marker-crest')!.getAttribute('d')]).toEqual(markerIdentity)
+    expect(afterMarker.getAttribute('data-height')).toBe(String(state.legions.find(l => l.id === id)!.creatures.length))
     const undo = [...host.querySelectorAll('.selected-legion button')].find(button => button.textContent?.includes('Undo recruit'))!
     expect(undo).toBeTruthy()
     await click(undo)

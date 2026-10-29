@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useId, useLayoutEffect, useRef, useState } from 'react'
 import type { BuiltBoard, MasterHex } from '../types/variant'
 import { TERRAIN_COLORS } from '../variant/buildBoard'
 import {
@@ -19,13 +19,17 @@ import type { GameCommand, GameState, Legion } from '../engine/types'
 import { boardInteraction } from '../ui/boardInteraction'
 import type { MasterMoveAnim } from '../ui/moveAnimation'
 import { pointsToSvg, usePathTween } from '../ui/usePathTween'
-import { usePresentationMode } from '../ui/presentationMode'
+import { usePresentationMode, type PresentationMode } from '../ui/presentationMode'
+import { hasModernTerrain } from '../ui/modernBoard'
 import { useReducedMotion } from '../ui/battlePresentation'
 import { MusterForm, SplitForm } from './LegionActions'
 import { MasterHexGates } from './MasterHexGates'
 import { MasterTerrainArt } from './MasterTerrainArt'
 import { SafeSvgImage } from './SafeSvgImage'
 import { BoardCreatureIcon } from './BoardCreatureIcon'
+import { MarkerArtwork } from './MarkerArtwork'
+import { ModernBoardDefs, ModernHexLabels, ModernTerrainArt } from './ModernBoardArt'
+import './modernBoard.css'
 
 const PREVIEW_STROKE = '#5ec8d4'
 const SPLIT_STROKE = '#ff6b35'
@@ -115,12 +119,14 @@ function MasterAnimOverlay({
   markerSize,
   anim,
   onDone,
+  mode,
 }: {
   board: BuiltBoard
   scale: number
   markerSize: number
   anim: MasterMoveAnim
   onDone: () => void
+  mode: PresentationMode
 }) {
   const points = anim.pathLabels.map((label) => {
     const hex = board.hexByLabel[label]
@@ -151,6 +157,7 @@ function MasterAnimOverlay({
       )}
       {ghostOp > 0.02 && (
         <g opacity={ghostOp} transform={`translate(${pos.x - markerSize / 2}, ${pos.y - markerSize / 2})`}>
+          {mode === 'animated' ? <MarkerArtwork markerId={anim.markerId} color={anim.ownerColor} size={markerSize} height={anim.count} /> : <>
           <rect
             width={markerSize}
             height={markerSize}
@@ -180,6 +187,7 @@ function MasterAnimOverlay({
           >
             {anim.count}
           </text>
+          </>}
         </g>
       )}
     </g>
@@ -195,7 +203,10 @@ export function MasterBoardView({
   dispatch,
   interactive = false,
 }: Props) {
-  const animatedTerrain = usePresentationMode() === 'animated'
+  const mode = usePresentationMode()
+  const modern = mode === 'animated'
+  const boardScope = `modern-board-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
+  const clipId = (label: string) => modern ? `${boardScope}-hex-${label}` : `hex-clip-${label}`
   const reducedMotion = useReducedMotion()
   const board = state.variant.board
   const scale = 14
@@ -345,24 +356,29 @@ export function MasterBoardView({
   }
 
   return (
-    <div className="master-board-wrap" ref={wrapRef}>
+    <div className={modern ? "master-board-wrap modern-board" : "master-board-wrap"} data-presentation={modern ? mode : undefined} ref={wrapRef}>
       <svg
         ref={svgRef}
-        className="master-board"
+        className={modern ? "master-board modern-master-board" : "master-board"}
         viewBox={`0 0 ${maxX + 20} ${maxY + 20}`}
         role="img"
         aria-label="Master board"
       >
         <defs>
+          {modern && <ModernBoardDefs prefix={boardScope} />}
           {hexes.map((hex) => {
             const { cx, cy } = hexPixel(board, hex, scale)
             return (
-              <clipPath key={`clip-${hex.label}`} id={`hex-clip-${hex.label}`}>
+              <clipPath key={`clip-${hex.label}`} id={clipId(hex.label)}>
                 <polygon points={hexPoints(cx, cy, scale, hex.inverted)} />
               </clipPath>
             )
           })}
         </defs>
+        {modern && <g className="modern-board-table" pointerEvents="none">
+          <rect x={1} y={1} width={maxX + 18} height={maxY + 18} rx={10} fill="#101c24" stroke="#647178" strokeWidth={1} />
+          <rect x={5} y={5} width={maxX + 10} height={maxY + 10} rx={7} fill={`url(#${boardScope}-table)`} stroke="#ae9775" strokeOpacity={0.25} strokeWidth={0.5} />
+        </g>}
         {hexes.map((hex) => {
           const { cx, cy } = hexPixel(board, hex, scale)
           const fill = TERRAIN_COLORS[hex.terrain] ?? '#ccc'
@@ -390,22 +406,28 @@ export function MasterBoardView({
             >
               <polygon
                 points={hexPoints(cx, cy, scale, hex.inverted)}
-                fill={fill}
-                stroke="#0a1014"
-                strokeWidth={1}
+                className={modern ? 'modern-hex-surface' : undefined}
+                fill={modern && hasModernTerrain(hex.terrain) ? `url(#${boardScope}-face-${hex.terrain})` : fill}
+                stroke={modern ? '#101a22' : '#0a1014'}
+                strokeWidth={modern ? 2.4 : 1}
               />
-              {terrainSrc ? (
+              {modern && <polygon className="modern-hex-bevel" points={hexPoints(cx, cy, scale, hex.inverted)}
+                transform={`translate(${cx + scale} ${cy + 1.5 * SQRT3 * scale}) scale(.95) translate(${-cx - scale} ${-cy - 1.5 * SQRT3 * scale})`}
+                fill="none" stroke="#f3dfb5" strokeOpacity={0.2} strokeWidth={0.6} pointerEvents="none" />}
+              {modern && hasModernTerrain(hex.terrain) ? <ModernTerrainArt terrain={hex.terrain} hexLabel={hex.label}
+                cx={cx} cy={cy} scale={scale} clipPath={`url(#${clipId(hex.label)})`} reducedMotion={reducedMotion} /> : terrainSrc ? (
                 <MasterTerrainArt
                   href={terrainSrc}
                   x={bounds.x}
                   y={bounds.y}
                   width={bounds.width}
                   height={bounds.height}
-                  clipPath={`url(#hex-clip-${hex.label})`}
+                  clipPath={`url(#${clipId(hex.label)})`}
                   hexLabel={hex.label}
-                  animated={animatedTerrain && !reducedMotion}
+                  animated={false}
                 />
               ) : null}
+              {modern && !hasModernTerrain(hex.terrain) && <title>{`${hex.terrain}: modern terrain artwork unavailable; classic terrain illustration.`}</title>}
               {isSplitHere && !isLegal && (
                 <polygon
                   className="split-hex-ring"
@@ -435,18 +457,19 @@ export function MasterBoardView({
                       ? SPLIT_STROKE
                       : isSelectedHere
                         ? '#e8edf2'
-                        : '#0c1218'
+                        : modern ? '#263b43' : '#0c1218'
                 }
-                strokeWidth={isLegal || isPreview || isSplitHere ? 3.5 : 1.2}
+                strokeWidth={isLegal || isPreview || isSplitHere ? (modern ? 2.2 : 3.5) : (modern ? 0.8 : 1.2)}
               />
-              <MasterHexGates
+              {!modern && <MasterHexGates
                 verts={verts}
                 inverted={hex.inverted}
                 exitType={hex.exitType}
                 entranceType={hex.entranceType}
                 scale={scale}
-              />
-              <text
+              />}
+              {modern ? <ModernHexLabels terrain={hex.terrain} label={hex.label} cx={cx} cy={cy} scale={scale}
+                clipPath={`url(#${clipId(hex.label)})`} showTerrain={hasModernTerrain(hex.terrain)} preview={isPreview && preview ? (preview.teleport ? 'T' : String(preview.minRoll)) : undefined} /> : <text
                 x={cx + scale}
                 y={cy + 1.15 * SQRT3 * scale}
                 textAnchor="middle"
@@ -459,8 +482,8 @@ export function MasterBoardView({
                 fontWeight={700}
               >
                 {hex.label}
-              </text>
-              {isPreview && preview && (
+              </text>}
+              {!modern && isPreview && preview && (
                 <text
                   className="preview-roll"
                   x={cx + scale}
@@ -480,6 +503,15 @@ export function MasterBoardView({
             </g>
           )
         })}
+        {modern && <g className="modern-gate-layer" pointerEvents="none">
+          {hexes.map(hex => {
+            const { cx, cy } = hexPixel(board, hex, scale)
+            return <g key={hex.label} data-gate-hex={hex.label}>
+              <MasterHexGates verts={hexVertices(cx, cy, scale, hex.inverted)} inverted={hex.inverted}
+                exitType={hex.exitType} entranceType={hex.entranceType} scale={scale} mode={mode} metalId={`${boardScope}-metal`} />
+            </g>
+          })}
+        </g>}
         {recruitPreviews.map(({ label, creature, index }) => {
           const hex = board.hexByLabel[label]
           if (!hex) return null
@@ -562,6 +594,9 @@ export function MasterBoardView({
                   />
                 )}
                 <g className={ownMustered ? 'legion-marker-dimmed' : undefined}>
+                  {modern ? <svg x={x} y={y} width={markerSize} height={markerSize} viewBox={`0 0 ${markerSize} ${markerSize}`}>
+                    <MarkerArtwork markerId={leg.markerId} color={fill} size={markerSize} height={leg.creatures.length} />
+                  </svg> : <>
                   <rect
                     x={x}
                     y={y}
@@ -593,6 +628,7 @@ export function MasterBoardView({
                   >
                     {leg.creatures.length}
                   </text>
+                  </>}
                 </g>
                 {pendingCreature && (
                   <g className="muster-pending" pointerEvents="none">
@@ -637,6 +673,7 @@ export function MasterBoardView({
             markerSize={markerSize}
             anim={moveAnim}
             onDone={onMoveAnimDone}
+            mode={mode}
           />
         )}
       </svg>

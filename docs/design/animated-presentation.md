@@ -76,3 +76,11 @@ Owner: “do i just miss it or is the animated option gone? Btw, i think that sh
 COPIES: 1 — PresentationModeToggle and presentationMode.ts carry one shared native checkbox/store for title navigation and game toolbar.
 
 The application's current initial/default choice is Animated; this supersedes row18's Classic-first launch policy without rewriting the 1.02 release history. Strict value validation, choice persistence, private-mode session usability and reduced-motion behavior remain. Both client and server/static snapshot callbacks call the same getter. This app is client-rendered; there is no production SSR server. The engagement authority markup tests now explicitly seed Classic because their subject is seat/choice semantics, not artwork/defaults; all original assertions remain. Existing Classic battle, terrain and creature-rendering pins still explicitly choose Classic and remain unchanged.
+
+## Modern main board and legion markers — row 24
+
+The current Animated main board now uses registered transparent landscape vignettes with fixed native labels and number pills, subtle material faces, crafted directional gates and prominent player-colored vector legion crests. See [modern-board.md](modern-board.md) for the single presentation/marker seams, exact asset provenance and QA hooks. Both modes keep original coordinates, legal interactions, marker footprints and commands. Classic still uses its original GIF/canvas/SVG leaves and original gate painter order. The row19 source-GIF crop helpers remain independently pinned but no longer supply known Animated terrain art; unfamiliar terrain stays explicitly on the Classic capability path.
+
+Reduced motion preserves the modern design and freezes only ambient artwork motion. Gates, labels, numbers and legion identities are stationary. Required terrain image failures share App's existing notice callback; there is no second error surface. Native marker artwork is shared by HTML panels, standing markers and movement overlays; full marker ID and explicit owner color remain visible even after capture. Battle creature/combat presentation is unchanged. The subsequent battle-land overhaul is a separate sequential row25 slice.
+
+COPIES: 3→1 — MarkerArtwork carries Animated HTML/standing/moving legion art; MasterHexGates retains one shared gate placement loop with Classic/Modern shape leaves.

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { isDarkMarkerFill, loadAssetManifest, markerImageUrl, markerPlainColor } from '../variant/assets'
+import { usePresentationMode } from '../ui/presentationMode'
+import { MarkerArtwork } from './MarkerArtwork'
 
 interface MarkerChitProps {
   markerId: string
@@ -19,7 +21,12 @@ interface MarkerChitProps {
  * Colossus-style legion marker: Plain fill + transparent symbol overlay.
  * Marker PNGs are palette+tRNS; without the fill they look invisible.
  */
-export function MarkerChit({
+export function MarkerChit(props: MarkerChitProps) {
+  const mode = usePresentationMode()
+  return mode === 'animated' ? <MarkerArtwork {...props} /> : <ClassicMarkerChit {...props} />
+}
+
+function ClassicMarkerChit({
   markerId,
   color,
   size = 36,
