@@ -52,9 +52,10 @@ independently names the verified base. See decision-ledger row 4.
 ## Board
 
 ```
-reconciled: 6ff7115638d26f3b31d1de625ba17b7e0088d028 · 2026-09-27T23:10Z
+reconciled: ccb661e95bb2bc5e653bab4ecb1f90ba221cf4d1 · 2026-10-29 (remote base; feature verified locally only)
 
-IN-FLIGHT | row=18 | worktree=C:\Users\windo\Documents\ChatGPT\ColossusWeb\source\worktrees\animated-mode | branch=codex/animated-battles | base=ccb661e95bb2bc5e653bab4ecb1f90ba221cf4d1 | state=BUILT-LOCAL; ready for independent verification | lands=this commit | scope=local classic/animated preference; 24 approved animated battle creatures; unchanged combat engine/network/save; dead Strikeback preserved | writer_gate=0; 418 passed, 2 todo; 64 files passed, 1 skipped; peak NOT MEASURED | focused=43 passed | differential=A 11 passed; B 1 failed/10 passed; C 11 passed, hashes restored | logs=worktree/.gate-logs/animated-full-final, animated-strikeback-focused, animated-differential | docs=ARCHITECTURE, TESTING, DECISION-LEDGER row 18, design/animated-presentation, briefs/animated-mode | no push/deploy; dispatcher browser/combat verification and integrated full gate OWED
+LOCAL-VERIFIED | row=18 | branch=codex/animated-mode | implementation=71579f344dde0c4df1cff541e7bb4c56e970a572 | base=ccb661e95bb2bc5e653bab4ecb1f90ba221cf4d1 | state=verified locally; no push/deploy | scope=shared Classic/Animated setting; 24 approved creatures in battles; original combat preserved | dispatcher_gate=0; 418 passed, 2 todo; 64 files passed, 1 skipped; 16 existing lint warnings/0 errors; peak NOT MEASURED | own_differential=A 4 passed, B 3 failed/1 passed, C 4 passed, restored hash matches | browser=movement/strike/dead Strikeback engine comparisons passed in both modes; classic screenshot pixel-identical; no classic atlas requests; production subpath, persistence, live reduced motion and visible asset errors passed | logs=.gate-logs/dispatcher-animated, dispatcher-preference, dispatcher-subpath, animated-writer; ../output/animated-mode-verification | writer worktree removed; writer branch retired after ancestry verification | remaining=owner playtest; later animated views outside this slice
+retired_branch=codex/animated-battles
 
 SESSION | id=session-c415d674-2dd3-428b-97d2-809e492615e9 | model=deepseek-flash | state=LIVE-TESTING with the owner, mid-game. S1-S9 landed, dispatcher-verified and retired; S9 (give up + delete your games) is PUBLISHED. **The owner still owes ONE action: grant `delete` on his player keys or the delete will correctly refuse with 403**
 
