@@ -8,16 +8,18 @@ interface DifficultySettings {
   label: string
   battle: Readonly<BattlePlannerOptions>
   split: Readonly<{ maxPlans: number; destinationsPerRoll: number }>
+  /** Simpler coordination; mandatory separation and threatened-Titan rescue bypass it. */
+  maxOptionalLegionMoves: number | null
 }
 
 /** Planning work only. All levels share legality, resources and mandatory safety. */
 export const AI_DIFFICULTIES: Readonly<Record<AiDifficultyId, Readonly<DifficultySettings>>> = Object.freeze({
   easy: Object.freeze({ id: 'easy', label: 'Easy', battle: Object.freeze({ candidateLimit: 2, maxResponseNodes: 512 }),
-    split: Object.freeze({ maxPlans: 96, destinationsPerRoll: 2 }) }),
+    split: Object.freeze({ maxPlans: 96, destinationsPerRoll: 2 }), maxOptionalLegionMoves: 1 }),
   normal: Object.freeze({ id: 'normal', label: 'Normal', battle: Object.freeze({ candidateLimit: 8, maxResponseNodes: 2048 }),
-    split: Object.freeze({ maxPlans: 1024, destinationsPerRoll: 4 }) }),
+    split: Object.freeze({ maxPlans: 1024, destinationsPerRoll: 4 }), maxOptionalLegionMoves: null }),
   hard: Object.freeze({ id: 'hard', label: 'Hard', battle: Object.freeze({ candidateLimit: 16, maxResponseNodes: 4096 }),
-    split: Object.freeze({ maxPlans: 4096, destinationsPerRoll: 8 }) }),
+    split: Object.freeze({ maxPlans: 4096, destinationsPerRoll: 8 }), maxOptionalLegionMoves: null }),
 })
 
 export const AI_DIFFICULTY_CHOICES = Object.freeze(Object.values(AI_DIFFICULTIES))

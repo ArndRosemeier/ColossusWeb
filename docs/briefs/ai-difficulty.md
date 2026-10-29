@@ -31,3 +31,10 @@ Parent owns integrated full suite, independent mutation, paired comparison and C
 Commit before any source differential. No writer merge/push/deploy or lasting process.
 
 Integration: STRATEGY-READY received; foundation rebased onto9157fc6 with mechanical TESTING union only, no source conflicts. Scope expansion approved by parent: App.continueSaved catches loading/deserialization errors into existing setError, with save bytes preserved. No other App changes.
+
+Calibration follow-up authorized on same row35: Easy maxOptionalLegionMoves1,
+Normal/Hard unlimited, at the shared evaluateMove seam after forced split handling.
+Mandatory split continuation and threatened-Titan rescue bypass the cap. Parent
+will recalibrate levels; budgets alone did not separate paired Hard/Easy games.
+A real zero-growth Titan rescue omission in existing Normal was demonstrated and
+fixed at all levels rather than retaining it as an Easy handicap.

@@ -5,6 +5,7 @@ import type { AiHeuristicId, GameCommand, GameState, Legion } from '../engine/ty
 import type { AiProfile } from './profiles'
 import {
   LOSE_LEGION_SCORE,
+  RATIO_WIN_MINIMAL,
   estimateBattleOutcome,
   legionHasTitan,
   legionPointValue,
@@ -14,12 +15,14 @@ import {
   buildSpatialCache,
   gateAwareSupportScore,
   legalFirstExits,
+  incomingThreatScore,
   spatialScore,
   type SpatialCache,
 } from './boardSpatial'
 import { pipelineScore, titanDelegationPenalty } from './boardResearch'
 import { lookaheadMusterBonus } from './musterSearch'
 import { creatureCombatValue } from './legionStrength'
+import { difficultyForPlayer } from './difficulty'
 
 const LEGACY_MOBILITY_PER_EXIT = 0.25
 const LEGACY_FRIEND_ADJACENT = 0.4
@@ -313,6 +316,38 @@ export function pickBestMove(
       toHex: bestForced.hex,
       teleport: bestForced.teleport,
     }
+  }
+
+  // Rescue is worth doing even when the destination offers no recruit/growth.
+  // The old positive-score continuation rule could leave a threatened Titan
+  // behind after another legion moved, despite a zero-threat legal exit.
+  const owner = state.players[state.activePlayerIndex]
+  const unmovedTitans = state.legions.filter(legion => legion.playerId === owner.id && !legion.moved && legionHasTitan(legion))
+  const cache = unmovedTitans.length ? buildSpatialCache(state) : undefined
+  const threats = new Map(unmovedTitans.map(legion => [legion.id, incomingThreatScore(state, legion, legion.hexLabel, cache)]))
+  const rescues = ranked.flatMap(move => {
+    const threat = threats.get(move.legionId) ?? 0
+    if (threat <= 0) return []
+    const legion = unmovedTitans.find(candidate => candidate.id === move.legionId)!
+    // Incoming threat intentionally excludes an enemy already at the target;
+    // do not mistake a losing engagement for a zero-threat refuge.
+    if (state.legions.some(enemy => enemy.playerId !== owner.id && enemy.hexLabel === move.hex &&
+      estimateBattleOutcome(state, legion, enemy, move.hex).ratio < RATIO_WIN_MINIMAL)) return []
+    const improvement = threat - incomingThreatScore(state, legion, move.hex, cache)
+    return improvement > 0 ? [{ move, improvement }] : []
+  }).sort((a, b) => b.improvement - a.improvement || b.move.score - a.move.score)
+  if (rescues.length) {
+    const rescue = rescues[0].move
+    return { type: 'move', legionId: rescue.legionId, toHex: rescue.hex, teleport: rescue.teleport }
+  }
+
+  // Easy coordinates fewer legions, after the shared split policy and forced
+  // separation. Mandatory safety is common to all levels, not a random handicap.
+  const limit = difficultyForPlayer(state, owner.id).maxOptionalLegionMoves
+  if (limit !== null && state.legions.filter(legion => legion.playerId === owner.id && legion.moved).length >= limit) {
+    // Executable improving rescues have already returned above. A trapped or
+    // explicitly held Titan must not unlock unrelated optional coordination.
+    return { type: 'doneMove' }
   }
 
   const best = ranked[0]!

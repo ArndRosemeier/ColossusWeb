@@ -46,3 +46,16 @@ Writer evidence and raw logs are in TESTING. Independent full/negative/browser a
 paired strength results belong to parent. The integrated release remains1.08.
 
 Parent's independent browser found that strict invalid save data exposed a pre-existing missing catch around App.continueSaved. Approved scope expansion adds only that catch, reporting variant/manifest/deserialization failures through existing setError. The original save remains untouched. Actual App tests pin all three failure sources and parent repeats the browser case.
+
+Calibration follow-up: node budgets alone did not separate challenge in the parent's
+32 paired Hard/Easy games (15Hard wins,16Easy wins,one max_turns), so they are not
+presented as a calibrated strength hierarchy. Easy now has an explicit simpler
+coordination policy: normally finish optional masterboard movement after one friendly
+legion moved. Normal/Hard have no such limit. Shared split routes and mandatory
+separation run first. An executable risk-reducing rescue of an unmoved Titan returns before the cap; merely having a legal but losing move does not bypass it.
+The move picker now also prioritizes a genuinely risk-reducing legal Titan escape
+for every level, including zero-growth exits; a losing engagement cannot be mistaken
+for refuge merely because incoming-threat scoring skips an enemy already there.
+If no safer route exists, Easy finishes optional coordination; Normal/Hard retain their ordinary evaluation rather than forcing a Titan into a worse hex. No resources, dice, tactical objectives or
+random mistakes change. Changelog1.08 describes simpler coordination explicitly.
+The parent reruns paired calibration and held-out checks before making strength claims.
