@@ -56,6 +56,7 @@ import { PresentationModeToggle } from './PresentationModeToggle'
 import { CreatureAssetErrorContext } from '../ui/creaturePresentation'
 import { BackgroundAtmosphereSelect } from './BackgroundAtmosphere'
 import { CuedBadge } from './CuedBadge'
+import { useBattleCamera, type BattleCameraObserver } from '../ui/useBattleCamera'
 import { MultiplayerStatus } from './MultiplayerStatus'
 import { SetupScreen } from './SetupScreen'
 
@@ -108,13 +109,15 @@ export default function App() {
   /** The game state as of NOW, so a command never acts on a stale render. */
   const stateRef = useRef<GameState | null>(null)
   const variantRef = useRef<LoadedVariant | null>(null)
+  const cameraObserverRef = useRef<BattleCameraObserver | null>(null)
 
   /**
    * The ONE writer of the game state. Everything — a local command, an adopted
    * snapshot, a new or resumed game, "New game" — goes through here, and the
    * single commit path below is the only caller that can also publish.
    */
-  const putState = useCallback((next: GameState | null) => {
+  const putState = useCallback((next: GameState | null, replacement = false) => {
+    cameraObserverRef.current?.(stateRef.current, next, replacement)
     stateRef.current = next
     setState(next)
   }, [])
@@ -183,7 +186,7 @@ export default function App() {
         await loadAssetManifest(name)
         variantRef.current = variant
         const g = createGame(variant, { ...options, diceMode: 'physical' })
-        putState(g)
+        putState(g, true)
         setSaveFlash(null)
         setMoveAnim(null)
         setPendingStrike(null)
@@ -230,7 +233,7 @@ export default function App() {
       pendingCmdRef.current = null
       animatingRef.current = false
       setAiSpeed('fast')
-      putState(initial)
+      putState(initial, true)
     } catch (e: unknown) {
       stopOnline()
       putState(null)
@@ -253,9 +256,9 @@ export default function App() {
     // Resume in the UI with physical dice; clear any mid-throw pending
     loaded.diceMode = 'physical'
     if (loaded.pendingDice) {
-      putState(engDispatch(loaded, { type: 'commitDice' }))
+      putState(engDispatch(loaded, { type: 'commitDice' }), true)
     } else {
-      putState(loaded)
+      putState(loaded, true)
     }
     setSaveFlash(null)
     setMoveAnim(null)
@@ -399,10 +402,15 @@ export default function App() {
   const notify = useCallback(
     (message: string) => {
       const cmd: GameCommand = { type: 'notice', message }
-      commitPath.local((prev) => engDispatch(prev, cmd), cmd)
+      // The engine stops accepting commands after a win/draw; a local UI-only
+      // failure must still reach this same message surface (including exit art).
+      commitPath.local((prev) => prev.winnerId || prev.draw ? { ...prev, message } : engDispatch(prev, cmd), cmd)
     },
     [commitPath],
   )
+
+  const battleCamera = useBattleCamera(state, notify)
+  cameraObserverRef.current = battleCamera.observe
 
   // Paced AI autoplay — blocked while a physical throw is pending, and NEVER on
   // in a multiplayer game (those seats are human; a client-driven AI would
@@ -746,7 +754,7 @@ export default function App() {
         </button>
       </header>
       <main className="play">
-        <div className="board-pane">
+        <div className="board-pane" ref={battleCamera.boardRef}>
           {state.battle && !state.battle.done ? (
             <BattleBoardView
               state={state}

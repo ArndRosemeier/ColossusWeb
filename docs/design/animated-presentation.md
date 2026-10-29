@@ -84,3 +84,9 @@ The current Animated main board now uses registered transparent landscape vignet
 Reduced motion preserves the modern design and freezes only ambient artwork motion. Gates, labels, numbers and legion identities are stationary. Required terrain image failures share App's existing notice callback; there is no second error surface. Native marker artwork is shared by HTML panels, standing markers and movement overlays; full marker ID and explicit owner color remain visible even after capture. Battle creature/combat presentation is unchanged. The subsequent battle-land overhaul is a separate sequential row25 slice.
 
 COPIES: 3→1 — MarkerArtwork carries Animated HTML/standing/moving legion art; MasterHexGates retains one shared gate placement loop with Classic/Modern shape leaves.
+
+## Encounter camera — row26
+
+Animated mode now observes the visible main-board/battle boundary once at App.putState, capturing the already-rendered outgoing SVG and the actual incoming board after its immediate state commit. An820ms camera zooms/turns into the contested hex and crossfades to battle, then reverses to the updated same location at battle end. Snapshot annotations dissolve early and return late; actual controls/state are never delayed. Classic remains instant, reduced motion uses a150ms opacity-only fade, live preference/viewport/teardown changes cancel. Direct active-battle loads and fully coalesced encounters have no invented source. Safe inert SVG snapshots preserve revealed art/unique definitions and use no new assets or rasterized HTML. Failures use the existing local notice surface, including after a win/draw. Full design, hooks and limitations: [battle-camera.md](battle-camera.md).
+
+COPIES: 1 — checked, no duplication (App.putState / local and remote commit setters); useBattleCamera is the shared boundary observer, not a command-specific animation path.

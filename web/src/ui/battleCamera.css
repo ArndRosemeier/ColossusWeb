@@ -1,0 +1,21 @@
+.battle-camera-overlay {
+  position: fixed;
+  z-index: 35;
+  overflow: hidden;
+  pointer-events: none;
+  contain: layout paint;
+  background: #132129;
+}
+.battle-camera-overlay .battle-camera-frame {
+  position: absolute;
+  transform-origin: 0 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  overflow: visible;
+  pointer-events: none;
+}
+.battle-camera-overlay .battle-camera-frame > svg { position: absolute; inset: 0; margin: 0; }
+.battle-camera-overlay * { pointer-events: none !important; animation: none !important; transition: none !important; }
