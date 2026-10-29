@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.06",
+    "date": "2026-10-29",
+    "changes": [
+      "Movement-target recruit previews now compare power times skill, add one point each for flying and ranged attacks, and break ties by higher skill."
+    ]
+  },
+  {
     "version": "1.05",
     "date": "2026-10-29",
     "changes": [

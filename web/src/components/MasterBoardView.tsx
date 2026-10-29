@@ -14,7 +14,8 @@ import {
   playerLegions,
   unseparatedSplitStacks,
 } from '../engine/GameEngine'
-import { bestRecruit, bestRecruitAt } from '../engine/recruit'
+import { bestRecruit } from '../engine/recruit'
+import { movementRecruitPreview } from '../ui/movementRecruitPreview'
 import type { GameCommand, GameState, Legion } from '../engine/types'
 import { boardInteraction } from '../ui/boardInteraction'
 import type { MasterMoveAnim } from '../ui/moveAnimation'
@@ -354,7 +355,7 @@ export function MasterBoardView({
   if (selected && legalLabels.length > 0) {
     let i = 0
     for (const label of legalLabels) {
-      const creature = bestRecruitAt(state, selected, label)
+      const creature = movementRecruitPreview(state, selected, label)
       if (creature) recruitPreviews.push({ label, creature, index: i++ })
     }
   }
@@ -526,6 +527,7 @@ export function MasterBoardView({
             <g
               key={`recruit-${label}`}
               className="recruit-preview"
+              data-recruit-hex={label}
               style={{ animationDelay: `${Math.min(index, 12) * 45}ms` }}
               pointerEvents="none"
             >

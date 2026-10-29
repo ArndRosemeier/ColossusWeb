@@ -17,6 +17,7 @@ import { loadCreatureAtlas } from '../../ui/creatureAnimations'
 import { creatureImageUrl } from '../../variant/assets'
 import { dispatch, getLegalRecruits, getMovesForSelected } from '../../engine/GameEngine'
 import { bestRecruitAt } from '../../engine/recruit'
+import { movementRecruitPreview } from '../../ui/movementRecruitPreview'
 import { turn1SplitChild, twoPlayerGame } from '../../engine/__tests__/helpers'
 import type { GameCommand } from '../../engine/types'
 
@@ -158,7 +159,7 @@ describe('remaining actual creature token callers', () => {
     expect(state.movementRoll).toBe(6)
     const selected = state.legions.find(legion => legion.id === parent.id)!
     const expectedRecruits = [...getMovesForSelected(state).keys()]
-      .map(label => bestRecruitAt(state, selected, label)).filter(creature => creature !== null)
+      .map(label => movementRecruitPreview(state, selected, label)).filter(creature => creature !== null)
     expect(expectedRecruits.length).toBeGreaterThan(0)
     await render(createElement(MasterBoardView, { state, onHexClick: vi.fn(), onLegionClick: vi.fn(), interactive: true }))
     expect(host.querySelectorAll('.recruit-preview .board-creature-icon')).toHaveLength(expectedRecruits.length)
@@ -168,6 +169,25 @@ describe('remaining actual creature token callers', () => {
       expect(preview.querySelector('title')!.textContent).toMatch(/^Best muster: /)
       expect(preview.getAttribute('pointer-events')).toBe('none')
     }
+  })
+  it.each(['classic', 'animated'] as const)('shows Gorgon at a real two-Cyclops Brush move target in %s while strategic muster still prefers Cyclops', async mode => {
+    setPresentationMode(mode)
+    const state = twoPlayerGame(9)
+    const legion = state.legions.find(item => item.playerId === state.players[0].id)!
+    legion.creatures = [{ type: 'Cyclops', hits: 0 }, { type: 'Cyclops', hits: 0 }]
+    state.phase = 'Move'; state.movementRoll = 1; state.selectedLegionId = legion.id
+    const brush = [...getMovesForSelected(state).keys()].find(label => state.variant.board.hexByLabel[label].terrain === 'Brush')!
+    expect(brush).toBeTruthy()
+    expect(bestRecruitAt(state, legion, brush)).toBe('Cyclops')
+    const onHexClick = vi.fn()
+    await render(createElement(MasterBoardView, { state, onHexClick, onLegionClick: vi.fn(), interactive: true }))
+    const preview = host.querySelector(`.recruit-preview[data-recruit-hex="${brush}"]`)!
+    expect(preview.querySelector('title')!.textContent).toBe('Best muster: Gorgon')
+    if (mode === 'animated') expect(preview.querySelector('.animated-creature')!.getAttribute('data-creature')).toBe('Gorgon')
+    else expect(preview.querySelector('image')!.getAttribute('href')).toBe(creatureImageUrl('Gorgon'))
+    expect(preview.getAttribute('pointer-events')).toBe('none')
+    await click(host.querySelector(`[data-hex="${brush}"]`)!)
+    expect(onHexClick).toHaveBeenCalledWith(brush)
   })
   it('replaces pending and recent muster icons, keeps marker art/rotation, and dispatches the original recruit and undo commands', async () => {
     setPresentationMode('animated')
@@ -184,6 +204,7 @@ describe('remaining actual creature token callers', () => {
       createElement(GameControls, { state, dispatch: apply, interactive: true }))
     await render(view())
     expect(host.querySelector('.muster-pending .board-creature-icon [data-animation="resting"]')).not.toBeNull()
+    expect(host.querySelector('.muster-pending .animated-creature')!.getAttribute('data-creature')).toBe('Cyclops')
     const marker = host.querySelector('[data-legion] .modern-legion-marker')!
     const markerIdentity = [marker.getAttribute('data-marker-id'), marker.getAttribute('data-owner-color'), marker.querySelector('.marker-crest')!.getAttribute('d')]
     await click(host.querySelector('.muster-form .recruit-btn')!)

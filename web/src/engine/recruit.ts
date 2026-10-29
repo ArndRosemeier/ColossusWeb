@@ -287,7 +287,7 @@ export function maxUsefulRecruiterCount(state: GameState, recruiter: string): nu
 }
 
 /**
- * Rank a legal muster option for AI / Enter auto-pick / move previews.
+ * Rank a legal muster option for AI / Enter auto-pick.
  * Immediate ability-aware value + development toward higher-tier unlocks.
  * Surplus copies past every useful recruiter count are penalized.
  */
