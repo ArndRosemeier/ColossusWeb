@@ -1,5 +1,8 @@
 # Bounded tactical AI
 
+The Normal/cheap core below is retained. Hard additionally compares actual sampled
+engine outcomes, described in [hard-battle-rollout.md](hard-battle-rollout.md).
+
 COPIES: 1 — shared evaluateBattle decision seam; probability and enemy-response
 helpers reuse engine legality/dice/strike-number/hazard authorities.
 

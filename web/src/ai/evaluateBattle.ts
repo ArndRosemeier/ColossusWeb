@@ -22,8 +22,9 @@ import {
 import { legalBattleMoves } from '../engine/battleMovement'
 import { battleNeighbors, hazardDamageToCreature } from '../engine/battleland'
 import { strikeExpectations } from './battleProbability'
+import { sampleBattleChoices, strikeRolloutOptions, type BattleRolloutOptions, type BattleRolloutWork } from './battleRollout'
 import { difficultyForPlayer } from './difficulty'
-import { battlePlannerOptions, legalEnemyResponse, type BattlePlannerOptions } from './battleResponse'
+import { battlePlannerOptions, legalEnemyResponse, NORMAL_BATTLE_PLANNER, type BattlePlannerOptions } from './battleResponse'
 import type { BattleState, BattleUnit, GameCommand, GameState } from '../engine/types'
 import {
   RATIO_DRAW,
@@ -813,13 +814,23 @@ export function allCanStillEnter(
   return search(pending)
 }
 
+export interface BattleTacticalOptions extends Partial<BattlePlannerOptions> {
+  /** Hard-only local sampled search; false uses the Normal core unless explicitly overridden. */
+  rollout?: false | Partial<BattleRolloutOptions>
+}
+
+export interface BattlePlanningWork { responseNodes: number; safetyNodes: number; safetyExhausted: boolean; candidatesEvaluated: number; exhausted: boolean }
 export interface BattlePlanResult {
+  rollout?: BattleRolloutWork
+  normalControlWork?: BattlePlanningWork
   command: GameCommand
-  work: { responseNodes: number; safetyNodes: number; safetyExhausted: boolean; candidatesEvaluated: number; exhausted: boolean }
+  work: BattlePlanningWork
 }
 
 function searchBattleManeuver(state: GameState, battle: BattleState, profile: AiProfile,
-  ranked: ScoredBattleMove[], options: Partial<BattlePlannerOptions>): BattlePlanResult {
+  ranked: ScoredBattleMove[], options: Partial<BattlePlannerOptions>, collect = false): BattlePlanResult & {
+    protected?: boolean; alternatives?: { command: GameCommand; score: number; titanRisk: number }[]
+  } {
   const settings = battlePlannerOptions({ ...difficultyForPlayer(state, battle.activePlayerId).battle, ...options })
   const budget = { nodes: 0, limit: settings.maxResponseNodes }
   const work = { responseNodes: 0, safetyNodes: 0, safetyExhausted: false, candidatesEvaluated: 0, exhausted: false }
@@ -839,7 +850,7 @@ function searchBattleManeuver(state: GameState, battle: BattleState, profile: Ai
     if (held.complete && held.titanDamage === 0 && battle.turn === MAX_BATTLE_TURNS && !actingAsAttacker(state, battle) &&
         ourTitans.every(unit => unit.hits + 2 * Math.max(0, hazardDamageToCreature(land.hexByLabel[unit.hex!].terrain, state.variant.creatures[unit.creatureType])) < getUnitPower(state, unit))) {
       work.safetyNodes = safetyBudget.nodes
-      return { command: hold, work }
+      return { command: hold, work, ...(collect ? { protected: true } : {}) }
     }
     // Inspect every legal Titan retreat within a separate fixed safety ceiling.
     // Optional difficulty budgets must not prune the only safe escape out of the beam.
@@ -881,6 +892,8 @@ function searchBattleManeuver(state: GameState, battle: BattleState, profile: Ai
       drains * hazardDamageToCreature(land.hexByLabel[move.toHex].terrain, state.variant.creatures[unit.creatureType]) < remainingHp(state, unit) &&
       Number.isFinite(move.score)
   })
+  const alternatives: { command: GameCommand; score: number; titanRisk: number }[] = []
+  let bestRisk = Infinity
   let bestScore = -Infinity, bestCommand: GameCommand = escape
     ? { type: 'battleMove', unitId: escape.unitId, toHex: escape.toHex } : hold
   for (const move of candidates) {
@@ -901,19 +914,40 @@ function searchBattleManeuver(state: GameState, battle: BattleState, profile: Ai
       ? Math.max(0.1, 0.5 - 0.35 * heat - 0.2 * attackerPreReinforceUrgency(battle))
       : 0.65 + 0.35 * heat
     const score = positionScore - reply.loss * profile.fightLossPenalty * responseWeight - reply.titanRisk * 10000
+    if (collect && !reply.titanDoomed) alternatives.push({ command: move ? { type: 'battleMove', unitId: move.unitId, toHex: move.toHex } : hold,
+      score, titanRisk: reply.titanRisk })
     if (score > bestScore + 0.01) {
+      bestRisk = reply.titanRisk
       bestScore = score
       bestCommand = move ? { type: 'battleMove', unitId: move.unitId, toHex: move.toHex } : hold
     }
   }
   work.responseNodes = budget.nodes
-  return { command: bestCommand, work }
+  return { command: bestCommand, work, ...(collect ? { protected: !!protectedMove || !!escape,
+    alternatives: alternatives.filter(choice => choice.titanRisk <= bestRisk + 1e-9).sort((a, b) => b.score - a.score) } : {}) }
+}
+
+function planManeuverWithRollouts(state: GameState, battle: BattleState, profile: AiProfile,
+  ranked: ScoredBattleMove[], options: BattleTacticalOptions): BattlePlanResult {
+  const { rollout, ...planning } = options
+  const hard = difficultyForPlayer(state, battle.activePlayerId).id === 'hard'
+  const enabled = hard && rollout !== false
+  const base = searchBattleManeuver(state, battle, profile, ranked, hard && !enabled ? { ...NORMAL_BATTLE_PLANNER, ...planning } : planning, enabled)
+  if (!enabled) return { command: base.command, work: base.work }
+  const normal = searchBattleManeuver(state, battle, profile, ranked, NORMAL_BATTLE_PLANNER, true)
+  if (normal.protected || base.protected) return { command: normal.command, work: base.work, normalControlWork: normal.work }
+  const normalRisk = normal.alternatives?.find(choice => JSON.stringify(choice.command) === JSON.stringify(normal.command))?.titanRisk ?? 0
+  const result = sampleBattleChoices(state, battle, (base.alternatives ?? []).filter(choice => choice.titanRisk <= normalRisk + 1e-9).map(choice => choice.command), normal.command, profile, rollout || {})
+  // Never reward a censored support boundary or an unfinished candidate. The
+  // fallback is the actual Normal planner, including shared mandatory safety.
+  const command = result.work.usedRollout ? result.command : normal.command
+  return { command, work: base.work, normalControlWork: normal.work, rollout: result.work }
 }
 
 /** Deterministic, inspectable budget seam for future per-seat difficulty controls. */
 export function planBattleManeuver(state: GameState, battle: BattleState, profile: AiProfile,
-  options: Partial<BattlePlannerOptions> = {}): BattlePlanResult {
-  return searchBattleManeuver(state, battle, profile, rankBattleMoves(state, battle, profile), options)
+  options: BattleTacticalOptions = {}): BattlePlanResult {
+  return planManeuverWithRollouts(state, battle, profile, rankBattleMoves(state, battle, profile), options)
 }
 
 export function pickBestBattleMove(
@@ -921,7 +955,7 @@ export function pickBestBattleMove(
   battle: BattleState,
   profile: AiProfile,
   rng: () => number,
-  options: Partial<BattlePlannerOptions> = {},
+  options: BattleTacticalOptions = {},
 ): GameCommand {
   battlePlannerOptions(options)
   const ranked = rankBattleMoves(state, battle, profile)
@@ -963,7 +997,7 @@ export function pickBestBattleMove(
             : deployMoves
   }
 
-  if (deployMoves.length === 0) return searchBattleManeuver(state, battle, profile, ranked, options).command
+  if (deployMoves.length === 0) return planManeuverWithRollouts(state, battle, profile, ranked, options).command
 
   // Among top few near-best, slight rng for variety
   const top = pool.filter((m) => m.score >= pool[0]!.score - 0.5).slice(0, 3)
@@ -971,7 +1005,7 @@ export function pickBestBattleMove(
   return { type: 'battleMove', unitId: pick.unitId, toHex: pick.toHex }
 }
 
-export function pickBestBattleStrike(
+function pickHeuristicBattleStrike(
   state: GameState,
   battle: BattleState,
   profile: AiProfile,
@@ -1026,6 +1060,35 @@ export function pickBestBattleStrike(
     defenderId: pick.defenderId,
     raisedStrikeNumber: pick.raisedStrikeNumber,
   }
+}
+
+export function planBattleStrike(state: GameState, battle: BattleState, profile: AiProfile, rng: () => number,
+  rollout: false | Partial<BattleRolloutOptions> = {}) {
+  // Preserve the established chooser's real RNG consumption; simulated dice
+  // exclusively use the rollout's local common-random-number generator.
+  const fallback = pickHeuristicBattleStrike(state, battle, profile, rng)
+  if (difficultyForPlayer(state, battle.activePlayerId).id !== 'hard' || rollout === false || fallback.type !== 'battleStrike') {
+    return { command: fallback, rollout: undefined }
+  }
+  // Preserve the common final-defender clock protection rather than replacing
+  // its established strike choice with a sampled terminal gamble.
+  if (battle.turn === MAX_BATTLE_TURNS && !actingAsAttacker(state, battle) &&
+      battle.units.some(unit => unit.playerId === battle.activePlayerId && unit.creatureType === 'Titan')) {
+    return { command: fallback, rollout: undefined }
+  }
+  const ranked = preferSingleTargetStrikes(state, battle, rankBattleStrikes(state, battle, profile))
+  // Different targets before interchangeable attackers: a narrow root shortlist
+  // must retain the focus-fire alternative to a tempting immediate kill.
+  const byTarget = ranked.filter((strike, index) => ranked.findIndex(other => other.defenderId === strike.defenderId) === index)
+  const choices = [...byTarget, ...ranked].map(strike =>
+    ({ type: 'battleStrike' as const, attackerId: strike.attackerId, defenderId: strike.defenderId, raisedStrikeNumber: strike.raisedStrikeNumber }))
+  const result = sampleBattleChoices(state, battle, choices, fallback, profile, strikeRolloutOptions(battle, rollout))
+  return { command: result.command, rollout: result.work }
+}
+
+export function pickBestBattleStrike(state: GameState, battle: BattleState, profile: AiProfile, rng: () => number,
+  rollout: false | Partial<BattleRolloutOptions> = {}): GameCommand {
+  return planBattleStrike(state, battle, profile, rng, rollout).command
 }
 
 /** Score carry targets; pick highest kill/finish value. */
