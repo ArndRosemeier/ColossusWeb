@@ -29,15 +29,17 @@ export function ModernTerrainArt({ terrain, hexLabel, cx, cy, scale, clipPath, r
   const url = modernTerrainUrl(terrain)
   const kind = terrainMotionKind(terrain)
   const timing = terrainMotionTiming(hexLabel, terrain)
+  const artSize = scale * 48 / 7
   const message = `Cannot load modern board terrain artwork: board-art/terrain-v1/${terrain}.png`
   if (!notify) throw Error('Modern board artwork requires the App notice callback context.')
   return <g className="modern-terrain-art" data-terrain={terrain} clipPath={clipPath} pointerEvents="none">
     {failedUrl === url ? <g data-terrain-error={terrain}>
       <title>{message}</title><text x={cx + scale} y={cy + 39} textAnchor="middle" fontSize={6} fill="#fff1dd" stroke="#611e22" strokeWidth={2} paintOrder="stroke">Art unavailable</text>
-    </g> : <svg x={cx + scale - 24} y={cy + 23} width={48} height={34} viewBox="0 0 48 34">
+    </g> : <svg x={cx + scale - artSize / 2} y={cy + 1.5 * Math.sqrt(3) * scale - artSize / 2}
+      width={artSize} height={artSize} viewBox="0 0 96 96">
       <g className={kind && !reducedMotion ? `master-terrain-motion modern-terrain-motion terrain-motion-${kind}` : 'modern-terrain-still'}
-        style={{ animationDuration: timing.duration, animationDelay: timing.delay, transformOrigin: '24px 32px' }}>
-        <image href={url} width={48} height={34} preserveAspectRatio="xMidYMid meet" onError={() => {
+        style={{ animationDuration: timing.duration, animationDelay: timing.delay, transformOrigin: '48px 87px' }}>
+        <image href={url} width={96} height={96} preserveAspectRatio="xMidYMid meet" onError={() => {
           setFailedUrl(url)
           if (!reported.current.has(url)) { reported.current.add(url); notify(message) }
         }} />

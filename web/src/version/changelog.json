@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.04",
+    "date": "2026-10-29",
+    "changes": [
+      "Animated main-board landscapes now fill their hexes with larger illustrations."
+    ]
+  },
+  {
     "version": "1.03",
     "date": "2026-10-29",
     "changes": [
