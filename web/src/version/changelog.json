@@ -3,7 +3,8 @@
     "version": "1.04",
     "date": "2026-10-29",
     "changes": [
-      "Animated main-board landscapes now fill their hexes with larger illustrations."
+      "Animated main-board landscapes now fill their hexes with larger illustrations.",
+      "Animated main-board legion markers and muster creature icons are now 20% larger, including moving markers."
     ]
   },
   {

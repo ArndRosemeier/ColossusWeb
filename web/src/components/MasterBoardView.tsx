@@ -37,6 +37,7 @@ const SPLIT_STROKE = '#ff6b35'
 const WALK_STROKE = '#e08a45'
 const TELEPORT_STROKE = '#a78bfa'
 const RECRUIT_CHIT = 22
+const MARKER_SIZE = 28
 
 const SQRT3 = Math.sqrt(3)
 
@@ -109,7 +110,8 @@ function markerCenter(
   const ox = (stackIndex - (stackCount - 1) / 2) * (markerSize + 2)
   return {
     x: cx + scale + ox,
-    y: cy + 1.85 * SQRT3 * scale,
+    // Grow upward so the original bottom edge still clears the hex number.
+    y: cy + 1.85 * SQRT3 * scale - (markerSize - MARKER_SIZE) / 2,
   }
 }
 
@@ -210,7 +212,9 @@ export function MasterBoardView({
   const reducedMotion = useReducedMotion()
   const board = state.variant.board
   const scale = 14
-  const markerSize = 28
+  const tokenScale = modern ? 1.2 : 1
+  const markerSize = MARKER_SIZE * tokenScale
+  const recruitChit = RECRUIT_CHIT * tokenScale
   const wrapRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const overlayElRef = useRef<HTMLDivElement>(null)
@@ -516,7 +520,7 @@ export function MasterBoardView({
           const hex = board.hexByLabel[label]
           if (!hex) return null
           const { cx, cy } = hexPixel(board, hex, scale)
-          const x = cx + scale - RECRUIT_CHIT / 2
+          const x = cx + scale - recruitChit / 2
           const y = cy + 0.35 * SQRT3 * scale
           return (
             <g
@@ -528,8 +532,8 @@ export function MasterBoardView({
               <rect
                 x={x - 1}
                 y={y - 1}
-                width={RECRUIT_CHIT + 2}
-                height={RECRUIT_CHIT + 2}
+                width={recruitChit + 2}
+                height={recruitChit + 2}
                 rx={2}
                 fill="rgba(10, 16, 20, 0.72)"
                 stroke={WALK_STROKE}
@@ -539,8 +543,8 @@ export function MasterBoardView({
                 creature={creature}
                 x={x}
                 y={y}
-                width={RECRUIT_CHIT}
-                height={RECRUIT_CHIT}
+                width={recruitChit}
+                height={recruitChit}
               />
               <title>{`Best muster: ${creature}`}</title>
             </g>
@@ -549,15 +553,14 @@ export function MasterBoardView({
         {[...legionsByHex.entries()].map(([hexLabel, legs]) => {
           const hex = board.hexByLabel[hexLabel]
           if (!hex) return null
-          const { cx, cy } = hexPixel(board, hex, scale)
           const visible = legs.filter((leg) => leg.id !== moveAnim?.pieceId)
           return (
             <g key={`stack-${hexLabel}`}>
               {visible.map((leg, i) => {
-            const ox = (i - (visible.length - 1) / 2) * (markerSize + 2)
+            const center = markerCenter(board, hex, scale, i, visible.length, markerSize)
             const selectedLeg = leg.id === state.selectedLegionId
-            const x = cx + scale + ox - markerSize / 2
-            const y = cy + 1.85 * SQRT3 * scale - markerSize / 2
+            const x = center.x - markerSize / 2
+            const y = center.y - markerSize / 2
             const musterChit = markerSize * 0.78
             const pendingMusterChit = markerSize * 0.5
             const owner = state.players.find((p) => p.id === leg.playerId)

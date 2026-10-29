@@ -1,0 +1,11 @@
+# Row28 — larger Animated board markers and muster icons
+
+Owner: “Also make legion markers and mustered mobs a bit bigger, like20%”. Dispatcher clarified main-board legion markers and muster creature icons, including moving markers, only in Animated mode.
+
+COPIES: 2→1 — markerCenter now carries standing, movement and popup placement; one board-only tokenScale controls marker/recruit size.
+
+Continue sole writer in `C:\Users\windo\Documents\ChatGPT\ColossusWeb\source\worktrees\landscape-scale`, branch `codex/landscape-scale-writer`, starting commit606b05f09059f1467dfcd88f16e6c3ba259bc904 over published1.03 base f542f4d. Parent independently verified row27 full gate0/496passed2todo plus enlarged art and exact Classic pixels. Rebased conflict-free onto parent's row27 verification-doc commit d7fb2409ce9ba7630627c0db401c63df604cbfb1 before final landing; that proof is retained, and source conflicts would mean stop. No push/merge/deploy or further agents. Ledger28; append the same unpublished1.04 entry, not1.05.
+
+Only product source is MasterBoardView.tsx. Board-only factor modern?1.2:1 grows marker28→33.6 and destination recruit22→26.4. Pending/recent muster derive from marker*.5/.78, so grow to16.8/26.208 automatically. Share markerCenter for standing/moving/popup anchors instead of duplicated standing geometry. Subtract half of(markerSize-28) from the center Y so expanded markers extend upward and keep their original bottom58.86clear of hex numbers. Keep floating sizes exact, original stack spacing policy, owners/full IDs/counts, click authority, privacy and commands. Classic size28 means zero offset and original geometry. No HTML panel marker/picker size, battle creature, label, gate, camera, engine/net/save/map/art edits.
+
+No new size-mirroring tests for a simple visual resize. Writer runs cheap gate2 only, NODE_OPTIONS1024, retained raw log; parent owns integrated full suite and actual muster/movement sizes/Classic browser checks. No npmdev/build/convert. Update brief/design/architecture seam/ledger28/board/testing and release1.04 line in the same clean local commit. If the brief proves wrong, report BLOCKED with evidence rather than implement a demonstrable regression. LANDING/BLOCKED cadence only.
