@@ -53,6 +53,7 @@ import { GameControls } from './GameControls'
 import { phaseEndCommand, applyEnterKeyPhaseEnd } from './LegionActions'
 import { MasterBoardView } from './MasterBoardView'
 import { PresentationModeSelect } from './PresentationModeSelect'
+import { CreatureAssetErrorContext } from '../ui/creaturePresentation'
 import { BackgroundAtmosphereSelect } from './BackgroundAtmosphere'
 import { CuedBadge } from './CuedBadge'
 import { MultiplayerStatus } from './MultiplayerStatus'
@@ -675,6 +676,7 @@ export default function App() {
   const turnLabel = engagementLabel ?? `${actor?.name ?? '?'}'s turn`
 
   return (
+    <CreatureAssetErrorContext.Provider value={notify}>
     <div className="app-shell">
       <header className="topbar">
         <span className="brand-inline">Colossus</span>
@@ -792,5 +794,6 @@ export default function App() {
         />
       </main>
     </div>
+    </CreatureAssetErrorContext.Provider>
   )
 }

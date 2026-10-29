@@ -2,7 +2,6 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import type { BuiltBoard, MasterHex } from '../types/variant'
 import { TERRAIN_COLORS } from '../variant/buildBoard'
 import {
-  creatureImageUrl,
   isDarkMarkerFill,
   markerImageUrl,
   terrainImageUrl,
@@ -26,6 +25,7 @@ import { MusterForm, SplitForm } from './LegionActions'
 import { MasterHexGates } from './MasterHexGates'
 import { MasterTerrainArt } from './MasterTerrainArt'
 import { SafeSvgImage } from './SafeSvgImage'
+import { BoardCreatureIcon } from './BoardCreatureIcon'
 
 const PREVIEW_STROKE = '#5ec8d4'
 const SPLIT_STROKE = '#ff6b35'
@@ -503,13 +503,12 @@ export function MasterBoardView({
                 stroke={WALK_STROKE}
                 strokeWidth={1.5}
               />
-              <SafeSvgImage
-                href={creatureImageUrl(creature)}
+              <BoardCreatureIcon
+                creature={creature}
                 x={x}
                 y={y}
                 width={RECRUIT_CHIT}
                 height={RECRUIT_CHIT}
-                preserveAspectRatio="xMidYMid meet"
               />
               <title>{`Best muster: ${creature}`}</title>
             </g>
@@ -597,13 +596,12 @@ export function MasterBoardView({
                 </g>
                 {pendingCreature && (
                   <g className="muster-pending" pointerEvents="none">
-                    <SafeSvgImage
-                      href={creatureImageUrl(pendingCreature)}
+                    <BoardCreatureIcon
+                      creature={pendingCreature}
                       x={x + (markerSize - pendingMusterChit) / 2}
                       y={y + (markerSize - pendingMusterChit) / 2}
                       width={pendingMusterChit}
                       height={pendingMusterChit}
-                      preserveAspectRatio="xMidYMid meet"
                     />
                     <title>{`Best muster: ${pendingCreature}`}</title>
                   </g>
@@ -616,13 +614,12 @@ export function MasterBoardView({
                     pointerEvents="none"
                     transform={`rotate(-18 ${x + markerSize / 2} ${y + markerSize / 2})`}
                   >
-                    <SafeSvgImage
-                      href={creatureImageUrl(leg.musteredThisTurn)}
+                    <BoardCreatureIcon
+                      creature={leg.musteredThisTurn}
                       x={x + markerSize * 0.22}
                       y={y - musterChit * 0.35}
                       width={musterChit}
                       height={musterChit}
-                      preserveAspectRatio="xMidYMid meet"
                     />
                     <title>{`Mustered: ${leg.musteredThisTurn} @${leg.hexLabel}`}</title>
                   </g>

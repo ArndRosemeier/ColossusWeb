@@ -8,7 +8,8 @@ import { listStrikeRaiseOptions } from '../engine/battleStrike'
 import { canFlee } from '../engine/engagement'
 import { publicViewSlots } from '../engine/publicKnowledge'
 import type { GameCommand, GameState, Legion } from '../engine/types'
-import { CreatureChit, UnknownChit } from './CreatureChit'
+import { UnknownChit } from './CreatureChit'
+import { CreaturePresentation } from './CreaturePresentation'
 import { MarkerChit } from './MarkerChit'
 
 export type PendingStrikeAnnounce = {
@@ -259,7 +260,7 @@ function ReinforceCard({
               className="recruit-btn"
               onClick={() => dispatch({ type: 'battleReinforce', creatureType: r })}
             >
-              <CreatureChit
+              <CreaturePresentation
                 creature={r}
                 power={t?.power ?? 1}
                 skill={t?.skill ?? 2}
@@ -305,7 +306,7 @@ function PostBattleReinforceCard({
               className="recruit-btn"
               onClick={() => dispatch({ type: 'postBattleReinforce', creatureType: r })}
             >
-              <CreatureChit
+              <CreaturePresentation
                 creature={r}
                 power={t?.power ?? 1}
                 skill={t?.skill ?? 2}
@@ -356,7 +357,7 @@ function LegionContents({
           const t = state.variant.creatures[slot.type]
           const power = slot.type === 'Titan' ? owner.titanPower : (t?.power ?? 1)
           return (
-            <CreatureChit
+            <CreaturePresentation
               key={`${slot.type}-${i}`}
               creature={slot.type}
               power={power}

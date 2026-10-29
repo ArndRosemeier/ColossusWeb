@@ -9,7 +9,7 @@ import {
 } from '../engine/GameEngine'
 import { unambiguousRecruit } from '../engine/recruit'
 import type { GameCommand, GameState } from '../engine/types'
-import { CreatureChit } from './CreatureChit'
+import { CreaturePresentation } from './CreaturePresentation'
 
 /** Split picker — click a chit to move it between parent and new legion. */
 export function SplitForm({
@@ -52,7 +52,7 @@ export function SplitForm({
         onClick={() => toggle(i)}
         title={inChild ? `Move ${c} back to parent` : `Move ${c} to new legion`}
       >
-        <CreatureChit
+        <CreaturePresentation
           creature={c}
           power={power}
           skill={t?.skill ?? 2}
@@ -129,7 +129,7 @@ export function MusterForm({
               onClick={() => onRecruit(r)}
               title={`Recruit ${r}`}
             >
-              <CreatureChit
+              <CreaturePresentation
                 creature={r}
                 power={t?.power ?? 1}
                 skill={t?.skill ?? 2}

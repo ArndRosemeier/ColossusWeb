@@ -2048,11 +2048,11 @@ button:disabled {
 .animated-creature-name, .animated-creature-power, .animated-creature-skill {
   position: absolute; line-height: 1; text-shadow: -1px 0 white, 1px 0 white, 0 -1px white, 0 1px white;
 }
-.animated-creature-name { top: 1px; left: 0; width: 100%; text-align: center; font-size: 5px; }
-.animated-creature-power { bottom: 1px; left: 1px; font-size: 7px; }
-.animated-creature-skill { bottom: 1px; right: 1px; font-size: 7px; }
-.animated-creature-hits { position: absolute; top: 7px; left: 1px; color: #e01818; background: white; font-size: 9px; line-height: 1; }
-.animated-creature-error { position: absolute; inset: 6px 1px; color: #a00000; font-size: 6px; text-align: center; }
+.animated-creature-name { top: var(--creature-unit, 1px); left: 0; width: 100%; text-align: center; font-size: var(--creature-name-size, 5px); }
+.animated-creature-power { bottom: var(--creature-unit, 1px); left: var(--creature-unit, 1px); font-size: var(--creature-stat-size, 7px); }
+.animated-creature-skill { bottom: var(--creature-unit, 1px); right: var(--creature-unit, 1px); font-size: var(--creature-stat-size, 7px); }
+.animated-creature-hits { position: absolute; top: var(--creature-hit-top, 7px); left: var(--creature-unit, 1px); color: #e01818; background: white; font-size: var(--creature-hit-size, 9px); line-height: 1; }
+.animated-creature-error { position: absolute; inset: var(--creature-error-inset, 6px) var(--creature-unit, 1px); color: #a00000; font-size: var(--creature-error-size, 6px); text-align: center; }
 
 /* The fixed art crop is outside this group; embedded terrain names never transform.
    At 84 SVG-unit tile width the largest sway remains below half a unit. */

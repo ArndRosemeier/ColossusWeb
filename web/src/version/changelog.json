@@ -4,7 +4,8 @@
     "date": "2026-10-29",
     "changes": [
       "New optional Animated presentation mode brings the 24 standard creatures to life in battles, with resting, moving and attacking artwork. Classic remains the default; reduced motion shows still artwork.",
-      "Animated mode now adds a very gentle sway or shimmer to familiar main-board landscapes, while terrain names and board pieces stay still."
+      "Animated mode now adds a very gentle sway or shimmer to familiar main-board landscapes, while terrain names and board pieces stay still.",
+      "Animated mode now also uses colored creature artwork for muster previews, recruited creatures, legion contents and recruit choices."
     ]
   },
   {

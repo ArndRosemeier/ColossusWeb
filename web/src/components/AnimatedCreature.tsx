@@ -1,26 +1,28 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { CREATURE_ANIMATIONS, creatureAtlasUrl, loadCreatureAtlas, type CreatureAnimationState } from '../ui/creatureAnimations'
+import { useReducedMotion } from '../ui/battlePresentation'
+import { creatureArtworkTitle, type CreatureArtworkProps } from '../ui/creaturePresentation'
 import { CREATURE_COLORS } from '../variant/assets'
 
-interface Props {
-  creature: string
-  power: number
-  skill: number
-  baseColor?: string
+type Props = CreatureArtworkProps & {
   size: number
   hits?: number
   moving?: boolean
   attackId?: string
   attackStartedAt?: number
   dead?: boolean
-  reducedMotion: boolean
+  reducedMotion?: boolean
   facingLeft?: boolean
   onAssetError: (message: string) => void
 }
 
 /** Reusable full-frame renderer. Labels never mirror or rotate with the artwork. */
-export function AnimatedCreature({ creature, power, skill, baseColor = 'black', size, hits = 0,
-  moving = false, attackId, attackStartedAt, dead = false, reducedMotion, facingLeft = false, onAssetError }: Props) {
+export function AnimatedCreature(props: Props) {
+  const { creature, baseColor = 'black', size, hits = 0,
+    moving = false, attackId, attackStartedAt, dead = false, reducedMotion: reducedMotionOverride, facingLeft = false, onAssetError,
+    artOnly = false, className } = props
+  const systemReducedMotion = useReducedMotion()
+  const reducedMotion = reducedMotionOverride ?? systemReducedMotion
   const animations = CREATURE_ANIMATIONS[creature]
   const [playback, setPlayback] = useState<{ phase: CreatureAnimationState; frame: number }>({ phase: 'resting', frame: 0 })
   const [failure, setFailure] = useState<string | null>(null)
@@ -88,12 +90,19 @@ export function AnimatedCreature({ creature, power, skill, baseColor = 'black', 
   const phase = still ? 'resting' : playback.phase
   const frame = still ? 0 : playback.frame
   const timeline = animations[phase]
-  const tip = `${creature} ${power}-${skill}${hits > 0 ? ` (${hits} hits)` : ''}`
+  const tip = creatureArtworkTitle(props)
+  const unit = size / 28
+  const tinyError = artOnly && size < 24
   return (
-    <div className="animated-creature" role="img" aria-label={tip} title={failure ?? tip}
+    <div className={`animated-creature${className ? ` ${className}` : ''}`} role="img" aria-label={failure ? `${tip} — artwork unavailable` : tip} title={failure ? `${tip} — ${failure}` : tip}
       data-creature={creature} data-animation={phase} data-frame={frame}
-      style={{ width: size, height: size, color: CREATURE_COLORS[baseColor] ?? '#000' }}>
-      {failure ? <span className="animated-creature-error">Art unavailable</span> : (
+      data-art-only={artOnly ? 'true' : undefined}
+      style={{ width: size, height: size, color: CREATURE_COLORS[baseColor] ?? '#000',
+        '--creature-unit': `${unit}px`, '--creature-name-size': `${5 * unit}px`, '--creature-stat-size': `${7 * unit}px`,
+        '--creature-hit-size': `${9 * unit}px`, '--creature-hit-top': `${7 * unit}px`,
+        '--creature-error-size': `${tinyError ? Math.max(8, size * 0.55) : Math.max(5, 6 * unit)}px`, '--creature-error-inset': `${tinyError ? 0 : Math.min(size / 4, 6 * unit)}px`,
+      } as CSSProperties}>
+      {failure ? <span className="animated-creature-error">{tinyError ? '!' : 'Art unavailable'}</span> : (
         <span className="animated-creature-art" aria-hidden="true" style={{
           backgroundImage: `url("${creatureAtlasUrl(timeline)}")`,
           backgroundSize: `${timeline.columns * size}px ${timeline.rows * size}px`,
@@ -101,10 +110,12 @@ export function AnimatedCreature({ creature, power, skill, baseColor = 'black', 
           transform: facingLeft ? 'scaleX(-1)' : undefined,
         }} />
       )}
-      <span className="animated-creature-name">{creature}</span>
-      <span className="animated-creature-power">{power > 0 ? power : 'X'}</span>
-      <span className="animated-creature-skill">{skill}</span>
-      {hits > 0 && <span className="animated-creature-hits">{hits}</span>}
+      {props.artOnly !== true && <>
+        <span className="animated-creature-name">{creature}</span>
+        <span className="animated-creature-power">{props.power > 0 ? props.power : 'X'}</span>
+        <span className="animated-creature-skill">{props.skill}</span>
+        {hits > 0 && <span className="animated-creature-hits">{hits}</span>}
+      </>}
     </div>
   )
 }

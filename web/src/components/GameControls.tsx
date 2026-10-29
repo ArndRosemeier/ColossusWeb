@@ -11,7 +11,8 @@ import {
 } from '../engine/GameEngine'
 import { publicViewSlots } from '../engine/publicKnowledge'
 import type { GameCommand, GameState, PlayerState } from '../engine/types'
-import { CreatureChit, UnknownChit } from './CreatureChit'
+import { UnknownChit } from './CreatureChit'
+import { CreaturePresentation } from './CreaturePresentation'
 import {
   phaseEndCommand,
   phaseEndLabel,
@@ -269,7 +270,7 @@ export function GameControls({
               const owner = state.players.find((p) => p.id === selected.playerId)!
               const power = slot.type === 'Titan' ? owner.titanPower : (t?.power ?? 1)
               return (
-                <CreatureChit
+                <CreaturePresentation
                   key={`${slot.type}-${i}`}
                   creature={slot.type}
                   power={power}
@@ -538,7 +539,7 @@ export function GameControls({
                       const t = state.variant.creatures[c.type]
                       const power = c.type === 'Titan' ? owner.titanPower : (t?.power ?? 1)
                       return (
-                        <CreatureChit
+                        <CreaturePresentation
                           key={`${leg.id}-${i}`}
                           creature={c.type}
                           power={power}
