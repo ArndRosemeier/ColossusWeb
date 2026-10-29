@@ -36,7 +36,20 @@ export interface BattleRolloutWork {
   usedRollout: boolean
   changedDecision: boolean
   reason: 'complete' | 'budget' | 'boundary' | 'disabled' | 'insufficient'
-  decisions: { command: GameCommand; completed: number; meanUtility: number; pairedAdvantage: number; pairedStdError: number | null; accepted: boolean }[]
+  decisions: { rootId: string; command: GameCommand; completed: number; meanUtility: number; pairedAdvantage: number; pairedStdError: number | null; accepted: boolean }[]
+}
+export interface BattleSampleRoot {
+  id: string
+  battle: BattleState
+  /** Simulated first action, e.g. Done after a complete entry formation. */
+  first: GameCommand
+  /** The real current action represented by this root. */
+  command: GameCommand
+}
+
+export function hasPendingInitialEntry(state: GameState, battle: BattleState, playerId?: string): boolean {
+  return battle.units.some(unit => (playerId === undefined || unit.playerId === playerId) && !unit.hex && isUnitAlive(state, unit) &&
+    !battle.firstManeuverDone[unit.legionId === battle.attackerLegionId ? 'attacker' : 'defender'])
 }
 
 export function rolloutOptions(options: Partial<BattleRolloutOptions> = {}): BattleRolloutOptions {
@@ -229,12 +242,16 @@ export function runBattleTrial(state: GameState, battle: BattleState, first: Gam
   let command: GameCommand | null = first
   let verified = false
   while (true) {
-    // The cheap policy has no joint entry-feasibility planner. In particular,
-    // non-Titan-first deployment can strand a Titan that real Normal saves.
-    if (!current.done && (!current.firstManeuverDone.attacker || !current.firstManeuverDone.defender)) {
+    // The cheap policy cannot enter pending units safely. Physically complete
+    // entry is allowed while flags await real Strikeback completion; never fake
+    // those flags or attackerCommitted to bypass the engine's phase timing.
+    if (!current.done && hasPendingInitialEntry(sim, current)) {
       return { complete: false, boundary: true, utility: 0, cycles: cycle(current) - startCycle, battle: current }
     }
-    if (current.done || (current.phase === 'Move' && cycle(current) >= startCycle + options.horizonCycles)) {
+    const nextDecision = current.phase === 'Move' || current.phase === 'Recruit' || current.phase === 'Summon'
+    // A support choice at the requested next half is already beyond our combat
+    // horizon. Stop BEFORE that choice, but censor support inside the horizon.
+    if (current.done || (nextDecision && cycle(current) >= startCycle + options.horizonCycles)) {
       return { complete: true, boundary: false, utility: battleRolloutUtility(sim, current, playerId, profile), cycles: cycle(current) - startCycle, battle: current }
     }
     if (current.phase === 'Recruit' || current.phase === 'Summon') return { complete: false, boundary: true, utility: 0, cycles: cycle(current) - startCycle, battle: current }
@@ -243,6 +260,7 @@ export function runBattleTrial(state: GameState, battle: BattleState, first: Gam
     }
     if (!command) {
       const key = JSON.stringify([current.turn, current.activeHalf, current.phase, current.activePlayerId, current.pendingCarry,
+        current.firstManeuverDone, current.attackerCommitted,
         current.units.map(unit => [unit.id, unit.hex, unit.hits, unit.moved, unit.struck]), [...held]])
       const cached = policyCache.get(key)
       if (cached) {
@@ -261,28 +279,35 @@ export function runBattleTrial(state: GameState, battle: BattleState, first: Gam
   }
 }
 
-/** Common random numbers per trial, equal completed rounds only; no caller RNG. */
-export function sampleBattleChoices(state: GameState, battle: BattleState, candidates: GameCommand[], fallback: GameCommand,
+/** ONE aggregation/acceptance seam for command roots and completed position roots.
+ * Seeds always come from the original decision, never a candidate's changed position.
+ */
+export function sampleBattleRoots(state: GameState, battle: BattleState, candidates: BattleSampleRoot[], fallback: BattleSampleRoot,
   profile: AiProfile, overrides: Partial<BattleRolloutOptions> = {}) {
   const options = rolloutOptions(overrides)
   const work: BattleRolloutWork = { completedRollouts: 0, terminalRollouts: 0, creditedRounds: 0, transitionNodes: 0, policyEvaluations: 0, policyCacheHits: 0,
     horizonCycles: options.horizonCycles, minCompletedCycles: options.horizonCycles, exhausted: false, boundaryStops: 0,
     usedRollout: false, changedDecision: false, reason: 'insufficient', decisions: [] }
-  if (!options.enabled) { work.reason = 'disabled'; return { command: fallback, work } }
-  const distinct = new Map<string, GameCommand>()
-  distinct.set(JSON.stringify(fallback), fallback)
-  for (const command of candidates) if (distinct.size < options.candidateLimit) distinct.set(JSON.stringify(command), command)
+  if (!options.enabled) { work.reason = 'disabled'; return { command: fallback.command, rootId: fallback.id, work } }
+  const distinct = new Map<string, BattleSampleRoot>()
+  distinct.set(fallback.id, fallback)
+  for (const root of candidates) if (distinct.size < options.candidateLimit && !distinct.has(root.id)) distinct.set(root.id, root)
+  for (const root of distinct.values()) {
+    if (!root.id || root.battle.turn !== battle.turn || root.battle.phase !== battle.phase ||
+      root.battle.activeHalf !== battle.activeHalf || root.battle.activePlayerId !== battle.activePlayerId) throw new Error('Incomparable battle sampling root')
+  }
   const choices = [...distinct.values()], sums = choices.map(() => 0), observations: number[][] = choices.map(() => [])
   const budget = { transitionNodes: 0, policyEvaluations: 0, policyCacheHits: 0 }
   const distances = new Map<string, number>()
   const policyCache: PolicyCache = new Map()
-  if (choices.length < 2) return { command: fallback, work }
+  if (choices.length < 2) return { command: fallback.command, rootId: fallback.id, work }
   const seed = options.seed ?? positionSeed(battle)
   let boundary = false
   for (let trial = 0; trial < options.trialsPerCandidate; trial++) {
     const values: number[] = []
     for (let index = 0; index < choices.length; index++) {
-      const result = runBattleTrial(state, battle, choices[index], profile, (seed + Math.imul(trial + 1, 0x9e3779b9)) >>> 0, options, budget, distances, policyCache)
+      const root = choices[index]
+      const result = runBattleTrial(state, root.battle, root.first, profile, (seed + Math.imul(trial + 1, 0x9e3779b9)) >>> 0, options, budget, distances, policyCache)
       if (!result.complete) {
         if (result.boundary) { work.boundaryStops++; boundary = true }
         else work.exhausted = true
@@ -298,22 +323,29 @@ export function sampleBattleChoices(state: GameState, battle: BattleState, candi
     work.creditedRounds++
   }
   work.transitionNodes = budget.transitionNodes; work.policyEvaluations = budget.policyEvaluations; work.policyCacheHits = budget.policyCacheHits
-  work.decisions = choices.map((command, index) => {
+  work.decisions = choices.map((root, index) => {
     const n = work.creditedRounds, differences = observations[index].map((value, trial) => value - observations[0][trial])
     const pairedAdvantage = n ? differences.reduce((sum, value) => sum + value, 0) / n : 0
     const pairedStdError = n > 1 ? Math.sqrt(differences.reduce((sum, value) => sum + (value - pairedAdvantage) ** 2, 0) / (n - 1) / n) : Infinity
     const terminalWins = differences.filter(value => value >= 50000).length, terminalLosses = differences.filter(value => value <= -50000).length
     const accepted = index === 0 || (n >= 4 && pairedAdvantage - 1.5 * pairedStdError > 0.5 &&
       (!(terminalWins || terminalLosses) || (terminalWins >= 2 && terminalWins > terminalLosses)))
-    return { command, completed: n, meanUtility: n ? sums[index] / n : 0, pairedAdvantage, pairedStdError: n > 1 ? pairedStdError : null, accepted }
+    return { rootId: root.id, command: root.command, completed: n, meanUtility: n ? sums[index] / n : 0, pairedAdvantage, pairedStdError: n > 1 ? pairedStdError : null, accepted }
   })
   // Censored deployment/support boundaries or incomplete sampling retain Normal.
   if (boundary || work.creditedRounds < options.trialsPerCandidate) {
     work.reason = boundary ? 'boundary' : 'budget'
-    return { command: fallback, work }
+    return { command: fallback.command, rootId: fallback.id, work }
   }
   const best = work.decisions.filter(choice => choice.accepted).reduce((a, b) => b.meanUtility > a.meanUtility ? b : a)
   work.usedRollout = true; work.reason = 'complete'
-  work.changedDecision = JSON.stringify(best.command) !== JSON.stringify(fallback)
-  return { command: best.command, work }
+  work.changedDecision = JSON.stringify(best.command) !== JSON.stringify(fallback.command)
+  return { command: best.command, rootId: best.rootId, work }
+}
+
+/** Legacy commands adapt to identified roots without changing their trial policy. */
+export function sampleBattleChoices(state: GameState, battle: BattleState, candidates: GameCommand[], fallback: GameCommand,
+  profile: AiProfile, overrides: Partial<BattleRolloutOptions> = {}) {
+  const root = (command: GameCommand): BattleSampleRoot => ({ id: JSON.stringify(command), battle, first: command, command })
+  return sampleBattleRoots(state, battle, candidates.map(root), root(fallback), profile, overrides)
 }

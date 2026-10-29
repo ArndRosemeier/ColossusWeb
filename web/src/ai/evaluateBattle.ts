@@ -22,7 +22,7 @@ import {
 import { legalBattleMoves } from '../engine/battleMovement'
 import { battleNeighbors, hazardDamageToCreature } from '../engine/battleland'
 import { strikeExpectations } from './battleProbability'
-import { sampleBattleChoices, strikeRolloutOptions, type BattleRolloutOptions, type BattleRolloutWork } from './battleRollout'
+import { sampleBattleChoices, sampleBattleRoots, hasPendingInitialEntry, strikeRolloutOptions, type BattleRolloutOptions, type BattleRolloutWork } from './battleRollout'
 import { difficultyForPlayer } from './difficulty'
 import { battlePlannerOptions, legalEnemyResponse, NORMAL_BATTLE_PLANNER, type BattlePlannerOptions } from './battleResponse'
 import { searchBattleDeployment, type BattleDeploymentOptions, type DeploymentResult } from './battleDeployment'
@@ -968,15 +968,28 @@ export function planBattleManeuver(state: GameState, battle: BattleState, profil
 
 function planInitialEntry(state: GameState, battle: BattleState, profile: AiProfile,
   control: GameCommand, ranked: ScoredBattleMove[], options: BattleTacticalOptions): DeploymentResult {
-  const enabled = difficultyForPlayer(state, battle.activePlayerId).id === 'hard' && options.deployment !== false
-  if (!enabled) return { command: control, plan: [], baselinePlan: [], score: null, baselineScore: null,
+  const enemyId = battle.units.find(unit => unit.playerId !== battle.activePlayerId)?.playerId
+  const fallback = (): DeploymentResult => ({ command: control, plan: [], baselinePlan: [], score: null, baselineScore: null,
     work: { nodes: 0, legalQueries: 0, completeFormations: 0, responseNodes: 0, entrySafetyChecks: 0, baselineMoves: 0, reachedDepth: 0,
-      exhausted: false, usedPlan: false, changedDecision: false, reason: 'unsupported' } }
+      exhausted: false, usedPlan: false, changedDecision: false, mandatorySafety: 'not-needed', reason: 'unsupported' } })
+  if (difficultyForPlayer(state, battle.activePlayerId).id !== 'hard' || options.deployment === false || battle.firstManeuverDone[battle.activeHalf]) return fallback()
+  const enabled = options.rollout !== false && !(enemyId && hasPendingInitialEntry(state, battle, enemyId))
+  const titan = battle.units.find(unit => unit.playerId === battle.activePlayerId && unit.creatureType === 'Titan' && isUnitAlive(state, unit))
+  const vulnerable = titan && Object.values(battleLand(state, battle).hexByLabel).some(hex =>
+    hazardDamageToCreature(hex.terrain, state.variant.creatures.Titan) >= remainingHp(state, titan))
+  if (!enabled && !vulnerable) return fallback()
   const placement = new Map(ranked.map(move => [move.unitId + ':' + move.toHex, move.score -
     formationScore(state, battle, battle.units.find(unit => unit.id === move.unitId)!, move.toHex)]))
-  return searchBattleDeployment(state, battle, control, {
+  const policy: Parameters<typeof searchBattleDeployment>[3] = {
     normal: sim => pickBestBattleMove(state, sim, profile, () => 0, { ...options, deployment: false }),
     canFinishAfter: command => allCanStillEnter(state, battle, command.unitId, command.toHex),
+    guaranteedTitanLoss: sim => sim.units.some(unit => unit.playerId === sim.activePlayerId && unit.creatureType === 'Titan' && unit.hex && isUnitAlive(state, unit) &&
+      hazardDamageToCreature(battleLand(state, sim).hexByLabel[unit.hex].terrain, state.variant.creatures.Titan) >= remainingHp(state, unit)),
+    compare: formations => {
+      const roots = formations.map(formation => ({ id: formation.id, battle: formation.battle,
+        first: { type: 'battleDonePhase' as const }, command: formation.plan[0] }))
+      return sampleBattleRoots(state, battle, roots.slice(1), roots[0], profile, options.rollout || {})
+    },
     placementScore: (unitId, hex) => {
       const score = placement.get(unitId + ':' + hex)
       if (score === undefined) throw new Error('Deployment generated a destination absent from initial legal moves')
@@ -994,7 +1007,14 @@ function planInitialEntry(state: GameState, battle: BattleState, profile: AiProf
         battleResponseWeight(sim, actingAsAttacker(state, sim)) - reply.titanRisk * 10000,
       titanRisk: reply.titanRisk, complete: reply.complete }
     },
-  }, options.deployment || {})
+  }
+  // Mandatory deterministic survival has its own fixed bounds, independent of
+  // optional MC budgets. It requires a complete legal safe-entry certificate.
+  const mandatory = vulnerable ? searchBattleDeployment(state, battle, control, policy, {}, 'mandatory-safety') : undefined
+  if (mandatory && mandatory.work.reason !== 'safety-not-needed') return mandatory
+  if (!enabled) return { ...fallback(), mandatoryWork: mandatory?.work }
+  const result = searchBattleDeployment(state, battle, control, policy, options.deployment || {})
+  return mandatory ? { ...result, mandatoryWork: mandatory.work } : result
 }
 
 /** Diagnostic adapter; the live picker computes the unchanged Normal root once. */

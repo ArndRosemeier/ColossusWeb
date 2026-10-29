@@ -1,7 +1,7 @@
 # Hard tactical outcome sampling
 
 COPIES: 1 — evaluateBattle is the real decision adapter; battleRollout uses the
-existing lower-level battle engine for future outcomes and never calls Hard again.
+existing lower-level battle engine for future outcomes and never calls Hard again. Shared sampleBattleRoots aggregates identified command/position roots once (row42).
 
 Normal/Easy keep their existing commands and real chooser RNG consumption. Hard
 first obtains the explicit Normal8/2048 control action and samples that action
@@ -20,16 +20,23 @@ projection. The live dispatch path is never used; no real dice IDs, Date.now or
 Math.random are consumed by simulations. A local seeded RNG restarts with the same
 sample seed for each candidate, providing paired common random numbers.
 
-Horizon is two maneuver/strike cycles: finish current combat and the relevant
-enemy maneuver/Strike/Strikeback, or stop at an actual terminal result. Recruitment
-and summoning are explicit unsupported boundaries; no units are invented. Pending
-initial deployment is also censored until both first maneuvers are done: the cheap
-rollout policy does not share the real AI's entry-feasibility planner, so it must
-never receive credit for stranding an opposing Titan. Any
-boundary or incomplete requested sample set returns the Normal control. Completed
-trials from an incomplete round are counted as actual work, but their utility is
-not credited to candidate comparison. Terminal results can legitimately finish
-before two cycles; terminalRollouts and minCompletedCycles expose that distinction.
+Horizon is two maneuver/strike cycles: finish current combat and relevant enemy
+maneuver/Strike/Strikeback, or stop at an actual terminal result. The next half's
+Move/Recruit/Summon at the requested cycle is a completed leaf BEFORE its decision;
+support encountered earlier remains unsupported. Initial entry is censored only
+while living off-board units remain on a side whose first maneuver is pending.
+Physically complete entry is allowed with actual flags still false until real
+Strikeback completion. No flags, support units or attackerCommitted are fabricated.
+Any unsupported boundary or incomplete requested sample set returns the Normal control.
+Completed trials from incomplete rounds count as work but not comparison credit.
+Terminal results may finish earlier; terminalRollouts/minCompletedCycles expose it.
+
+Complete initial formations now use the same sampleBattleRoots aggregation and
+paired acceptance as legacy command roots, sharing original pre-entry sample seeds.
+Normal baseline is root zero. Up to two safe completed alternatives start actual
+Move Done. Static formation scores only shortlist; unsupported initial defender
+quality retains Normal. A narrow complete-plan certificate can prevent guaranteed
+Titan hazard death before optional MC (explicit row42 exception; battle-deployment.md).
 
 Default roots: up to3 actions including Normal. Move retains one best root per
 different mover before filling alternate destinations for the same mover, after

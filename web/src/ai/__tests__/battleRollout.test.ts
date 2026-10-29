@@ -1,12 +1,13 @@
 // Outcome fixtures deliberately use the lower-level engine independently of the planner.
 import { describe, expect, it, vi } from 'vitest'
 import { twoPlayerGame } from '../../engine/__tests__/helpers'
-import { startBattle, battleLand, advanceBattlePhase, applyTimeLoss, applyBattleResult, removeDeadCreatures, doCarry, resolveStrikeFor, legalStrikesFor, legalBattleMovesFor } from '../../engine/battle'
+import { startBattle, battleLand, advanceBattlePhase, applyTimeLoss, applyBattleResult, removeDeadCreatures, doCarry, resolveStrikeFor, legalStrikesFor, legalBattleMovesFor, listBattleReinforceOptions, listBattleSummonSources } from '../../engine/battle'
 import { dispatch } from '../../engine/GameEngine'
-import { getStrikeDice, getUnitPower, listStrikeRaiseOptions } from '../../engine/battleStrike'
-import { battleRolloutUtility, HARD_BATTLE_ROLLOUT, runBattleTrial, sampleBattleChoices } from '../battleRollout'
+import { getStrikeDice, getStrikeNumber, getUnitPower, listStrikeRaiseOptions } from '../../engine/battleStrike'
+import { strikeExpectations } from '../battleProbability'
+import { battleRolloutUtility, HARD_BATTLE_ROLLOUT, runBattleTrial, sampleBattleChoices, sampleBattleRoots, hasPendingInitialEntry } from '../battleRollout'
 import { AI_PROFILES } from '../profiles'
-import { planBattleManeuver, planBattleStrike } from '../evaluateBattle'
+import { planBattleManeuver, planBattleStrike, pickBestBattleMove } from '../evaluateBattle'
 import { pickAiCommand } from '../simpleAi'
 import type { GameCommand, GameState } from '../../engine/types'
 
@@ -42,6 +43,118 @@ function retainTitansOutsideBattle(state: GameState) {
 }
 
 describe('Hard battle search resolves actual sampled outcomes', () => {
+  it('allows physically complete first entry and lets the real engine commit its still-pending first maneuver', () => {
+    const { state, battle, ours, theirs } = fixture(['Ogre', 'Ogre'], ['Ogre', 'Ogre'])
+    battle.phase = 'Move'; battle.turn = 1; battle.firstManeuverDone.attacker = false; battle.attackerCommitted = false
+    ours[0].hex = 'A1'; ours[1].hex = 'A2'; theirs[0].hex = 'F3'; theirs[1].hex = 'F4'
+    ours.forEach(unit => { unit.moved = true })
+    expect(hasPendingInitialEntry(state, battle)).toBe(false)
+    const { variant, ...mutable } = state, oracle = { ...structuredClone(mutable), variant } as GameState
+    advanceBattlePhase(oracle, oracle.battle!)
+    expect(oracle.battle).toMatchObject({ activeHalf: 'defender', phase: 'Move', attackerCommitted: true, firstManeuverDone: { attacker: true, defender: true } })
+    const trial = runBattleTrial(state, battle, { type: 'battleDonePhase' }, AI_PROFILES.balanced, 84, { ...HARD_BATTLE_ROLLOUT })
+    expect(trial).toMatchObject({ complete: true, boundary: false, cycles: 2 })
+    expect(trial.battle.attackerCommitted).toBe(true)
+    expect(trial.battle.firstManeuverDone).toEqual({ attacker: true, defender: true })
+    expect(battle.attackerCommitted).toBe(false); expect(battle.firstManeuverDone.attacker).toBe(false)
+  })
+  it('credits a completed horizon before its next real reinforcement decision without inventing a recruit', () => {
+    const { state, battle, ours, theirs } = fixture(['Ogre'], ['Gargoyle', 'Gargoyle'], 'Brush')
+    battle.turn = 3; battle.phase = 'Move'; battle.activeHalf = 'defender'; battle.activePlayerId = state.players[1].id
+    ours[0].hex = 'A1'; theirs[0].hex = 'F4'; theirs[1].hex = 'F3'
+    expect(listBattleReinforceOptions(state, battle).length).toBeGreaterThan(0)
+    const { variant, ...mutable } = state, oracle = { ...structuredClone(mutable), variant } as GameState
+    advanceBattlePhase(oracle, oracle.battle!)
+    expect(oracle.battle).toMatchObject({ activeHalf: 'attacker', turn: 3, phase: 'Move' })
+    advanceBattlePhase(oracle, oracle.battle!)
+    expect(oracle.battle).toMatchObject({ activeHalf: 'defender', turn: 4, phase: 'Recruit' })
+    const trial = runBattleTrial(state, battle, { type: 'battleDonePhase' }, AI_PROFILES.balanced, 84, { ...HARD_BATTLE_ROLLOUT })
+    expect(trial).toMatchObject({ complete: true, boundary: false, cycles: 2 })
+    expect(trial.battle).toMatchObject({ activeHalf: 'defender', turn: 4, phase: 'Recruit' })
+    expect(trial.battle.units).toHaveLength(3)
+    expect(trial.battle.units.some(unit => unit.creatureType === 'Cyclops')).toBe(false)
+  })
+  it('keeps the actual Normal formation against a pyrrhic contact formation after real ordinary Strikeback', () => {
+    const { state, battle, ours, theirs } = fixture(['Hydra', 'Ogre'], ['Ogre'])
+    battle.phase = 'Move'; ours[0].hex = 'A2'; ours[1].hex = 'B2'; ours[1].hits = 5; theirs[0].hex = 'C4'; theirs[0].hits = 5
+    retainTitansOutsideBattle(state)
+    const control = pickBestBattleMove(state, battle, AI_PROFILES.balanced, () => 0, { rollout: false })
+    const baseline = control.type === 'battleMove' ? dispatch(state, control, () => 0) : state
+    const badCommand: GameCommand = { type: 'battleMove', unitId: ours[0].id, toHex: 'A1' }
+    const bad = dispatch(dispatch(state, badCommand, () => 0), { type: 'battleMove', unitId: ours[1].id, toHex: 'C3' }, () => 0)
+    const roots = [
+      { id: 'normal', battle: baseline.battle!, first: { type: 'battleDonePhase' as const }, command: control },
+      { id: 'pyrrhic', battle: bad.battle!, first: { type: 'battleDonePhase' as const }, command: badCommand },
+    ]
+    const result = sampleBattleRoots(state, battle, roots.slice(1), roots[0], AI_PROFILES.balanced, { seed: 84 })
+    console.log('NORMAL-VS-PYRRHIC-FORMATION', JSON.stringify(result))
+    expect(result.work).toMatchObject({ usedRollout: true, creditedRounds: 8, completedRollouts: 16 })
+    expect(result.rootId).toBe('normal'); expect(result.command).toEqual(control)
+    expect(result.work.decisions[1].meanUtility).toBeLessThan(result.work.decisions[0].meanUtility)
+    for (let index = 0; index < roots.length; index++) {
+      let sum = 0
+      for (let round = 0; round < 8; round++) {
+        const seed = (84 + Math.imul(round + 1, 0x9e3779b9)) >>> 0
+        const trial = runBattleTrial(state, roots[index].battle, roots[index].first, AI_PROFILES.balanced, seed, { ...HARD_BATTLE_ROLLOUT })
+        expect(trial.complete).toBe(true); sum += trial.utility
+      }
+      expect(result.work.decisions[index].meanUtility).toBeCloseTo(sum / 8, 10)
+    }
+    advanceBattlePhase(baseline, baseline.battle!)
+    const normalHydra = baseline.battle!.units.find(unit => unit.id === ours[0].id)!
+    expect(legalStrikesFor(baseline, baseline.battle!, normalHydra)).toContain(theirs[0].id)
+    resolveStrikeFor(baseline, baseline.battle!, normalHydra.id, theirs[0].id, () => 0, Array(5).fill(6))
+    advanceBattlePhase(baseline, baseline.battle!)
+    expect(baseline.battle?.done).toBe(true)
+    expect(battleRolloutUtility(baseline, baseline.battle!, state.players[0].id, AI_PROFILES.balanced)).toBe(42)
+    // Same initial wounded Ogre, but contact lets its slain opponent retaliate.
+    advanceBattlePhase(bad, bad.battle!)
+    resolveStrikeFor(bad, bad.battle!, ours[1].id, theirs[0].id, () => 0, [6, 1, 1, 1, 1, 1])
+    advanceBattlePhase(bad, bad.battle!)
+    expect(legalStrikesFor(bad, bad.battle!, bad.battle!.units.find(unit => unit.id === theirs[0].id)!)).toContain(ours[1].id)
+    resolveStrikeFor(bad, bad.battle!, theirs[0].id, ours[1].id, () => 0, [6, 1, 1, 1, 1, 1])
+    advanceBattlePhase(bad, bad.battle!)
+    expect(bad.battle).toMatchObject({ done: true, winnerPlayerId: state.players[0].id })
+    expect(battleRolloutUtility(bad, bad.battle!, state.players[0].id, AI_PROFILES.balanced)).toBe(30)
+  })
+  it('stops before the next actual Summon choice at the horizon, but censors it inside a longer requested horizon', () => {
+    const { state, battle, ours, theirs } = fixture(['Colossus', 'Ogre'], ['Ogre', 'Titan'])
+    ours[0].hex = 'C3'; ours[1].hex = 'A1'; theirs[0].hex = 'C4'; theirs[0].hits = 5; theirs[1].hex = 'F4'
+    state.legions.push({ ...structuredClone(state.legions[0]), id: 'summon-donor', hexLabel: '100',
+      creatures: [{ type: 'Titan', hits: 0 }, { type: 'Angel', hits: 0 }] })
+    expect(listBattleSummonSources(state, battle)).toHaveLength(1)
+    const { variant, ...mutable } = state, oracle = { ...structuredClone(mutable), variant } as GameState, b = oracle.battle!
+    resolveStrikeFor(oracle, b, ours[0].id, theirs[0].id, () => 0, Array(10).fill(6))
+    advanceBattlePhase(oracle, b)
+    resolveStrikeFor(oracle, b, theirs[0].id, ours[0].id, () => 0, Array(6).fill(1))
+    advanceBattlePhase(oracle, b)
+    expect(b).toMatchObject({ activeHalf: 'defender', turn: 6, phase: 'Move' })
+    advanceBattlePhase(oracle, b)
+    expect(b).toMatchObject({ activeHalf: 'attacker', turn: 6, phase: 'Summon' })
+    const first: GameCommand = { type: 'battleStrike', attackerId: ours[0].id, defenderId: theirs[0].id }
+    const trial = runBattleTrial(state, battle, first, AI_PROFILES.balanced, 84, { ...HARD_BATTLE_ROLLOUT })
+    expect(trial).toMatchObject({ complete: true, boundary: false, cycles: 2 })
+    expect(trial.battle.phase).toBe('Summon')
+    expect(trial.battle.units.some(unit => unit.creatureType === 'Angel')).toBe(false)
+    expect(state.legions.find(legion => legion.id === 'summon-donor')!.creatures).toHaveLength(2)
+    const longer = runBattleTrial(state, battle, first, AI_PROFILES.balanced, 84, { ...HARD_BATTLE_ROLLOUT, horizonCycles: 3 })
+    expect(longer).toMatchObject({ complete: false, boundary: true, cycles: 2 })
+  })
+  it('does not mistake four forced Gargoyle hits for a favorable expected exchange or lost ordinary Strikeback', () => {
+    const { state, battle, ours, theirs, land } = fixture(['Gargoyle'], ['Ranger'])
+    ours[0].hex = 'C3'; theirs[0].hex = 'C4'
+    const attack = getStrikeNumber(state, ours[0], theirs[0], land, true), retaliation = getStrikeNumber(state, theirs[0], ours[0], land, true)
+    expect(attack).toBe(5); expect(retaliation).toBe(3)
+    expect(strikeExpectations(4, attack, 4).killProbability).toBeCloseTo(1 / 81)
+    expect(strikeExpectations(4, retaliation, 4).killProbability).toBeCloseTo(16 / 81)
+    resolveStrikeFor(state, battle, ours[0].id, theirs[0].id, () => 0, [6, 6, 6, 6])
+    advanceBattlePhase(state, battle)
+    expect(legalStrikesFor(state, battle, theirs[0])).toContain(ours[0].id)
+    resolveStrikeFor(state, battle, theirs[0].id, ours[0].id, () => 0, [6, 6, 6, 6])
+    advanceBattlePhase(state, battle)
+    expect(battle).toMatchObject({ done: true, winnerPlayerId: null })
+    expect(battle.fallen).toHaveLength(2)
+  })
   it('compares an actual pyrrhic ordinary win with an unfinished superior army on the same material scale', () => {
     const { state, battle, ours, theirs } = fixture(['Hydra', 'Hydra'], ['Colossus'])
     retainTitansOutsideBattle(state)

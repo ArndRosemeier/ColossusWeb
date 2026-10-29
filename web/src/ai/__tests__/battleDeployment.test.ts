@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { twoPlayerGame } from '../../engine/__tests__/helpers'
 import { dispatch } from '../../engine/GameEngine'
-import { startBattle, legalBattleMovesFor, battleLand, legalStrikesFor, resolveStrikeFor } from '../../engine/battle'
+import { startBattle, legalBattleMovesFor, battleLand } from '../../engine/battle'
 import { isUnitAlive } from '../../engine/battleStrike'
 import { hazardDamageToCreature } from '../../engine/battleland'
 import type { EntrySide, GameState } from '../../engine/types'
@@ -35,9 +35,15 @@ function completeEntry(state: GameState, hard: boolean) {
   expect(next.battle!.units.filter(unit => unit.playerId === actor && !unit.hex && isUnitAlive(next, unit))).toEqual([])
   return next
 }
+function attackerEntry(creatures = types) {
+  let state = entry('Woods', 'Left', creatures)
+  state = dispatch(completeEntry(state, false), { type: 'battleDonePhase' }, () => 0)
+  state.players[0].kind = 'ai'; state.players[0].aiDifficultyId = 'hard'
+  return state
+}
 describe('Hard complete-side initial deployment', () => {
   it('finishes bounded real seven-versus-seven Woods entry with the same world RNG count and frozen inputs', () => {
-    const state = entry(), before = JSON.stringify(state)
+    const state = attackerEntry(), before = JSON.stringify(state)
     freeze(state)
     const rng = vi.fn(() => 0), now = vi.spyOn(Date, 'now'), random = vi.spyOn(Math, 'random')
     let result
@@ -53,6 +59,8 @@ describe('Hard complete-side initial deployment', () => {
     expect(result.work.usedPlan).toBe(true)
     expect(result.work.reachedDepth).toBe(7)
     expect(result.work.completeFormations).toBeGreaterThan(1)
+    expect(result.rollout!.decisions.slice(1).some(decision => decision.accepted &&
+      decision.pairedAdvantage > 0.5 + 1.5 * decision.pairedStdError!)).toBe(true)
     expect(result.work.nodes).toBeLessThanOrEqual(HARD_BATTLE_DEPLOYMENT.maxNodes)
     let played = state
     for (const command of result.plan) {
@@ -63,13 +71,16 @@ describe('Hard complete-side initial deployment', () => {
     expect(played.battle!.units.filter(unit => unit.playerId === played.battle!.activePlayerId).every(unit => unit.hex)).toBe(true)
   })
   it('falls back exactly when node or response work is incomplete and validates budgets', () => {
-    const state = entry(), rng = vi.fn(() => 0)
+    const state = attackerEntry(), rng = vi.fn(() => 0)
     const control = pickBestBattleMove(state, state.battle!, AI_PROFILES.balanced, () => 0, { deployment: false })
     for (const deployment of [{ maxNodes: 1 }, { maxResponseNodes: 1 }]) {
       const result = planBattleDeployment(state, state.battle!, AI_PROFILES.balanced, rng, { deployment })
       expect(result.command).toEqual(control); expect(result.work.exhausted).toBe(true); expect(result.work.usedPlan).toBe(false)
     }
     expect(rng).toHaveBeenCalledTimes(2)
+    const tiny = planBattleDeployment(state, state.battle!, AI_PROFILES.balanced, () => 0, { rollout: { maxTransitionNodes: 1 } })
+    expect(tiny.command).toEqual(control)
+    expect(tiny.rollout).toMatchObject({ usedRollout: false, exhausted: true, completedRollouts: 0, creditedRounds: 0, transitionNodes: 0 })
     expect(() => planBattleDeployment(state, state.battle!, AI_PROFILES.balanced, () => 0, { deployment: { maxNodes: 0 } })).toThrow('Invalid battle deployment')
   })
   it('does not use the initial formation search for later reinforcement entry', () => {
@@ -93,21 +104,35 @@ describe('Hard complete-side initial deployment', () => {
     expect(state.battle!.units.filter(unit => unit.playerId === state.players[1].id).every(unit => unit.hex)).toBe(true)
   })
   it('recomputes complete legal continuations after actual partial entries without stranding any creature', () => {
-    let state = entry()
+    let state = attackerEntry()
+    let changed = 0
     for (let step = 0; step < 7; step++) {
       const result = planBattleDeployment(state, state.battle!, AI_PROFILES.balanced, () => 0)
-      expect(result.work.usedPlan).toBe(true)
-      expect(result.plan).toHaveLength(7 - step)
+      if (result.work.usedPlan) {
+        expect(result.plan).toHaveLength(7 - step)
+        expect(result.rollout?.usedRollout).toBe(true)
+        if (result.work.changedDecision) changed++
+      } else expect(result.command).toEqual(pickBestBattleMove(state, state.battle!, AI_PROFILES.balanced, () => 0, { deployment: false }))
       state = dispatch(state, result.command, () => 0)
     }
-    state = dispatch(state, { type: 'battleDonePhase' }, () => 0)
-    expect(state.battle!.firstManeuverDone).toEqual({ attacker: false, defender: true })
+    expect(state.battle!.units.filter(unit => unit.playerId === state.players[0].id).every(unit => unit.hex)).toBe(true)
     expect(state.log.filter(line => /failed to enter/.test(line))).toEqual([])
     expect(state.winnerId).toBeFalsy()
+    console.log('HARD-ENTRY-RECOMPUTED-CHANGES', changed)
+    expect(changed).toBeGreaterThan(0)
   })
   it('keeps a one-HP Titan off deterministic lethal Tundra terrain during entry', () => {
     const state = entry('Tundra'), titan = state.battle!.units.find(unit => unit.playerId === state.battle!.activePlayerId && unit.creatureType === 'Titan')!
     titan.hits = state.players[1].titanPower - 1
+    const unsafe = completeEntry(state, false), normalTitan = unsafe.battle!.units.find(unit => unit.id === titan.id)!
+    expect(hazardDamageToCreature(battleLand(unsafe, unsafe.battle!).hexByLabel[normalTitan.hex!].terrain, unsafe.variant.creatures.Titan)).toBe(1)
+    expect(dispatch(unsafe, { type: 'battleDonePhase' }, () => 0).players[1].dead).toBe(true)
+    const certificate = planBattleDeployment(state, state.battle!, AI_PROFILES.balanced, () => 0,
+      { deployment: { maxNodes: 1 }, rollout: { maxTransitionNodes: 1 } })
+    expect(certificate.work).toMatchObject({ reason: 'mandatory-safety', mandatorySafety: 'certified', usedPlan: true })
+    expect(certificate.plan).toHaveLength(7)
+    expect(certificate.baselinePlan).toHaveLength(7)
+    expect(certificate.rollout).toBeUndefined()
     const played = completeEntry(state, true), landed = played.battle!.units.find(unit => unit.id === titan.id)!
     const land = battleLand(played, played.battle!)
     expect(hazardDamageToCreature(land.hexByLabel[landed.hex!].terrain, played.variant.creatures.Titan)).toBe(0)
@@ -115,7 +140,7 @@ describe('Hard complete-side initial deployment', () => {
     expect(advanced.players[1].dead).toBe(false)
     expect(advanced.battle?.units.find(unit => unit.id === titan.id)?.hits).toBe(titan.hits)
   })
-  it('deploys an actually supported Titan formation instead of leaving the Titan on the rim', () => {
+  it('retains exact Normal defender deployment while enemy initial entry is unsupported', () => {
     const state = entry(), normal = completeEntry(state, false), hard = completeEntry(state, true)
     const guards = (position: GameState) => {
       const battle = position.battle!, land = battleLand(position, battle)
@@ -123,12 +148,25 @@ describe('Hard complete-side initial deployment', () => {
       return battle.units.filter(unit => unit.playerId === titan.playerId && unit !== titan && unit.hex && land.hexByLabel[titan.hex!].neighbors.includes(unit.hex)).length
     }
     expect(guards(normal)).toBe(2)
-    expect(guards(hard)).toBe(5)
+    expect(guards(hard)).toBe(2)
+    expect(hard).toEqual(normal)
+    expect(planBattleDeployment(state, state.battle!, AI_PROFILES.balanced, () => 0).work).toMatchObject({ nodes: 0, usedPlan: false, reason: 'unsupported' })
   })
-  it('coordinates a useful extra frontline attack against an enemy that entered through the actual engine', () => {
-    let state = entry('Woods', 'Left', ['Titan', 'Ranger', 'Ranger', 'Ogre', 'Ogre', 'Gargoyle', 'Centaur'])
-    state = dispatch(completeEntry(state, false), { type: 'battleDonePhase' }, () => 0)
-    state.players[0].aiDifficultyId = 'hard'
+  it('reports unavailable mandatory safety when already-entered units leave no safe Titan entry', () => {
+    let state = entry('Tundra')
+    const titanId = state.battle!.units.find(unit => unit.playerId === state.players[1].id && unit.creatureType === 'Titan')!.id
+    state.battle!.units.find(unit => unit.id === titanId)!.hits = state.players[1].titanPower - 1
+    for (let step = 0; step < 6; step++) state = dispatch(state,
+      pickBestBattleMove(state, state.battle!, AI_PROFILES.balanced, () => 0, { deployment: false }), () => 0)
+    const titan = state.battle!.units.find(unit => unit.id === titanId)!, land = battleLand(state, state.battle!)
+    expect(titan.hex).toBeNull()
+    expect(legalBattleMovesFor(state, state.battle!, titan).every(hex => hazardDamageToCreature(land.hexByLabel[hex].terrain, state.variant.creatures.Titan) > 0)).toBe(true)
+    const result = planBattleDeployment(state, state.battle!, AI_PROFILES.balanced, () => 0)
+    expect(result.work).toMatchObject({ mandatorySafety: 'unavailable', usedPlan: false })
+    expect(result.plan).toEqual([])
+  })
+  it('compares actual sampled outcomes instead of treating a static frontage score as sufficient evidence', () => {
+    const state = attackerEntry(['Titan', 'Ranger', 'Ranger', 'Ogre', 'Ogre', 'Gargoyle', 'Centaur'])
     const start = performance.now(), result = planBattleDeployment(state, state.battle!, AI_PROFILES.balanced, () => 0)
     console.log('HARD-DEPLOYMENT-ATTACKER', JSON.stringify({ elapsedMs: performance.now() - start, work: result.work, score: result.score, baselineScore: result.baselineScore }))
     const liveStart = performance.now(), live = pickBestBattleMove(state, state.battle!, AI_PROFILES.balanced, () => 0)
@@ -136,21 +174,11 @@ describe('Hard complete-side initial deployment', () => {
     expect(live).toEqual(result.command)
     expect(result.work.usedPlan).toBe(true)
     expect(result.work.reachedDepth).toBe(7)
-    expect(result.score!).toBeGreaterThan(result.baselineScore! + 0.5)
-    const normal = dispatch(completeEntry(state, false), { type: 'battleDonePhase' }, () => 0)
-    const hard = dispatch(completeEntry(state, true), { type: 'battleDonePhase' }, () => 0)
-    const ownGargoyle = (position: GameState) => position.battle!.units.find(unit => unit.playerId === state.players[0].id && unit.creatureType === 'Gargoyle')!
-    const normalGargoyle = ownGargoyle(normal), hardGargoyle = ownGargoyle(hard)
-    expect(normal.battle!.phase).toBe('Strike'); expect(hard.battle!.phase).toBe('Strike')
-    expect(legalStrikesFor(normal, normal.battle!, normalGargoyle)).toEqual([])
-    const target = legalStrikesFor(hard, hard.battle!, hardGargoyle)[0]
-    expect(target).toBeTruthy()
-    const centaur = hard.battle!.units.find(unit => unit.playerId === state.players[0].id && unit.creatureType === 'Centaur')!
-    expect(legalStrikesFor(hard, hard.battle!, centaur).some(id => id !== target)).toBe(true)
-    // Actual extra combat action, not merely a formation-heuristic assertion.
-    const victim = hard.battle!.units.find(unit => unit.id === target)!, before = victim.hits
-    resolveStrikeFor(hard, hard.battle!, hardGargoyle.id, target, () => 0, [6, 6, 6, 6])
-    expect(victim.hits - before).toBe(4)
-    expect(hard.log.some(line => /failed to enter/.test(line))).toBe(false)
+    expect(result.rollout).toMatchObject({ creditedRounds: 8, usedRollout: true, minCompletedCycles: 2 })
+    console.log('HARD-DEPLOYMENT-OUTCOMES', JSON.stringify(result.rollout))
+    expect(result.rollout!.decisions).toHaveLength(3)
+    expect(result.rollout!.decisions.every(decision => decision.completed === 8)).toBe(true)
+    expect(result.score).toBe(result.baselineScore)
+    expect(result.rollout!.decisions.slice(1).every(decision => !decision.accepted)).toBe(true)
   })
 })
