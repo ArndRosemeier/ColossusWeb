@@ -84,7 +84,12 @@ describe('bounded battle response planning', () => {
       ranged.state.players[1].aiDifficultyId = level.id
       ranged.own[0].hex = 'C3'; ranged.enemy[0].hex = 'C5'; ranged.enemy[0].hits = 8
       ranged.enemy[1].hex = 'E3'; ranged.enemy[1].hits = 2; ranged.battle.phase = 'Strike'; ranged.battle.turn = 4
-      expect(pickBestBattleStrike(ranged.state, ranged.battle, AI_PROFILES.balanced, () => 0)).toMatchObject({ defenderId: ranged.enemy[0].id })
+      // Pin the exact common strike model; Hard may additionally compare complete
+      // combat outcomes rather than requiring its final choice to equal one ply.
+      expect(evaluateBattleStrike(ranged.state, ranged.battle, ranged.own[0], ranged.enemy[0], AI_PROFILES.balanced)).toBeGreaterThan(
+        evaluateBattleStrike(ranged.state, ranged.battle, ranged.own[0], ranged.enemy[1], AI_PROFILES.balanced))
+      expect(pickBestBattleStrike(ranged.state, ranged.battle, AI_PROFILES.balanced, () => 0, false)).toMatchObject({ defenderId: ranged.enemy[0].id })
+      if (level.id !== 'hard') expect(pickBestBattleStrike(ranged.state, ranged.battle, AI_PROFILES.balanced, () => 0)).toMatchObject({ defenderId: ranged.enemy[0].id })
     }
   })
   it('never moves a one-HP Titan onto Drift, including with the smallest optional budget', () => {
