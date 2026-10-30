@@ -881,3 +881,48 @@ Portable benchmark preparation cheap2 recreates all186old/196Normal snapshot fil
 exactly after LF normalization. Initial cheap1 exposed Git Bash tar treating C: as a
 remote host; relative archive plus explicit cwd fixes the published script. Raw cheap
 logs portable-benchmark-baselines and portable-benchmark-baselines-fixed retained.
+
+## Row45 — completed master actions survive optional exhaustion (2026-10-30)
+
+COPIES: 1 — existing searchMasterMoves/visit per-action completeness and explicit
+actual Normal comparator, consumed by the same evaluateMove chooser.
+
+Initial cheap `.gate-logs/master-complete-actions-cheap/gate.log` exit2: actual
+TypeScript/Vite120modules, /ColossusWeb index-DTt7D85a.js; Node1024. No focused tests
+have run yet: parent benchmark91570 owns the shared expensive lock on frozen de6cdf1.
+Coherent implementation/tests are committed for recovery; cheap is NOT full verified.
+The changed tests target actual Default roots and engine-dispatched moves/Done,
+completed-prefix versus incomplete later roots, independent Move versus optional
+HOLD, exact control identity, all-six-roll purity and unchanged Normal/Easy RNG.
+Named fixtures and cap-derived thresholds still require execution; no result or
+runtime is claimed. Focused and commit-first physical differential are owed when
+the parent releases the gate. No Java execution, budget increase or strength claim.
+
+Row45 focused `.gate-logs/master-complete-actions-final/gate.log` gate0:
+77passed/5files, changed-source lint0warnings/0errors,3.03s;Node1024/worker1;
+peakNOTMEASURED. Actual Default two-Lion control100→142 value45.42745 and complete
+alternative100→42 value49.10125 both finish under93nodes; cap derived as94 makes
+the third root exhaust. Both completed scalars survive unchanged, third root earns
+no candidate, actual chooser dispatches42 legally. This is a real structural
+regression with a diagnostic derived cap, not an observed failed tournament move.
+Current default104node fixture remains7.20ms; legal superior rootHOLD299nodes,
+18.10ms; common-focus identical worlds304nodes/3964queries,30.35ms. Existing safety,
+stock, helper obligation and Normal/Easy RNG pins pass. A complete Move also survives
+its own incomplete optional HOLD; exact legal Done control precedes optional moves;
+forbidden Done cannot borrow a helper-move HOLD; later unsafe nonfocus root preserves
+an earlier complete actual control. Initial red retained at master-complete-actions-
+initial: four Easy-coordination diagnostic assertions expected obsolete proof.best
+null after any later exhaustion. Dispatcher approved replacing only those diagnostics
+with retained control155.772925/best identity and HOLD150.804631 values; all actual
+Easy/Normal/Hard commands, safety and RNG expectations remain intact.
+
+Row45 final physical differential `.gate-logs/master-complete-actions-negative/gate.log`
+gate0 also runs real tsc/Vite120modules before injecting. Commit-first/trap-restored
+A/C masterLookahead SHAede711326ffbdb4acc3ffe33e4d5a7e970e5d1d52dc47bf4f6eb4856c540fc4d;
+evaluateMove unchanged SHA cb4a2325e185d1177d26318aca73b33e8eafc3df3150b2d477e393a78ca93ea1.
+A named complete-prefix fixture passes. B adds ONLY the old final global candidate
+clearing at SHA76d43b4d2e7cdfd235134780509cab3a153cef43c5989afefca343f983b5dd7f;
+that same pin fails naming the two missing complete142/42 candidate records. C restores
+exact A bytes from HEAD and passes; no source diff remains. Node1024/worker1;
+peakNOTMEASURED. Parent owns independent full suite, different physical negative,
+production interaction and outcome calibration. No match-strength claim by writer.

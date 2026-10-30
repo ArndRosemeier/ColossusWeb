@@ -23,6 +23,8 @@ export interface MasterSearchOptions {
   holdLegionId?: string
   stopAfterHoldImprovement?: boolean
   continuationLegionId?: string
+  /** Actual Normal action. Omitted diagnostic callers use the first supplied move. */
+  controlCommand?: MasterHoldValue['command']
 }
 export const HARD_MASTER_SEARCH = Object.freeze({ depth: 2 as const, maxNodes: 600, candidateLimit: 3, destinationsPerRoll: 2, maxGeneratedMoves: 6000, maxMovementQueries: 4096 })
 export interface MasterSearchDiagnostics {
@@ -43,6 +45,8 @@ export interface MasterSearchDiagnostics {
   exhausted: boolean
   incomplete: boolean
   completeCandidates: number
+  completedActions: number
+  controlComplete: boolean
   certifiedHoldEarlyExit: boolean
 }
 export interface MasterCandidateValue {
@@ -54,14 +58,18 @@ export interface MasterCandidateValue {
   holdCommand: MasterHoldValue['command'] | null
   continuationLegionId: string
 }
-export interface MasterHoldValue {
+export interface MasterControlValue {
   command: Extract<GameCommand, { type: 'move' | 'doneMove' }>
-  heldLegionId: string
   expectedArmyQuality: number
   currentMusters: string[]
   continuationLegionId: string
 }
+export interface MasterHoldValue extends MasterControlValue {
+  heldLegionId: string
+}
 export interface MasterSearchResult {
+  control: MasterControlValue | null
+  completedHolds: MasterHoldValue[]
   best: MasterCandidateValue | null
   candidates: MasterCandidateValue[]
   bestHold: MasterHoldValue | null
@@ -163,23 +171,30 @@ export function searchMasterMoves(state: GameState, ranked: readonly ScoredMove[
     throw new Error('Invalid master lookahead budget')
   }
   const diagnostics: MasterSearchDiagnostics = { depth: limits.depth, reachedDepth: 0, nodes: 0, memoHits: 0,
-    expandedFutureMusters: 0, movementQueries: 0, generatedMoves: 0, futureRecruitCounts: {}, futureMustersByLegion: {}, futureHolds: 0, companionHoldMoves: 0, combinedFutureRounds: 0, prunedUnsafeContinuations: 0, continuationLegionId: null, exhausted: false, incomplete: false, completeCandidates: 0, certifiedHoldEarlyExit: false }
-  const result: MasterSearchResult = { best: null, candidates: [], bestHold: null, diagnostics }
+    expandedFutureMusters: 0, movementQueries: 0, generatedMoves: 0, futureRecruitCounts: {}, futureMustersByLegion: {}, futureHolds: 0, companionHoldMoves: 0, combinedFutureRounds: 0, prunedUnsafeContinuations: 0, continuationLegionId: null, exhausted: false, incomplete: false, completeCandidates: 0, completedActions: 0, controlComplete: false, certifiedHoldEarlyExit: false }
+  const result: MasterSearchResult = { control: null, completedHolds: [], best: null, candidates: [], bestHold: null, diagnostics }
   if (state.phase !== 'Move' || state.movementRoll == null) return result
   const owner = state.players[state.activePlayerIndex].id
   // Current unresolved battles require casualties/stock we deliberately do not invent.
   if (state.legions.some((l) => l.playerId === owner && enemyOn(state, l.hexLabel, owner))) return result
+  const controlCommand = limits.controlCommand ?? (ranked[0] ? { type: 'move' as const, legionId: ranked[0].legionId, toHex: ranked[0].hex, teleport: ranked[0].teleport } : null)
+  const sameMove = (move: ScoredMove, command: MasterHoldValue['command'] | null) => command?.type === 'move' &&
+    move.legionId === command.legionId && move.hex === command.toHex && move.teleport === !!command.teleport
   const eligible = ranked.filter((m) => !m.forcedSplit && !enemyOn(state, m.hex, owner))
+  const controlMove = controlCommand?.type === 'move' ? eligible.find(move => sameMove(move, controlCommand)) : undefined
+  // An unsupported actual control is not silently replaced by the next eligible root.
+  if (controlCommand?.type === 'move' && !controlMove) { diagnostics.incomplete = true; return result }
+  const ordered = controlMove ? [controlMove, ...eligible.filter(move => move !== controlMove)] : eligible
   // Keep the actual control first, then represent other legions before filling
   // remaining slots with alternate routes for an already represented legion.
   const diversified: ScoredMove[] = []
   const represented = new Set<string>()
-  for (const move of eligible) {
+  for (const move of ordered) {
     if (represented.has(move.legionId)) continue
     diversified.push(move)
     represented.add(move.legionId)
   }
-  for (const move of eligible) if (!diversified.includes(move)) diversified.push(move)
+  for (const move of ordered) if (!diversified.includes(move)) diversified.push(move)
   const shortlist = diversified.slice(0, limits.candidateLimit)
   const rootMovers = new Set(ranked.map((move) => move.legionId))
   // One policy focus for EVERY root, including HOLD labelled by another stack.
@@ -398,18 +413,37 @@ export function searchMasterMoves(state: GameState, ranked: readonly ScoredMove[
     const certificate = holdCertificate(state, legion, true).certificate
     if (!certificate) { holds.set(legion.id, null); return null }
     const value = visit(certificate.state, limits.depth)
-    if (value === null || value === 'unsafe') { holds.set(legion.id, null); return null }
+    if (value === null || value === 'unsafe') {
+      if (value === 'unsafe') diagnostics.incomplete = true
+      holds.set(legion.id, null); return null
+    }
     const hold: MasterHoldValue = { command: certificate.command, heldLegionId: legion.id,
       expectedArmyQuality: value, currentMusters: certificate.musters, continuationLegionId: focusId }
     holds.set(legion.id, hold)
+    result.completedHolds.push(hold); diagnostics.completedActions++
     if (!result.bestHold || value > result.bestHold.expectedArmyQuality) result.bestHold = hold
     return hold
+  }
+
+  // Done is its OWN actual comparator, never a helper-HOLD whose first real
+  // command moves a different stack. Evaluate it before optional roots.
+  if (controlCommand?.type === 'doneMove') {
+    if (!canEndMovePhase(state) || needsRecombination(state)) { diagnostics.incomplete = true; return result }
+    const grown = musterProjection(state, focus)
+    const value = visit(grown.state, limits.depth)
+    if (value === null || value === 'unsafe') {
+      if (value === 'unsafe') diagnostics.incomplete = true
+      diagnostics.movementQueries += reach.movementQueries
+      return result
+    }
+    result.control = { command: controlCommand, expectedArmyQuality: value, currentMusters: grown.musters, continuationLegionId: focusId }
+    diagnostics.controlComplete = true; diagnostics.completedActions++
   }
 
   for (const move of shortlist) {
     const legion = state.legions.find((l) => l.id === move.legionId)
     if (!legion || legion.playerId !== owner) throw new Error('Master lookahead move has no owned legion')
-    if (!movementQuery()) { result.candidates = []; break }
+    if (!movementQuery()) break
     const legal = listAllMoves(state, legion, state.movementRoll).get(move.hex)
     if (!legal || legal.teleport !== move.teleport) throw new Error('Master lookahead received stale/illegal candidate')
     const landed = moveProjection(state, legion, move.hex, move.teleport)
@@ -423,14 +457,23 @@ export function searchMasterMoves(state: GameState, ranked: readonly ScoredMove[
     const value = visit(grown.state, limits.depth)
     if (value === null || value === 'unsafe') {
       if (value === 'unsafe') diagnostics.incomplete = true
-      result.candidates = []; result.best = null; break
+      break // Exclude ONLY this unfinished/unsupported optional action, then stop.
     }
+    const candidate: MasterCandidateValue = { move, expectedArmyQuality: value,
+      utility: (value - baseQuality) * profile.recruitPreference + move.score * 0.1, currentMusters: grown.musters,
+      holdArmyQuality: null, holdCommand: null, continuationLegionId: focusId }
+    result.candidates.push(candidate); diagnostics.completeCandidates++; diagnostics.completedActions++
+    if (sameMove(move, controlCommand)) {
+      result.control = { command: controlCommand!, expectedArmyQuality: value, currentMusters: grown.musters, continuationLegionId: focusId }
+      diagnostics.controlComplete = true
+    }
+    // Publish a complete Move independently BEFORE spending work on optional HOLD.
     const hold = limits.compareHold ? rootHold(legion) : null
-    if (diagnostics.exhausted || diagnostics.incomplete) { result.candidates = []; result.best = null; result.bestHold = null; break }
-    const holdArmyQuality = hold?.expectedArmyQuality ?? null
-    diagnostics.completeCandidates++
-    result.candidates.push({ move, expectedArmyQuality: value,
-      utility: (value - (holdArmyQuality ?? baseQuality)) * profile.recruitPreference + move.score * 0.1, currentMusters: grown.musters, holdArmyQuality, holdCommand: hold?.command ?? null, continuationLegionId: focusId })
+    if (hold) {
+      candidate.holdArmyQuality = hold.expectedArmyQuality; candidate.holdCommand = hold.command
+      candidate.utility = (value - hold.expectedArmyQuality) * profile.recruitPreference + move.score * 0.1
+    }
+    if (diagnostics.exhausted || diagnostics.incomplete) break
     // The first root is the actual Normal control. A fully completed superior
     // legal HOLD is already a proven improvement; do not spend the remaining
     // budget on optional roots and then discard that completed comparison.
@@ -444,8 +487,9 @@ export function searchMasterMoves(state: GameState, ranked: readonly ScoredMove[
     if (!held) throw new Error('Master HOLD has no unmoved owned legion')
     rootHold(held)
   }
-  if (diagnostics.exhausted || diagnostics.incomplete) { result.candidates = []; result.best = null; result.bestHold = null }
-  if (!diagnostics.exhausted && !diagnostics.incomplete) result.best = [...result.candidates].sort((a, b) => b.expectedArmyQuality - a.expectedArmyQuality || b.utility - a.utility)[0] ?? null
+  // A sticky stop flag describes later optional work, not the validity of an
+  // already completed all-six-roll scalar. Never publish a partial chance value.
+  result.best = [...result.candidates].sort((a, b) => b.expectedArmyQuality - a.expectedArmyQuality || b.utility - a.utility)[0] ?? null
   diagnostics.movementQueries += reach.movementQueries
   return result
 }

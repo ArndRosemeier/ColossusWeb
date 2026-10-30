@@ -83,6 +83,22 @@ describe('legal masterboard HOLD alternatives', () => {
     expect(recruited.legions.find((l) => l.id === own.id)!.creatures).toHaveLength(2)
   })
 
+  it('never substitutes a helper-move HOLD certificate for an exact Done control that the engine forbids', () => {
+    const { state, own, enemy } = trap('4', 3)
+    own.creatures = ['Ogre', 'Ogre'].map(type => ({ type, hits: 0 }))
+    enemy.creatures = ['Centaur', 'Centaur'].map(type => ({ type, hits: 0 }))
+    const ally = helper(own); ally.creatures = ['Cyclops', 'Cyclops', 'Cyclops'].map(type => ({ type, hits: 0 }))
+    state.legions.push(ally)
+    expect(canEndMovePhase(state)).toBe(false)
+    const ranked = rankMoves(state, profile)
+    const helperHold = searchMasterMoves(state, ranked, profile, { compareHold: true, holdLegionId: own.id })
+    expect(helperHold.bestHold?.command).toMatchObject({ type: 'move', legionId: ally.id })
+    const exactDone = searchMasterMoves(state, ranked, profile, { compareHold: true, holdLegionId: own.id, controlCommand: { type: 'doneMove' } })
+    expect(exactDone.control).toBeNull(); expect(exactDone.diagnostics.controlComplete).toBe(false)
+    expect(exactDone.candidates).toEqual([]); expect(exactDone.completedHolds).toEqual([])
+    expect(dispatch(state, { type: 'doneMove' }).phase).toBe('Move')
+  })
+
   it('can end movement legally when the ordinary move is worse than holding, at the actual root', () => {
     const { state, own, enemy } = trap('100', 3)
     own.creatures = ['Lion', 'Ogre'].map((type) => ({ type, hits: 0 }))

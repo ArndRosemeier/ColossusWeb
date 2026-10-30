@@ -18,7 +18,7 @@ function extraLegion(state: GameState, original: Legion, id: string, hexLabel: s
 }
 
 describe('Easy uses simpler legion coordination with shared safety', () => {
-  it.each(Object.values(AI_PROFILES))('keeps Easy quiet coordination and Normal/Hard ordinary growth when depth is incomplete for $id', profile => {
+  it.each(Object.values(AI_PROFILES))('keeps Easy quiet coordination and Normal/Hard ordinary growth when later optional depth exhausts for $id', profile => {
     for (const level of AI_DIFFICULTY_CHOICES) {
       const state = twoPlayerGame(71), moved = state.legions[0]
       state.turnNumber = 3; state.phase = 'Move'; state.movementRoll = 3
@@ -38,15 +38,20 @@ describe('Easy uses simpler legion coordination with shared safety', () => {
         expect(command).toMatchObject({ type: 'move', legionId: useful.id })
         expect(next.legions.find(legion => legion.id === useful.id)!.moved).toBe(true)
       } else {
-        // A comparable whole-round continuation now costs more than the old
-        // asymmetric HOLD tree. Incomplete work must keep the actual control.
+        // Later optional work can exhaust after the actual control and HOLD
+        // finish. Retained complete proof finds no better action here.
         const ordinary = pickBestMove(state, profile, () => 0, true, new Set(), { masterLookahead: false })
         expect(ordinary).toMatchObject({ type: 'move', legionId: useful.id })
         const control = ranked.find(move => ordinary.type === 'move' && move.legionId === ordinary.legionId && move.hex === ordinary.toHex)!
         const proof = searchMasterMoves(state, [control, ...ranked.filter(move => move !== control)], profile,
           { compareHold: true, holdLegionId: useful.id, stopAfterHoldImprovement: true })
         expect(proof.diagnostics.exhausted).toBe(true)
-        expect(proof.best).toBeNull()
+        expect(proof.diagnostics.controlComplete).toBe(true)
+        expect(proof.control?.command).toEqual(ordinary)
+        expect(proof.best!.move).toBe(control)
+        expect(proof.best!.expectedArmyQuality).toBe(proof.control!.expectedArmyQuality)
+        expect(proof.control!.expectedArmyQuality).toBeCloseTo(155.77292534722218, 8)
+        expect(proof.bestHold!.expectedArmyQuality).toBeCloseTo(150.80463107638886, 8)
         expect(command).toEqual(ordinary)
         expect(next.legions.find(legion => legion.id === useful.id)!.moved).toBe(true)
       }

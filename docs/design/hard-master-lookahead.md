@@ -2,7 +2,7 @@
 
 `ai/masterLookahead.ts:searchMasterMoves` is the production Hard depth seam. It uses three actual current legal noncombat move candidates, a bounded future-action beam at each roll, all six movement faces, and two future own movement/muster cycles after the current landing. This is additional temporal depth; increasing a current candidate count alone is not this policy.
 
-`evaluateMove.pickBestMove` still returns shared forced separation, risk-reducing Titan rescue and Easy coordination decisions first. It computes the unchanged ordinary Normal command once, with the ordinary RNG consumption. Normal/Easy immediately return it. For Hard, that command is included in the shortlist and its legion is the common continuation focus for every root (first eligible root when Normal stops); current combat decisions stay with the existing scorer. Only a completely evaluated alternative with more than0.5 expected army-quality improvement can replace the control. Every Hard control also considers a legal completed HOLD counterfactual, so Hard can stop even when Normal proposes a worse move, and already-earned allied musters cannot falsely justify another move. Root HOLD may return Done only when the engine permits ending movement; otherwise it carries an actual companion move certificate. Exhaustion, insufficient improvement and unresolved existing combat all retain the exact ordinary control. Search itself consumes no RNG.
+`evaluateMove.pickBestMove` still returns shared forced separation, risk-reducing Titan rescue and Easy coordination decisions first. It computes the unchanged ordinary Normal command once, with the ordinary RNG consumption. Normal/Easy immediately return it. For Hard, that command is included in the shortlist and its legion is the common continuation focus for every root (first eligible root when Normal stops); current combat decisions stay with the existing scorer. Only a completely evaluated alternative with more than0.5 expected army-quality improvement can replace the control. Every Hard control also considers a legal completed HOLD counterfactual, so Hard can stop even when Normal proposes a worse move, and already-earned allied musters cannot falsely justify another move. Root HOLD may return Done only when the engine permits ending movement; otherwise it carries an actual companion move certificate. An incomplete actual control, insufficient improvement and unresolved existing combat retain the exact ordinary control. Later optional exhaustion does not erase an already completed comparison (row45). Search itself consumes no RNG.
 
 Each projected current landing clones owned legions/caretaker and runs deterministic greedy global muster using engine bestRecruit/scoreRecruitOption/applyRecruit. Already-moved allies compete for the same last copy. Future rounds reset ALL friendly movement/recruitment/teleport eligibility and owner teleport availability. Each future Move AND HOLD may include one concrete safe optional companion move through the same completion policy, even when the focus move already satisfies the engine's movement obligation. Both actions precede one global muster. Other positions remain frozen. Only genuinely moved stacks may muster, including the companion with shared caretaker depletion; stationary HOLD never grants a recruit. Legal future routes, blockers and each turn's teleport eligibility come from listAllMoves after explicit whole-player future-flag reset. Current command legality is checked with listAllMoves and the actual current roll. Current and future stock/composition changes are real projections, without mutating the input or dispatching commands into the live world.
 
@@ -10,7 +10,7 @@ A future frontier is ranked by the existing strategic recruit scorer before boun
 
 Survival uses six-roll enemy reach under the candidate occupancy and the shared battle estimate. Opposing legions of one owner share a roll, so their winning six-bit reach events are unioned per player, with independent remaining-player opportunities. `boardSpatial.candidateReachRollMasks` reuses the existing occupancy/teleport key and adds an optional bounded512-entry mask cache only for explicit callers; existing Normal/Easy count paths are unchanged. Stock-sensitive battle outcomes are recomputed separately. Current occupied-target normal movement stops on contact, producing nested suffix masks, so the former maximum would be equivalent there; this generic union is not claimed as an observed Default-game bug. Tests separate synthetic disjoint/overlap aggregation math from actual legal occupied-target masks and a caretaker-sensitive reinforcement outcome. Death removes the mover's projected quality; Titan death has a large game-loss cost. Forecast quality is discounted0.85 per future cycle. Combat destinations are not expanded into invented winners/casualties; a genuinely mandatory combat-only frontier receives no fabricated winning-combat credit. It is not deemed mandatory merely because the selected legion has only attack destinations: a bounded concrete noncombat companion move may permit the selected legion to HOLD. If other legal actions exist but no safe certificate is modeled, the comparison is incomplete and falls back instead of assigning fictitious selected-legion death. Truly immobile/legal-ending branches retain existing quality without an invented muster. This is a conservative local single-legion model, not full-game expectimax, a tactical battle simulator or fair-information inference.
 
-Default work limits are600 unique evaluated nodes,6000 generated legal frontier options and4096 movement-provider queries, three current candidates and two future alternatives (one focus move plus legal HOLD when available). The reach helper performs six-roll batches; its final batch may overshoot the query limit by at most six before the whole search is abandoned. Memo and reach caches are decision-local; memo keys include complete stock, every legion's occupancy/composition/hits/eligibility and all player score/Titan/teleport inputs. Variant and personality are fixed during a call. Partial chance nodes return no value, and an exhausted root comparison discards all partially comparable positive candidates. Counters expose requested/reached depth, nodes, memo hits, future musters/types, generated moves, actual movement queries and completion/exhaustion.
+Default work limits are600 unique evaluated nodes,6000 generated legal frontier options and4096 movement-provider queries, three current candidates and two future alternatives (one focus move plus legal HOLD when available). The reach helper performs six-roll batches; its final batch may overshoot the query limit by at most six before the whole search is abandoned. Memo and reach caches are decision-local; memo keys include complete stock, every legion's occupancy/composition/hits/eligibility and all player score/Titan/teleport inputs. Variant and personality are fixed during a call. Partial chance nodes return no value. Completed independent roots remain valid if a later optional action exhausts; that action is excluded and search stops. Diagnostics retain the stop reason separately from the explicit completed control/action records. Counters expose requested/reached depth, nodes, memo hits, future musters/types, generated moves, actual movement queries and completion/exhaustion.
 
 The old `musterSearch` modes are opt-in research policies with different scoring and incomplete cache keys. They deliberately remain unchanged here: silently routing them through the new search would violate the explicit Normal/Easy command/RNG preservation requirement. Production Hard is not mapped to unbounded lookplus. Legality and recruiting heuristics are shared engine seams, not reimplemented graph rules.
 
@@ -31,3 +31,41 @@ Row40 common-policy correction: one continuationLegionId is fixed before root ev
 Changed nonfocus stacks require the same existing modeled-survival certificate; frozen nonfocus stacks also cannot become newly exposed relative to the original occupancy. Unsafe future alternatives are pruned without assigning them an invented surviving-army value; unsupported actual-control roots or chance nodes with no supported option fall back. This adds no new strength formula. Existing Normal/Easy control/RNG paths and600-node/4096-query ceilings remain unchanged; larger fair trees may legitimately fall back more often. Counters expose common focus, combinedFutureRounds and prunedUnsafeContinuations, so completed planning is distinguishable from configured depth or unsupported work.
 
 Evidence is deliberately bounded: the proposed100→1 Troll path was invalid (Plains). Correct actual roll3 Default200→8/+Troll and4000→24/+Gorgon execute together with exact stock. Old default Hard retained the same command as Normal after exhaustion; this was not a reproduced bad Done. Identical B→24 root worlds have equal completed values before and after, while new tests additionally require the same focus across roots and real future Move+companion agency. These fixtures establish policy comparability and legal combined recruiting, not a demonstrated match-strength improvement. Parent owns calibration.
+
+## Row45 — completed actions survive later optional exhaustion
+
+COPIES: 1 — searchMasterMoves remains the sole production search/completeness seam;
+visit publishes only complete chance-node values and evaluateMove consumes its
+explicit completed actual control. No second search, cache or strength scorer.
+
+The actual Normal command is passed explicitly. A Move control is first among
+eligible roots and records its complete expected army quality. Normal Done is a
+separate legal Done projection plus shared muster and full continuation, evaluated
+before any optional Move. It is never identified with whichever helper-HOLD had the
+highest value. Unsupported/illegal Done, recombination, or an incomplete actual
+control leaves no comparator and the live caller returns exactly Normal.
+
+Each Move is published immediately after its complete visit, before attempting its
+optional root HOLD. Completed HOLDs record their actual first command and legal
+certificate/continuation. If a later optional root/HOLD is incomplete, unsafe or
+exhausted, it earns no value and the root loop stops; earlier completed values and
+memo scalars remain immutable evidence. No search resumes with sticky flags, and
+no partial six-roll expected value is published. This extends the same principle
+already used by the completed first-root HOLD early exit.
+
+Global exhausted/incomplete flags remain truthful. controlComplete, completeCandidates,
+completedActions, the explicit control, candidate list and completedHolds expose
+which actual comparisons finished. The real chooser requires the completed exact
+control and more than0.5 complete expected army improvement, rather than rejecting
+all values solely because optional work later hit its ceiling. Bounds, fixed focus,
+all-six-roll averaging, survival, stock, Normal/Easy RNG and mandatory safety remain
+unchanged. A candidate not fully evaluated cannot beat the comparator.
+
+Tests derive a cap from completed smaller real Default searches instead of fixing a
+match seed or tuning the global budget. They exercise retained complete control+
+alternative despite a third root, incomplete control/positive alternative, an
+optional HOLD consuming the final budget, exact legal Done, and a forbidden Done
+whose helper-HOLD would be a different command. Actual dispatch verifies selected
+moves and Done legality; existing split/stock/safety/focus tests remain authority.
+Verification status and physical negatives belong in TESTING, not inferred from
+this design. This structural correction does not itself demonstrate stronger play.
