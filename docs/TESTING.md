@@ -827,3 +827,19 @@ full red assertion is retained. Node1024/worker1; peakNOTMEASURED. Separate sour
 comparison confirms the four extracted handler bodies are byte-identical to a6c46de
 (normalized LF), preserving validation/error ordering. No whole-suite, production
 browser or strength claim by the writer; integrated dispatcher checks remain owed.
+
+## Row45 — completed master actions survive optional exhaustion (2026-10-30)
+
+COPIES: 1 — existing searchMasterMoves/visit per-action completeness and explicit
+actual Normal comparator, consumed by the same evaluateMove chooser.
+
+Initial cheap `.gate-logs/master-complete-actions-cheap/gate.log` exit2: actual
+TypeScript/Vite120modules, /ColossusWeb index-DTt7D85a.js; Node1024. No focused tests
+have run yet: parent benchmark91570 owns the shared expensive lock on frozen de6cdf1.
+Coherent implementation/tests are committed for recovery; cheap is NOT full verified.
+The changed tests target actual Default roots and engine-dispatched moves/Done,
+completed-prefix versus incomplete later roots, independent Move versus optional
+HOLD, exact control identity, all-six-roll purity and unchanged Normal/Easy RNG.
+Named fixtures and cap-derived thresholds still require execution; no result or
+runtime is claimed. Focused and commit-first physical differential are owed when
+the parent releases the gate. No Java execution, budget increase or strength claim.

@@ -352,7 +352,7 @@ export function pickBestMove(
     return { type: 'doneMove' }
   }
 
-  const ordinaryMove = (): GameCommand => {
+  const ordinaryMove = (): Extract<GameCommand, { type: 'move' | 'doneMove' }> => {
   const best = ranked[0]!
   const greedy = playerHeuristic(state, state.players[state.activePlayerIndex]!.id) === 'decisive'
   if (greedy && best.score > 0) {
@@ -396,11 +396,10 @@ export function pickBestMove(
   const candidates = controlMove ? [controlMove, ...ranked.filter((m) => m !== controlMove)] : ranked
   const deeper = searchMasterMoves(state, candidates, profile, { ...options.masterLookahead,
     compareHold: true, holdLegionId: controlMove?.legionId, continuationLegionId: controlMove?.legionId,
-    stopAfterHoldImprovement: !!controlMove })
-  if (deeper.diagnostics.exhausted || deeper.diagnostics.incomplete) return control
-  const comparator = controlMove
-    ? deeper.candidates.find((c) => c.move === controlMove)?.expectedArmyQuality
-    : deeper.bestHold?.expectedArmyQuality
+    stopAfterHoldImprovement: !!controlMove, controlCommand: control })
+  // A later optional branch can exhaust without invalidating a completed actual
+  // Normal comparator and another independently completed action.
+  const comparator = deeper.control?.expectedArmyQuality
   // Both legal HOLD/companion certificates and moves compete against the same
   // completed ordinary control. Never return Done just because a stack can stay.
   if (comparator == null) return control
