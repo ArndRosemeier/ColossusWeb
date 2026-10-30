@@ -77,6 +77,19 @@ describe('comparable masterboard continuation policy', () => {
     expect(result.diagnostics.prunedUnsafeContinuations).toBe(1)
     expect(result.best).toBeNull()
     expect(result.bestHold).toBeNull()
+    // The SAME unsupported root is merely optional after a completed safe
+    // actual control; it cannot erase the independent earlier scalar.
+    const safe = rankMoves(state, AI_PROFILES.balanced).find(move => move.legionId === cyclops.id)!
+    expect(safe).toBeTruthy()
+    const controlOnly = searchMasterMoves(state, [safe], AI_PROFILES.balanced,
+      { continuationLegionId: cyclops.id, depth: 1, destinationsPerRoll: 1 })
+    expect(controlOnly.control).not.toBeNull()
+    const laterUnsafe = searchMasterMoves(state, [safe, bad], AI_PROFILES.balanced,
+      { continuationLegionId: cyclops.id, depth: 1, destinationsPerRoll: 1 })
+    expect(laterUnsafe.diagnostics).toMatchObject({ incomplete: true, exhausted: false, controlComplete: true, completeCandidates: 1 })
+    expect(laterUnsafe.control).toEqual(controlOnly.control)
+    expect(laterUnsafe.best!.move).toBe(safe)
+    expect(laterUnsafe.candidates.some(candidate => candidate.move === bad)).toBe(false)
     expect(JSON.stringify(state)).toBe(before)
   })
 })

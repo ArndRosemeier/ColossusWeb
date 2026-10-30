@@ -843,3 +843,21 @@ HOLD, exact control identity, all-six-roll purity and unchanged Normal/Easy RNG.
 Named fixtures and cap-derived thresholds still require execution; no result or
 runtime is claimed. Focused and commit-first physical differential are owed when
 the parent releases the gate. No Java execution, budget increase or strength claim.
+
+Row45 focused `.gate-logs/master-complete-actions-final/gate.log` gate0:
+77passed/5files, changed-source lint0warnings/0errors,3.03s;Node1024/worker1;
+peakNOTMEASURED. Actual Default two-Lion control100→142 value45.42745 and complete
+alternative100→42 value49.10125 both finish under93nodes; cap derived as94 makes
+the third root exhaust. Both completed scalars survive unchanged, third root earns
+no candidate, actual chooser dispatches42 legally. This is a real structural
+regression with a diagnostic derived cap, not an observed failed tournament move.
+Current default104node fixture remains7.20ms; legal superior rootHOLD299nodes,
+18.10ms; common-focus identical worlds304nodes/3964queries,30.35ms. Existing safety,
+stock, helper obligation and Normal/Easy RNG pins pass. A complete Move also survives
+its own incomplete optional HOLD; exact legal Done control precedes optional moves;
+forbidden Done cannot borrow a helper-move HOLD; later unsafe nonfocus root preserves
+an earlier complete actual control. Initial red retained at master-complete-actions-
+initial: four Easy-coordination diagnostic assertions expected obsolete proof.best
+null after any later exhaustion. Dispatcher approved replacing only those diagnostics
+with retained control155.772925/best identity and HOLD150.804631 values; all actual
+Easy/Normal/Hard commands, safety and RNG expectations remain intact.
