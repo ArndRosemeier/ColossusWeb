@@ -26,6 +26,8 @@ import { sampleBattleChoices, sampleBattleRoots, hasPendingInitialEntry, strikeR
 import { difficultyForPlayer } from './difficulty'
 import { battlePlannerOptions, legalEnemyResponse, NORMAL_BATTLE_PLANNER, type BattlePlannerOptions } from './battleResponse'
 import { searchBattleDeployment, type BattleDeploymentOptions, type DeploymentResult } from './battleDeployment'
+import { searchWholeManeuver, type WholeManeuverOptions, type WholeManeuverResult } from './battleManeuver'
+import { cloneFormation, type FormationMove } from './battleFormation'
 import type { BattleState, BattleUnit, GameCommand, GameState } from '../engine/types'
 import {
   RATIO_DRAW,
@@ -820,10 +822,13 @@ export interface BattleTacticalOptions extends Partial<BattlePlannerOptions> {
   rollout?: false | Partial<BattleRolloutOptions>
   /** Hard-only complete initial entry formations; separate from combat rollouts. */
   deployment?: false | Partial<BattleDeploymentOptions>
+  /** Hard-only complete non-entry maneuver; false keeps the previous local search. */
+  maneuver?: false | Partial<WholeManeuverOptions>
 }
 
 export interface BattlePlanningWork { responseNodes: number; safetyNodes: number; safetyExhausted: boolean; candidatesEvaluated: number; exhausted: boolean }
 export interface BattlePlanResult {
+  maneuver?: WholeManeuverResult
   rollout?: BattleRolloutWork
   normalControlWork?: BattlePlanningWork
   command: GameCommand
@@ -833,6 +838,27 @@ export interface BattlePlanResult {
 function battleResponseWeight(battle: BattleState, asAttacker: boolean): number {
   const heat = battleClockHeat(battle)
   return asAttacker ? Math.max(0.1, 0.5 - 0.35 * heat - 0.2 * attackerPreReinforceUrgency(battle)) : 0.65 + 0.35 * heat
+}
+
+function formationAdjacency(state: GameState, battle: BattleState): number {
+  return battle.units.filter(unit => unit.playerId === battle.activePlayerId && unit.hex && isUnitAlive(state, unit))
+    .reduce((sum, unit) => sum + formationScore(state, battle, unit, unit.hex!), 0)
+}
+function completeFormationScore(state: GameState, battle: BattleState, profile: AiProfile, budget: { nodes: number; limit: number }) {
+  let score = 0
+  for (const unit of battle.units) if (unit.playerId === battle.activePlayerId && unit.hex && isUnitAlive(state, unit)) {
+    score += evaluateBattleHexInPlace(state, battle, unit, unit.hex, profile)
+  }
+  const reply = legalEnemyResponse(state, battle, budget, unit => ownKeepValue(state, battle, unit, profile))
+  return { score: reply.titanDoomed ? -Infinity : score - reply.loss * profile.fightLossPenalty *
+    battleResponseWeight(battle, actingAsAttacker(state, battle)) - reply.titanRisk * 10000,
+  titanRisk: reply.titanRisk, complete: reply.complete }
+}
+function compareCompleteFormations(state: GameState, battle: BattleState, profile: AiProfile,
+  formations: { id: string; battle: BattleState; plan: FormationMove[] }[], rollout: false | Partial<BattleRolloutOptions> | undefined) {
+  const roots = formations.map(formation => ({ id: formation.id, battle: formation.battle,
+    first: { type: 'battleDonePhase' as const }, command: formation.plan[0] ?? { type: 'battleDonePhase' as const } }))
+  return sampleBattleRoots(state, battle, roots.slice(1), roots[0], profile, rollout || {})
 }
 
 function searchBattleManeuver(state: GameState, battle: BattleState, profile: AiProfile,
@@ -937,6 +963,34 @@ function planManeuverWithRollouts(state: GameState, battle: BattleState, profile
   const { rollout, ...planning } = options
   const hard = difficultyForPlayer(state, battle.activePlayerId).id === 'hard'
   const enabled = hard && rollout !== false
+  if (enabled && options.maneuver !== false && battle.firstManeuverDone.attacker && battle.firstManeuverDone.defender &&
+      !battle.units.some(unit => !unit.hex && isUnitAlive(state, unit))) {
+    const normal = searchBattleManeuver(state, battle, profile, ranked, NORMAL_BATTLE_PLANNER, true)
+    if (normal.protected) return { command: normal.command, work: normal.work, normalControlWork: normal.work }
+    const scratch = cloneFormation(battle), priors = new Map<string, number>()
+    for (const unit of scratch.units) if (unit.playerId === scratch.activePlayerId && !unit.moved && unit.hex && isUnitAlive(state, unit)) {
+      for (const hex of Object.keys(battleLand(state, scratch).hexByLabel)) priors.set(unit.id + ':' + hex,
+        evaluateBattleHexInPlace(state, scratch, unit, hex, profile) - formationScore(state, scratch, unit, hex))
+    }
+    const whole = searchWholeManeuver(state, battle, normal.command, {
+      normal: sim => {
+        const moves = rankBattleMoves(state, sim, profile)
+        if (moves.length === 0) return { command: { type: 'battleDonePhase' }, responseNodes: 0, safetyNodes: 0 }
+        const next = searchBattleManeuver(state, sim, profile, moves, NORMAL_BATTLE_PLANNER)
+        return { command: next.command, responseNodes: next.work.responseNodes, safetyNodes: next.work.safetyNodes }
+      },
+      placementScore: (id, hex) => {
+        const score = priors.get(id + ':' + hex)
+        if (score === undefined) throw new Error('Missing maneuver placement prior')
+        return score
+      },
+      formationScore: sim => formationAdjacency(state, sim),
+      completeScore: (sim, budget) => completeFormationScore(state, sim, profile, budget),
+      compare: formations => compareCompleteFormations(state, battle, profile, formations, rollout),
+    }, options.maneuver || {})
+    whole.work.priorEvaluations = priors.size
+    return { command: whole.command, work: normal.work, normalControlWork: normal.work, maneuver: whole, rollout: whole.rollout }
+  }
   const base = searchBattleManeuver(state, battle, profile, ranked, hard && !enabled ? { ...NORMAL_BATTLE_PLANNER, ...planning } : planning, enabled)
   if (!enabled) return { command: base.command, work: base.work }
   const normal = searchBattleManeuver(state, battle, profile, ranked, NORMAL_BATTLE_PLANNER, true)
@@ -970,7 +1024,7 @@ function planInitialEntry(state: GameState, battle: BattleState, profile: AiProf
   control: GameCommand, ranked: ScoredBattleMove[], options: BattleTacticalOptions): DeploymentResult {
   const enemyId = battle.units.find(unit => unit.playerId !== battle.activePlayerId)?.playerId
   const fallback = (): DeploymentResult => ({ command: control, plan: [], baselinePlan: [], score: null, baselineScore: null,
-    work: { nodes: 0, legalQueries: 0, completeFormations: 0, responseNodes: 0, entrySafetyChecks: 0, baselineMoves: 0, reachedDepth: 0,
+    work: { nodes: 0, legalQueries: 0, destinationEvaluations: 0, completeFormations: 0, responseNodes: 0, entrySafetyChecks: 0, baselineMoves: 0, reachedDepth: 0,
       exhausted: false, usedPlan: false, changedDecision: false, mandatorySafety: 'not-needed', reason: 'unsupported' } })
   if (difficultyForPlayer(state, battle.activePlayerId).id !== 'hard' || options.deployment === false || battle.firstManeuverDone[battle.activeHalf]) return fallback()
   const enabled = options.rollout !== false && !(enemyId && hasPendingInitialEntry(state, battle, enemyId))
@@ -985,28 +1039,14 @@ function planInitialEntry(state: GameState, battle: BattleState, profile: AiProf
     canFinishAfter: command => allCanStillEnter(state, battle, command.unitId, command.toHex),
     guaranteedTitanLoss: sim => sim.units.some(unit => unit.playerId === sim.activePlayerId && unit.creatureType === 'Titan' && unit.hex && isUnitAlive(state, unit) &&
       hazardDamageToCreature(battleLand(state, sim).hexByLabel[unit.hex].terrain, state.variant.creatures.Titan) >= remainingHp(state, unit)),
-    compare: formations => {
-      const roots = formations.map(formation => ({ id: formation.id, battle: formation.battle,
-        first: { type: 'battleDonePhase' as const }, command: formation.plan[0] }))
-      return sampleBattleRoots(state, battle, roots.slice(1), roots[0], profile, options.rollout || {})
-    },
+    compare: formations => compareCompleteFormations(state, battle, profile, formations, options.rollout),
     placementScore: (unitId, hex) => {
       const score = placement.get(unitId + ':' + hex)
       if (score === undefined) throw new Error('Deployment generated a destination absent from initial legal moves')
       return score
     },
-    formationScore: sim => sim.units.filter(unit => unit.playerId === sim.activePlayerId && unit.hex && isUnitAlive(state, unit))
-      .reduce((sum, unit) => sum + formationScore(state, sim, unit, unit.hex!), 0),
-    completeScore: (sim, budget) => {
-      let score = 0
-      for (const unit of sim.units) if (unit.playerId === sim.activePlayerId && unit.hex && isUnitAlive(state, unit)) {
-        score += evaluateBattleHexInPlace(state, sim, unit, unit.hex, profile)
-      }
-      const reply = legalEnemyResponse(state, sim, budget, unit => ownKeepValue(state, sim, unit, profile))
-      return { score: reply.titanDoomed ? -Infinity : score - reply.loss * profile.fightLossPenalty *
-        battleResponseWeight(sim, actingAsAttacker(state, sim)) - reply.titanRisk * 10000,
-      titanRisk: reply.titanRisk, complete: reply.complete }
-    },
+    formationScore: sim => formationAdjacency(state, sim),
+    completeScore: (sim, budget) => completeFormationScore(state, sim, profile, budget),
   }
   // Mandatory deterministic survival has its own fixed bounds, independent of
   // optional MC budgets. It requires a complete legal safe-entry certificate.

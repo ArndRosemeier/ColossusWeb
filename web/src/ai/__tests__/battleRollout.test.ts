@@ -374,7 +374,7 @@ describe('Hard battle search resolves actual sampled outcomes', () => {
     ours.forEach((unit, index) => { unit.hex = a[index] }); theirs.forEach((unit, index) => { unit.hex = d[index] })
     deepFreeze(state)
     const before = JSON.stringify(state), start = performance.now()
-    const result = planBattleManeuver(state, battle, AI_PROFILES.balanced)
+    const result = planBattleManeuver(state, battle, AI_PROFILES.balanced, { maneuver: false })
     console.log('Hard 7v7 real rollout', JSON.stringify({ ...result, elapsedMs: performance.now() - start }))
     expect(result.rollout?.usedRollout).toBe(true)
     expect(result.rollout?.completedRollouts).toBe(24)
