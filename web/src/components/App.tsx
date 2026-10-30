@@ -53,7 +53,7 @@ import { GameControls } from './GameControls'
 import { phaseEndCommand, applyEnterKeyPhaseEnd } from './LegionActions'
 import { MasterBoardView } from './MasterBoardView'
 import { PresentationModeToggle } from './PresentationModeToggle'
-import { MusicToggle } from './MusicToggle'
+import { MusicVolume } from './MusicVolume'
 import { useMusicScene } from '../audio/music'
 import { CreatureAssetErrorContext } from '../ui/creaturePresentation'
 import { BackgroundAtmosphereSelect } from './BackgroundAtmosphere'
@@ -732,7 +732,7 @@ export default function App() {
         <span className="topbar-spacer" />
         {saveFlash && <span className="save-flash">{saveFlash}</span>}
         <PresentationModeToggle className="ai-speed" />
-        <MusicToggle className="ai-speed" />
+        <MusicVolume className="ai-speed" />
         <BackgroundAtmosphereSelect className="ai-speed bg-atmosphere-select" />
         {!gameOver && !online && (
           <label className="ai-speed">

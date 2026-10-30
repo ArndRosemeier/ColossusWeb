@@ -14,23 +14,28 @@ describe('music playlists', () => {
   })
 })
 
-describe('music preference', () => {
+describe('music volume preference', () => {
   beforeEach(() => { localStorage.clear(); vi.resetModules() })
-  it('is off by default and remembers the choice', async () => {
+  it('defaults to zero, rejects bad stored values and remembers the choice', async () => {
     const music = await import('../music')
-    expect(music.getMusicEnabled()).toBe(false)
-    music.setMusicEnabled(false)
-    expect(localStorage.getItem('colossus.music')).toBe('off')
+    expect(music.getMusicVolume()).toBe(0)
+    for (const bad of ['', 'on', '-1', '101', '2.5', 'NaN']) {
+      vi.resetModules()
+      localStorage.setItem('colossus.musicVolume', bad)
+      expect((await import('../music')).getMusicVolume()).toBe(0)
+    }
     vi.resetModules()
-    localStorage.setItem('colossus.music', 'on')
-    expect((await import('../music')).getMusicEnabled()).toBe(true)
+    localStorage.setItem('colossus.musicVolume', '40')
+    expect((await import('../music')).getMusicVolume()).toBe(40)
+    expect(() => music.setMusicVolume(150)).toThrow(/Invalid music volume/)
   })
-  it('renders the Sound checkbox unchecked by default', async () => {
+  it('renders the slider at zero by default', async () => {
     const { createElement } = await import('react')
     const { renderToStaticMarkup } = await import('react-dom/server')
-    const { MusicToggle } = await import('../../components/MusicToggle')
-    const markup = renderToStaticMarkup(createElement(MusicToggle))
-    expect(markup).toContain('aria-label="Sound"')
-    expect(markup).not.toContain('checked=')
+    const { MusicVolume } = await import('../../components/MusicVolume')
+    const markup = renderToStaticMarkup(createElement(MusicVolume))
+    expect(markup).toContain('type="range"')
+    expect(markup).toContain('aria-label="Music volume"')
+    expect(markup).toContain('value="0"')
   })
 })

@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.10",
+    "date": "2026-10-30",
+    "changes": [
+      "The Sound checkbox is now a Music volume slider on the title screen and in the game bar. It starts at zero (silent); slide it up to hear the music."
+    ]
+  },
+  {
     "version": "1.09",
     "date": "2026-10-30",
     "changes": [

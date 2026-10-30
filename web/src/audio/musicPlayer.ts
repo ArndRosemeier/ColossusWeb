@@ -12,7 +12,6 @@ export const PLAYLISTS: Record<MusicScene, readonly string[]> = {
   battle: ['battle-clash.mp3', 'battle-siege.mp3'],
 }
 
-const VOLUME = 0.35
 const FADE_MS = 1500
 const FADE_STEP_MS = 50
 
@@ -22,6 +21,8 @@ export class MusicPlayer {
   private current: Channel | null = null
   private scene: MusicScene | null = null
   private next: Record<MusicScene, number> = { board: 0, battle: 0 }
+  /** Element volume, 0 to 1. */
+  private level = 0
 
   private readonly onError: (message: string) => void
 
@@ -33,6 +34,13 @@ export class MusicPlayer {
     this.scene = scene
     this.fadeOutCurrent()
     this.startTrack(scene)
+  }
+
+  /** Sets the playback volume (0 to 1); a running fade-in heads for the new level. */
+  setLevel(level: number): void {
+    if (!(level >= 0 && level <= 1)) throw new Error(`Invalid music volume: ${level}`)
+    this.level = level
+    if (this.current && this.current.fade === null) this.current.audio.volume = level
   }
 
   stop(): void {
@@ -62,7 +70,7 @@ export class MusicPlayer {
     })
     this.current = channel
     this.start(audio)
-    this.fadeTo(channel, VOLUME)
+    this.fadeTo(channel, () => this.level)
   }
 
   private start(audio: HTMLAudioElement): void {
@@ -81,14 +89,15 @@ export class MusicPlayer {
     this.fadeTo(old, 0, () => { old.audio.pause(); old.audio.removeAttribute('src'); old.audio.load() })
   }
 
-  private fadeTo(channel: Channel, target: number, done?: () => void): void {
+  private fadeTo(channel: Channel, targetLevel: number | (() => number), done?: () => void): void {
     if (channel.fade !== null) clearInterval(channel.fade)
+    const target = () => (typeof targetLevel === 'number' ? targetLevel : targetLevel())
     const start = channel.audio.volume
     const steps = Math.max(1, Math.round(FADE_MS / FADE_STEP_MS))
     let step = 0
     channel.fade = setInterval(() => {
       step += 1
-      channel.audio.volume = Math.min(1, Math.max(0, start + (target - start) * (step / steps)))
+      channel.audio.volume = Math.min(1, Math.max(0, start + (target() - start) * (step / steps)))
       if (step >= steps) {
         if (channel.fade !== null) clearInterval(channel.fade)
         channel.fade = null
