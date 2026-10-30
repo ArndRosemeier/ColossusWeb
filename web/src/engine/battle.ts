@@ -24,6 +24,7 @@ import type {
   BattleUnit,
   EntrySide,
   GameState,
+  GameCommand,
   Legion,
   PlayerState,
 } from './types'
@@ -89,6 +90,100 @@ export function listBattleSummonSources(state: GameState, battle: BattleState): 
 export function closeSummonWindow(battle: BattleState): void {
   battle.pendingSummon = false
   battle.summonState = 'tooLate'
+}
+
+export type BattleSupportCommand = Extract<GameCommand, { type: 'battleReinforce' | 'battleSkipReinforce' | 'battleSummon' | 'battleSkipSummon' }>
+
+/** ONE support transition for live dispatch and isolated battle trials. The handler
+ * validates and applies the existing rules directly; it does not allocate global
+ * IDs, consume RNG, or advance past the new unit's actual maneuver opportunity.
+ */
+export function applyBattleSupport(state: GameState, battle: BattleState, command: BattleSupportCommand): void {
+  switch (command.type) {
+    case 'battleReinforce': {
+      if (battle.phase !== 'Recruit') throw new Error('Not reinforce phase')
+      const def = state.legions.find((l) => l.id === battle.defenderLegionId)!
+      if (def.creatures.length >= 7) throw new Error('Legion full')
+      if ((state.caretaker[command.creatureType] ?? 0) <= 0) throw new Error('Caretaker empty')
+      const opts = listBattleReinforceOptions(state, battle)
+      if (!opts.includes(command.creatureType)) throw new Error('Illegal reinforcement')
+      state.caretaker[command.creatureType] -= 1
+      def.creatures.push({ type: command.creatureType, hits: 0 })
+      revealCreatures(def, [command.creatureType])
+      battle.units.push({
+        id: `bu-r-${battle.units.length}`,
+        legionId: def.id,
+        playerId: def.playerId,
+        creatureType: command.creatureType,
+        hits: 0,
+        hex: null,
+        struck: false,
+        moved: false,
+        moveOriginHex: null,
+      })
+      battle.defenderReinforced = true
+      battle.phase = 'Move'
+      state.log.push(`Defender reinforces with ${command.creatureType}`)
+      break
+    }
+    case 'battleSkipReinforce': {
+      if (battle.phase !== 'Recruit') throw new Error('Not reinforce phase')
+      // Decline mid-battle — post-battle reinforce remains available (Titan errata)
+      battle.phase = 'Move'
+      break
+    }
+    case 'battleSummon': {
+      if (battle.phase !== 'Summon') throw new Error('Not summon phase')
+      if (battle.attackerSummoned || battle.denySummon) throw new Error('Cannot summon')
+      const atk = state.legions.find((l) => l.id === battle.attackerLegionId)!
+      if (atk.creatures.length >= 7) throw new Error('Legion full')
+      const src = state.legions.find((l) => l.id === command.fromLegionId)
+      if (!src || src.playerId !== atk.playerId) throw new Error('Invalid source legion')
+      if (src.id === atk.id) throw new Error('Cannot summon from self')
+      if (src.creatures.length < 2) throw new Error('Summon would empty the donor legion')
+      // Source must not be in an unresolved engagement
+      if (
+        state.legions.some(
+          (l) => l.hexLabel === src.hexLabel && l.playerId !== src.playerId,
+        )
+      ) {
+        throw new Error('Source legion is engaged')
+      }
+      const angelIdx = src.creatures.findIndex((c) => {
+        const t = state.variant.creatures[c.type]
+        return t?.summonable
+      })
+      if (angelIdx < 0) throw new Error('No summonable creature')
+      const [angel] = src.creatures.splice(angelIdx, 1)
+      // Summoned angel leaves the source; drop one known copy if present
+      const knownIdx = src.knownPublic.indexOf(angel.type)
+      if (knownIdx >= 0) src.knownPublic.splice(knownIdx, 1)
+      atk.creatures.push({ type: angel.type, hits: 0 })
+      revealCreatures(atk, [angel.type])
+      battle.units.push({
+        id: `bu-s-${battle.units.length}`,
+        legionId: atk.id,
+        playerId: atk.playerId,
+        creatureType: angel.type,
+        hits: 0,
+        hex: null,
+        struck: false,
+        moved: false,
+        moveOriginHex: null,
+      })
+      battle.attackerSummoned = true
+      closeSummonWindow(battle)
+      battle.phase = 'Move'
+      state.log.push(`Attacker summons ${angel.type} from ${src.markerId}`)
+      break
+    }
+    case 'battleSkipSummon': {
+      if (battle.phase !== 'Summon') throw new Error('Not summon phase')
+      closeSummonWindow(battle)
+      battle.phase = 'Move'
+      break
+    }
+  }
 }
 
 const landCache = new WeakMap<BattleState, BuiltBattleland>()

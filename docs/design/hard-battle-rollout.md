@@ -23,10 +23,11 @@ sample seed for each candidate, providing paired common random numbers.
 Horizon is two maneuver/strike cycles: finish current combat and relevant enemy
 maneuver/Strike/Strikeback, or stop at an actual terminal result. The next half's
 Move/Recruit/Summon at the requested cycle is a completed leaf BEFORE its decision;
-support encountered earlier remains unsupported. Initial entry is censored only
+support encountered earlier executes the same deterministic AI selector and lower-level
+engine support authority as live play (row44; sampled-battle-support.md). Initial entry is censored only
 while living off-board units remain on a side whose first maneuver is pending.
 Physically complete entry is allowed with actual flags still false until real
-Strikeback completion. No flags, support units or attackerCommitted are fabricated.
+Strikeback completion. No phase flags or attackerCommitted are fabricated; support units come from actual engine transitions.
 Any unsupported boundary or incomplete requested sample set returns the Normal control.
 Completed trials from incomplete rounds count as work but not comparison credit.
 Terminal results may finish earlier; terminalRollouts/minCompletedCycles expose it.
@@ -51,7 +52,8 @@ strike selection uses exact binomial utility and engine raised/carry options.
 It never invokes the expensive real enemy-response planner recursively.
 
 Exact-position policy caching reuses only a deterministic action and held-unit
-decisions keyed by phase/turn/actor, every unit's position/health/flags and carry.
+decisions keyed by phase/turn/actor, every unit's type/owner/legion/position/health/flags,
+carry, support rights, stock, ordered rosters/locations and player powers.
 Every trial still applies its own real engine transitions and sampled dice. Cached
 choices came from engine legality at that identical position; root commands are
 validated independently. Distance/policy caches live only for the current decision
@@ -64,7 +66,9 @@ material/fractional health. There is no fixed ordinary-win/loss bonus: a quick
 pyrrhic win cannot dwarf every unfinished superior army. Time loss excludes every
 attacker even if a pending-result snapshot still marks that unit alive; completed
 results have no remaining-clock term. Horizon states retain the small clock term.
-Titan loss is
+Current-minus-original outside-battle material cancels actual summon donor transfers;
+a surviving Angel is not newly created material, while its death remains a loss.
+No-support utility is unchanged. Titan loss is
 identified through units/fallen and whole-legion time loss, not only the engine's
 endedByTitanKill flag. Strike/hazard/failed-entry/clock elimination have the same
 value. Mutual Titan loss is a neutral draw with two contenders, but remains own
@@ -82,7 +86,7 @@ paired advantage/error and acceptance are available for independent inspection.
 Diagnostics: planBattleManeuver exposes first-ply work, normalControlWork and rollout
 work; planBattleStrike exposes the decision and rollout work. rollout:false disables
 the new branch and uses Normal core unless explicit planning overrides are supplied.
-Tiny budgets, deployment/support boundaries and insufficient evidence retain Normal. No new
+Tiny budgets, initial deployment boundaries and insufficient evidence retain Normal. No new
 difficulty persistence, UI, net, engine rule or playback-speed setting is introduced.
 
 Tests independently apply identical legal dice to a final-turn two-Hydra line:

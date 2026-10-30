@@ -767,3 +767,30 @@ AUTHORIZED MANDATORY EXCEPTION: initial red26passed/1failed exposed Normal's one
 Assertion changes are explicit model corrections: old unvalidated defender5-guard expectation is replaced by exact Normal defender equality while enemy entry remains unsupported; old extraGargoyle-contact assertion is replaced by actual retaliation probabilities, pyrrhic material outcomes and rejection of insufficient sampled frontage evidence. Titan safety and actual legal all-unit entry requirements are retained. Historical row41 evidence remains recorded as the previous implementation, not silently rewritten.
 
 Cheap gate2: actual tsc/Vite passes, suite not requested;117modules,JS594.53kB/gzip180.77,CSS48.36kB/gzip11.29, existing >500kB warning. .gate-logs/formation-outcomes-cheap/gate.log. Bounds unchanged: beam6/depth7/placements2000/responses4096; sample3roots×8rounds/max3072actual transitions/max20000policy evaluations. Mandatory hazard mode has its own fixed placement bound and does not invoke MC; existing Normal ranking/4000-node feasibility guard work is separate and bounded. Node fixture timings are observations, not browser latency promises or strength calibration. Shared lock released; no background processes started.
+
+## Row44 — actual sampled support and donor material accounting (2026-10-30)
+
+COPIES: 2→1 — applyBattleSupport is live/trial engine authority; pickBattleSupport
+is live/trial deterministic policy; existing supportPlanning remains the ranking seam.
+
+Writer focused `.gate-logs/battle-support-final/gate.log`: gate0;86passed/5files;
+changed-source lint0warnings/0errors;4.11s;Node1024/worker1;peakNOTMEASURED.
+Dedicated18 tests include dispatch/lower-level parity for all four commands, stock/
+public composition/first donor order, actual turn4 and firstblood windows, legal and
+blocked later entry, cache separation, frozen/short-budget/full-paired work, no-free-
+material terminal utility, and actual support chooser command/zero-RNG at all levels.
+Actual Brush support sample completes16trials/8paired rounds/168transitions,
+165policy evaluations/77cache hits in5.60ms (Node fixture, not browser guarantee).
+Actual7v7 initial-entry live picker144.26ms;24trials/555transitions in retained
+entry diagnostic, no budget increase. These are correctness/work measurements,
+not overall strength. Initial red `.gate-logs/battle-support-initial`: fixture
+Titan default6 died before the requested summon cycle; explicitly set12 to test a
+nonterminal first-blood window, preserved raw log. Then26/2 focused green.
+
+Cheap `.gate-logs/battle-support-cheap/gate.log`: exit2, real TypeScript/Vite118modules,
+subpath/ColossusWeb; expensive tests did not run in that tier. Final updated-accounting
+cheap and physical differential results follow in this landing's appended record.
+Two historical shared battleRollout tests asserted the OLD unsupported-support censor;
+source-disjoint writer leaves them for the dispatcher to replace with supported
+completion assertions after both writer branches integrate. Existing initial-entry
+boundary and completed-horizon-leaf assertions remain valid. No Java execution.
