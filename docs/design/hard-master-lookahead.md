@@ -10,7 +10,7 @@ A future frontier is ranked by the existing strategic recruit scorer before boun
 
 Survival uses six-roll enemy reach under the candidate occupancy and the shared battle estimate. Opposing legions of one owner share a roll, so their winning six-bit reach events are unioned per player, with independent remaining-player opportunities. `boardSpatial.candidateReachRollMasks` reuses the existing occupancy/teleport key and adds an optional bounded512-entry mask cache only for explicit callers; existing Normal/Easy count paths are unchanged. Stock-sensitive battle outcomes are recomputed separately. Current occupied-target normal movement stops on contact, producing nested suffix masks, so the former maximum would be equivalent there; this generic union is not claimed as an observed Default-game bug. Tests separate synthetic disjoint/overlap aggregation math from actual legal occupied-target masks and a caretaker-sensitive reinforcement outcome. Death removes the mover's projected quality; Titan death has a large game-loss cost. Forecast quality is discounted0.85 per future cycle. Combat destinations are not expanded into invented winners/casualties; a genuinely mandatory combat-only frontier receives no fabricated winning-combat credit. It is not deemed mandatory merely because the selected legion has only attack destinations: a bounded concrete noncombat companion move may permit the selected legion to HOLD. If other legal actions exist but no safe certificate is modeled, the comparison is incomplete and falls back instead of assigning fictitious selected-legion death. Truly immobile/legal-ending branches retain existing quality without an invented muster. This is a conservative local single-legion model, not full-game expectimax, a tactical battle simulator or fair-information inference.
 
-Validated incumbent work limits are600 unique evaluated nodes,6000 generated legal frontier options and4096 movement-provider queries; the isolated row46 experiment below changes only these three ceilings. The incumbent keeps three current candidates and two future alternatives (one focus move plus legal HOLD when available). The reach helper performs six-roll batches; its final batch may overshoot the query limit by at most six before the whole search is abandoned. Memo and reach caches are decision-local; memo keys include complete stock, every legion's occupancy/composition/hits/eligibility and all player score/Titan/teleport inputs. Variant and personality are fixed during a call. Partial chance nodes return no value. Completed independent roots remain valid if a later optional action exhausts; that action is excluded and search stops. Diagnostics retain the stop reason separately from the explicit completed control/action records. Counters expose requested/reached depth, nodes, memo hits, future musters/types, generated moves, actual movement queries and completion/exhaustion.
+Validated incumbent work limits are600 unique evaluated nodes,6000 generated legal frontier options and4096 movement-provider queries; the closed row46 experiment below explored higher ceilings but was not adopted. The incumbent keeps three current candidates and two future alternatives (one focus move plus legal HOLD when available). The reach helper performs six-roll batches; its final batch may overshoot the query limit by at most six before the whole search is abandoned. Memo and reach caches are decision-local; memo keys include complete stock, every legion's occupancy/composition/hits/eligibility and all player score/Titan/teleport inputs. Variant and personality are fixed during a call. Partial chance nodes return no value. Completed independent roots remain valid if a later optional action exhausts; that action is excluded and search stops. Diagnostics retain the stop reason separately from the explicit completed control/action records. Counters expose requested/reached depth, nodes, memo hits, future musters/types, generated moves, actual movement queries and completion/exhaustion.
 
 The old `musterSearch` modes are opt-in research policies with different scoring and incomplete cache keys. They deliberately remain unchanged here: silently routing them through the new search would violate the explicit Normal/Easy command/RNG preservation requirement. Production Hard is not mapped to unbounded lookplus. Legality and recruiting heuristics are shared engine seams, not reimplemented graph rules.
 
@@ -70,11 +70,12 @@ moves and Done legality; existing split/stock/safety/focus tests remain authorit
 Verification status and physical negatives belong in TESTING, not inferred from
 this design. This structural correction does not itself demonstrate stronger play.
 
-## Row46 — isolated fourfold budget experiment (not adopted)
+## Row46 — closed fourfold budget experiment (not adopted)
 
 COPIES: 1 — HARD_MASTER_SEARCH remains the only production Hard master work-budget
-seam. This experimental branch changes only maxNodes600→2400,
-maxGeneratedMoves6000→24000 and maxMovementQueries4096→16384. Depth2, three roots,
+seam. The experimental commit changed only maxNodes600→2400,
+maxGeneratedMoves6000→24000 and maxMovementQueries4096→16384; the closing
+commit restores all three exactly to the validated incumbent600/6000/4096. Depth2, three roots,
 two destinations per roll, model, scoring, power×skill, completed-action safeguards,
 mandatory safety, Normal/Easy commands/RNG and all battle limits stay unchanged.
 
@@ -94,3 +95,15 @@ require a new reserved100-game comparison against Normal before final shipping.
 Writer runs cheap TypeScript/Vite only while parent gate18363 is active. Parent
 owns independent full checks, fixed comparison and any adoption decision. Larger
 configured budgets alone are not a claim of strength. No release/version change.
+
+Closure: the owner asked **"ok, please finish and push your work to main."** The
+experiment was not adopted and no further tuning/test changes or study games ran.
+Parent gate80559 at the experimental configuration had696passed/4failed: all four
+failures were the old Easy-coordination diagnostic expecting exhausted=true, now
+false because the expanded search completed. This is obsolete budget-specific
+expectation evidence, not proof of worse play or a safety defect. Raw red is retained
+in the experiment worktree `.gate-logs/dispatcher-expanded-budget-study/gate.log`.
+The validated incumbent e35192a remains the shipping code; its prior700-test full
+verification and finished100 Normal/100 old comparisons are the release evidence.
+The experimental commit remains reachable for future study. Parent verifies exact
+web/src tree identity and final cheap build before its authorized default-branch push.

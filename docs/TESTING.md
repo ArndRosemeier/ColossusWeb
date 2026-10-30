@@ -950,3 +950,19 @@ peakNOTMEASURED. Existing gameplay/test assertions unchanged. Both frozen baseli
 folders were prepared as ignored worktree artifacts from the main tree's exact
 snapshots; file SHA256 equality and commit.txt identities verified. No games run.
 Parent independent full and fixed32 outcome screen remain owed; experiment NOT adopted.
+
+Row46 CLOSED NOT ADOPTED: owner says "ok, please finish and push your work to main."
+Parent experimental gate80559 is closed RED; raw `.gate-logs/dispatcher-expanded-budget-study/gate.log`
+in ai-strategy worktree retains696passed/4failed/2todo,83passedfiles/1failed/1skipped,
+51.41s. Four failures are solely easyCoordination.test.ts:48's budget-specific
+exhausted=true expectation; expanded search completes and reportsfalse. This is
+not evidence of weaker AI or a safety defect. No experimental study games ran and
+no assertions were changed to accommodate the budget. No further tuning is scheduled.
+
+This closing commit restores ONLY the three HARD_MASTER_SEARCH constants exactly
+to incumbent e35192a600nodes/6000generated/4096queries. Direct source comparison
+against that commit is exact; parent will verify whole web/src Git tree identity
+and final cheap build. Incumbent's full700 tests and finished100 Normal/100 old
+comparisons remain the accepted evidence. No fresh expensive test is needed for
+restoring identical code. Experimental commitf6e61d3 remains reachable for future
+study; this row records closure, not adoption or an experimental strength result.

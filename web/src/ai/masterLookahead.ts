@@ -26,7 +26,7 @@ export interface MasterSearchOptions {
   /** Actual Normal action. Omitted diagnostic callers use the first supplied move. */
   controlCommand?: MasterHoldValue['command']
 }
-export const HARD_MASTER_SEARCH = Object.freeze({ depth: 2 as const, maxNodes: 2400, candidateLimit: 3, destinationsPerRoll: 2, maxGeneratedMoves: 24000, maxMovementQueries: 16384 })
+export const HARD_MASTER_SEARCH = Object.freeze({ depth: 2 as const, maxNodes: 600, candidateLimit: 3, destinationsPerRoll: 2, maxGeneratedMoves: 6000, maxMovementQueries: 4096 })
 export interface MasterSearchDiagnostics {
   depth: number
   reachedDepth: number
