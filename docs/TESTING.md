@@ -926,3 +926,27 @@ that same pin fails naming the two missing complete142/42 candidate records. C r
 exact A bytes from HEAD and passes; no source diff remains. Node1024/worker1;
 peakNOTMEASURED. Parent owns independent full suite, different physical negative,
 production interaction and outcome calibration. No match-strength claim by writer.
+
+## Row46 — isolated Hard master budget calibration experiment (2026-10-30)
+
+COPIES: 1 — existing HARD_MASTER_SEARCH constant seam. Sole product diff is the
+three ceilings600/6000/4096→2400/24000/16384; no test assertions or model changes.
+The parent read-only census ../output/ai-strength/master-census.json is inspected:
+sourcee35192a, SAME26 Normal-trajectory positions, controls complete6→10,
+alternatives2→6, actual differences from Normal2→6; Node chooser median17.17→55.47ms,
+max32.34→75.36ms. This is not outcome/strength or browser-worst-case evidence.
+
+Writer cheap gate only; parent18363 owns the shared expensive gate. No focused,
+full, physical negative or strength run by this writer. Incumbent stays preferred
+unless same fixed32 comparison gains at least4 tournament points with no safety/
+runtime regression; accepted budget also needs a new reserved100 Normal confirmation.
+No existing gameplay, Normal/Easy, RNG or safety assertion is altered to fit budgets.
+Experimental status must remain visible until parent adoption/rejection is recorded.
+
+Row46 writer cheap `.gate-logs/master-budget-experiment-cheap/gate.log` exit2:
+git diff --check, actual TypeScript and Vite120modules; /ColossusWeb entry;
+index-C1Kg13NX.js/index-BauY8sXD.css. Node1024; expensive suite DID NOT run and
+peakNOTMEASURED. Existing gameplay/test assertions unchanged. Both frozen baseline
+folders were prepared as ignored worktree artifacts from the main tree's exact
+snapshots; file SHA256 equality and commit.txt identities verified. No games run.
+Parent independent full and fixed32 outcome screen remain owed; experiment NOT adopted.
