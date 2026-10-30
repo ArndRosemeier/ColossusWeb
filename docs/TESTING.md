@@ -794,3 +794,20 @@ Two historical shared battleRollout tests asserted the OLD unsupported-support c
 source-disjoint writer leaves them for the dispatcher to replace with supported
 completion assertions after both writer branches integrate. Existing initial-entry
 boundary and completed-horizon-leaf assertions remain valid. No Java execution.
+
+Row44 final cheap `.gate-logs/battle-support-cheap-final/gate.log` exit2: actual tsc
+and Vite118modules; /ColossusWeb; index-BuChelb0.js/index-BauY8sXD.css. Physical
+negative `.gate-logs/battle-support-negative/gate.log` gate0 under the shared lock,
+commit-first/trap-restored source: A18dedicated tests pass at battleRollout SHA
+9a0f4cebcbe213ab579af0a797c71493cfdb4429d82954c52de435b96d996b2d;
+B restores ONLY old in-horizon support censor, SHA
+cabc381b4a95b5f247fed10298bf2c3a7b335d179d54accef928049f36a4b1e6,
+actual turn-four Recruit pin fails named complete/boundary/cycle assertion;
+C exact A bytes restored and pin passes. D removes ONLY caretaker from policy-cache
+identity, SHA3a9a44a2943c7254d38432439d5c172a181d389ccad7f0ebfd3be252103e2b70,
+named support-cache pin fails with actual Caretaker empty (stale Cyclops command).
+E exact A bytes restored, cache pin passes; no source diff remains. Each hash and
+full red assertion is retained. Node1024/worker1; peakNOTMEASURED. Separate source
+comparison confirms the four extracted handler bodies are byte-identical to a6c46de
+(normalized LF), preserving validation/error ordering. No whole-suite, production
+browser or strength claim by the writer; integrated dispatcher checks remain owed.
