@@ -2017,3 +2017,9 @@ button:disabled {
 @media (prefers-reduced-motion: reduce) {
   .master-terrain-motion { animation: none; transform: none; opacity: 1; }
 }
+
+.music-error {
+  color: #e8836b;
+  font-size: 0.75rem;
+  white-space: normal;
+}

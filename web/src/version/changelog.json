@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.09",
+    "date": "2026-10-30",
+    "changes": [
+      "New Sound checkbox on the title screen and in the game bar, off by default. When on, background music plays: calm tracks on the main board and faster ones during battles."
+    ]
+  },
+  {
     "version": "1.08",
     "date": "2026-10-30",
     "changes": [
