@@ -1,8 +1,6 @@
 import { dispatch, getLegalRecruits, playerLegions } from '../engine/GameEngine'
 import {
   isUnitAlive,
-  listBattleReinforceOptions,
-  listBattleSummonSources,
   listPostBattleReinforceOptions,
 } from '../engine/battle'
 import { scoreRecruitOption } from '../engine/recruit'
@@ -18,7 +16,8 @@ import {
 import { creatureCombatValue } from './legionStrength'
 import { chooseCreaturesToSplitOut, chooseOpeningSplit } from './splitChoice'
 import { planOptionalSplit, splitMovePolicy } from './splitPlanning'
-import { planReinforcement, planSummon } from './supportPlanning'
+import { planReinforcement } from './supportPlanning'
+import { pickBattleSupport } from './battleSupport'
 
 function actingPlayer(state: GameState) {
   if (state.pendingPostBattleReinforce) {
@@ -201,27 +200,11 @@ function pickMuster(state: GameState, profile: AiProfile, rng: () => number): Ga
   return nearBest[Math.floor(rng() * nearBest.length)]!.cmd
 }
 
-function pickBattleReinforce(state: GameState): GameCommand {
-  const battle = state.battle!
-  const defender = state.legions.find((l) => l.id === battle.defenderLegionId)!
-  const creatureType = planReinforcement(listBattleReinforceOptions(state, battle), defender.hexLabel,
-    (type, hex) => creatureCombatValue(state, type, hex))
-  return creatureType ? { type: 'battleReinforce', creatureType } : { type: 'battleSkipReinforce' }
-}
-
 function pickPostBattleReinforce(state: GameState): GameCommand {
   const defender = state.legions.find((l) => l.id === state.pendingPostBattleReinforce!.legionId)!
   const creatureType = planReinforcement(listPostBattleReinforceOptions(state, defender.id), defender.hexLabel,
     (type, hex) => creatureCombatValue(state, type, hex))
   return creatureType ? { type: 'postBattleReinforce', creatureType } : { type: 'postBattleSkipReinforce' }
-}
-
-function pickBattleSummon(state: GameState): GameCommand {
-  const battle = state.battle!
-  const attacker = state.legions.find((l) => l.id === battle.attackerLegionId)!
-  const best = planSummon(state, attacker, (type, hex) => creatureCombatValue(state, type, hex),
-    listBattleSummonSources(state, battle))
-  return best ? { type: 'battleSummon', fromLegionId: best.fromLegionId } : { type: 'battleSkipSummon' }
 }
 
 function pickBattleCommand(
@@ -235,11 +218,8 @@ function pickBattleCommand(
     return pickBestCarry(state, battle, profile)
   }
 
-  if (battle.phase === 'Recruit') {
-    return pickBattleReinforce(state)
-  }
-  if (battle.phase === 'Summon') {
-    return pickBattleSummon(state)
+  if (battle.phase === 'Recruit' || battle.phase === 'Summon') {
+    return pickBattleSupport(state, battle)
   }
 
   const myUnits = battle.units.filter(

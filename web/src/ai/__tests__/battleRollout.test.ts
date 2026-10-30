@@ -117,7 +117,7 @@ describe('Hard battle search resolves actual sampled outcomes', () => {
     expect(bad.battle).toMatchObject({ done: true, winnerPlayerId: state.players[0].id })
     expect(battleRolloutUtility(bad, bad.battle!, state.players[0].id, AI_PROFILES.balanced)).toBe(30)
   })
-  it('stops before the next actual Summon choice at the horizon, but censors it inside a longer requested horizon', () => {
+  it('stops at the support horizon and resolves a real safe skip inside a longer horizon', () => {
     const { state, battle, ours, theirs } = fixture(['Colossus', 'Ogre'], ['Ogre', 'Titan'])
     ours[0].hex = 'C3'; ours[1].hex = 'A1'; theirs[0].hex = 'C4'; theirs[0].hits = 5; theirs[1].hex = 'F4'
     state.legions.push({ ...structuredClone(state.legions[0]), id: 'summon-donor', hexLabel: '100',
@@ -138,7 +138,10 @@ describe('Hard battle search resolves actual sampled outcomes', () => {
     expect(trial.battle.units.some(unit => unit.creatureType === 'Angel')).toBe(false)
     expect(state.legions.find(legion => legion.id === 'summon-donor')!.creatures).toHaveLength(2)
     const longer = runBattleTrial(state, battle, first, AI_PROFILES.balanced, 84, { ...HARD_BATTLE_ROLLOUT, horizonCycles: 3 })
-    expect(longer).toMatchObject({ complete: false, boundary: true, cycles: 2 })
+    expect(longer).toMatchObject({ complete: true, boundary: false, cycles: 3 })
+    expect(longer.battle.attackerSummoned).toBe(false) // Existing policy protects the donor's lone Titan.
+    expect(longer.battle.summonState).toBe('tooLate')
+    expect(longer.battle.units.some(unit => unit.creatureType === 'Angel')).toBe(false)
   })
   it('does not mistake four forced Gargoyle hits for a favorable expected exchange or lost ordinary Strikeback', () => {
     const { state, battle, ours, theirs, land } = fixture(['Gargoyle'], ['Ranger'])
@@ -346,14 +349,14 @@ describe('Hard battle search resolves actual sampled outcomes', () => {
     const hold = planBattleManeuver(safe.state, safe.battle, AI_PROFILES.balanced)
     expect(hold.command).toEqual({ type: 'battleDonePhase' }); expect(hold.rollout).toBeUndefined()
   })
-  it('stops honestly at reinforcement boundaries without inventing recruits or optimistic utility', () => {
+  it('compares both roots through real in-horizon reinforcement without mutating the original army', () => {
     const { state, battle, ours, theirs } = fixture(['Ogre'], ['Gargoyle', 'Gargoyle'], 'Brush')
     battle.turn = 3; battle.phase = 'Move'
     ours[0].hex = 'A1'; theirs[0].hex = 'F4'; theirs[1].hex = 'F3'
     const fallback: GameCommand = { type: 'battleDonePhase' }
     const result = sampleBattleChoices(state, battle, [{ type: 'battleMove', unitId: ours[0].id, toHex: 'A2' }], fallback, AI_PROFILES.balanced)
     expect(result.command).toEqual(fallback)
-    expect(result.work).toMatchObject({ boundaryStops: 1, usedRollout: false, reason: 'boundary' })
+    expect(result.work).toMatchObject({ boundaryStops: 0, usedRollout: true, reason: 'complete', creditedRounds: 8, completedRollouts: 16 })
     expect(state.battle!.units).toHaveLength(3)
   })
   it('keeps legal carry and raised strike numbers under engine validation', () => {

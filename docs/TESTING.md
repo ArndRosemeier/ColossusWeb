@@ -783,3 +783,47 @@ Initial recovery gate1 (`.gate-logs/whole-maneuver-recovery-initial`) had49passe
 Final source gate0 (`.gate-logs/whole-maneuver-final-source/gate.log`): actual tsc/Vite119modules plus changed-source lint0warnings0errors and72passed/6files,7.89s,Node1024/worker1,peakNOTMEASURED. Ordinary7v7:670logical nodes/182legal queries/1425destination evaluations/189fixed priors/7baseline moves, baseline continuation842responses plus initial432, final formations118responses,24trials/731transitions/5243policy evaluations/39cache hits, full2half cycles; no exhaustion. Optional alternatives are insufficient, so Normal remains selected. Earlier whole7v7 observations129.80/135.32ms; final466.277ms. Entry also ranged152.73→515.70ms and live140.41→426.94ms across these runs; these observations disclose host variance and do not promise a300ms browser bound. Fixture blocker case133nodes/55queries/137destination evaluations/108priors,24terminal trials/161transitions; independent real completed pairs7wins versus3, no fabricated fixed dice. Shared lock released when the gate ended.
 
 Writer differential gate0 (`whole-maneuver-differential-restoration`): A/C battleFormation physical SHA256095e7a5d3d8feabb58dbda5eb43856283ed9b0bb3db9f5a0d89ad74cc7548ca6. B removes only remaining/held identity from intermediate node keys, SHAb2f513b1f9f1cc3e1ee0d226baa682cc00e6a70230440e1e8f2635190d91843c. Named `keeps different undecided-unit continuations for the same held position` fails with3logical nodes instead of4; A/C each1pass/4skip. Mutation held the shared lock and restore trap uses git restore from HEAD, preserving checkout CRLF. Initial differential gate1 (`whole-maneuver-differential`) detected that git-show restoration changed CRLF to LF (C8045beb17ed84132f7bfd7a580e748a65d0f47dd16d35f498564d5c37aea71ce), so it stopped before falsely claiming exact restoration; harness fixed to apply normal Git checkout conversion, source unchanged. Both raw logs retained. No app/source changes after final-source72-test gate; only documentation/record updates. Parent's independent full/negative/production/fair comparison remain owed.
+
+## Row44 — actual sampled support and donor material accounting (2026-10-30)
+
+COPIES: 2→1 — applyBattleSupport is live/trial engine authority; pickBattleSupport
+is live/trial deterministic policy; existing supportPlanning remains the ranking seam.
+
+Writer focused `.gate-logs/battle-support-final/gate.log`: gate0;86passed/5files;
+changed-source lint0warnings/0errors;4.11s;Node1024/worker1;peakNOTMEASURED.
+Dedicated18 tests include dispatch/lower-level parity for all four commands, stock/
+public composition/first donor order, actual turn4 and firstblood windows, legal and
+blocked later entry, cache separation, frozen/short-budget/full-paired work, no-free-
+material terminal utility, and actual support chooser command/zero-RNG at all levels.
+Actual Brush support sample completes16trials/8paired rounds/168transitions,
+165policy evaluations/77cache hits in5.60ms (Node fixture, not browser guarantee).
+Actual7v7 initial-entry live picker144.26ms;24trials/555transitions in retained
+entry diagnostic, no budget increase. These are correctness/work measurements,
+not overall strength. Initial red `.gate-logs/battle-support-initial`: fixture
+Titan default6 died before the requested summon cycle; explicitly set12 to test a
+nonterminal first-blood window, preserved raw log. Then26/2 focused green.
+
+Cheap `.gate-logs/battle-support-cheap/gate.log`: exit2, real TypeScript/Vite118modules,
+subpath/ColossusWeb; expensive tests did not run in that tier. Final updated-accounting
+cheap and physical differential results follow in this landing's appended record.
+Two historical shared battleRollout tests asserted the OLD unsupported-support censor;
+source-disjoint writer leaves them for the dispatcher to replace with supported
+completion assertions after both writer branches integrate. Existing initial-entry
+boundary and completed-horizon-leaf assertions remain valid. No Java execution.
+
+Row44 final cheap `.gate-logs/battle-support-cheap-final/gate.log` exit2: actual tsc
+and Vite118modules; /ColossusWeb; index-BuChelb0.js/index-BauY8sXD.css. Physical
+negative `.gate-logs/battle-support-negative/gate.log` gate0 under the shared lock,
+commit-first/trap-restored source: A18dedicated tests pass at battleRollout SHA
+9a0f4cebcbe213ab579af0a797c71493cfdb4429d82954c52de435b96d996b2d;
+B restores ONLY old in-horizon support censor, SHA
+cabc381b4a95b5f247fed10298bf2c3a7b335d179d54accef928049f36a4b1e6,
+actual turn-four Recruit pin fails named complete/boundary/cycle assertion;
+C exact A bytes restored and pin passes. D removes ONLY caretaker from policy-cache
+identity, SHA3a9a44a2943c7254d38432439d5c172a181d389ccad7f0ebfd3be252103e2b70,
+named support-cache pin fails with actual Caretaker empty (stale Cyclops command).
+E exact A bytes restored, cache pin passes; no source diff remains. Each hash and
+full red assertion is retained. Node1024/worker1; peakNOTMEASURED. Separate source
+comparison confirms the four extracted handler bodies are byte-identical to a6c46de
+(normalized LF), preserving validation/error ordering. No whole-suite, production
+browser or strength claim by the writer; integrated dispatcher checks remain owed.

@@ -1,9 +1,10 @@
-import { advanceBattlePhase, battleLand, doCarry, legalBattleMovesFor, legalStrikesFor, resolveStrikeFor } from '../engine/battle'
+import { applyBattleSupport, advanceBattlePhase, battleLand, doCarry, legalBattleMovesFor, legalStrikesFor, resolveStrikeFor } from '../engine/battle'
 import { getStrikeDice, getStrikeNumber, getUnitPower, isUnitAlive, legalCarryTargetIds, legalStrikes, listStrikeRaiseOptions, hexDistance } from '../engine/battleStrike'
 import { hazardDamageToCreature, meleeNeighbors, type BuiltBattleland } from '../engine/battleland'
 import type { BattleState, BattleUnit, GameCommand, GameState } from '../engine/types'
 import type { AiProfile } from './profiles'
 import { strikeExpectations } from './battleProbability'
+import { pickBattleSupport } from './battleSupport'
 
 export interface BattleRolloutOptions {
   enabled: boolean
@@ -82,9 +83,23 @@ function trialState(state: GameState, battle: BattleState): GameState {
 }
 function cycle(battle: BattleState) { return (battle.turn - 1) * 2 + Number(battle.activeHalf === 'attacker') }
 function phasePosition(battle: BattleState) { return cycle(battle) * 3 + (battle.phase === 'Strike' ? 1 : battle.phase === 'Strikeback' ? 2 : 0) }
+function materialValue(state: GameState, creatureType: string, playerId: string, profile: AiProfile) {
+  const power = creatureType === 'Titan' ? state.players.find(player => player.id === playerId)?.titanPower ?? 6 : state.variant.creatures[creatureType].power
+  return power * state.variant.creatures[creatureType].skill + (creatureType === 'Titan' ? profile.battleTitanValue * 2.5 : 0)
+}
 function pv(state: GameState, unit: BattleUnit, profile: AiProfile) {
-  return getUnitPower(state, unit) * state.variant.creatures[unit.creatureType].skill +
-    (unit.creatureType === 'Titan' ? profile.battleTitanValue * 2.5 : 0)
+  return materialValue(state, unit.creatureType, unit.playerId, profile)
+}
+/** Only a delta is added: without a support transfer, outside material cancels
+ * exactly. A summoned survivor is moved material, not a newly created Angel.
+ */
+function outsideMaterial(state: GameState, battle: BattleState, playerId: string, profile: AiProfile) {
+  let value = 0
+  for (const legion of state.legions) {
+    if (legion.id === battle.attackerLegionId || legion.id === battle.defenderLegionId) continue
+    for (const creature of legion.creatures) value += (legion.playerId === playerId ? 1 : -1) * materialValue(state, creature.type, legion.playerId, profile)
+  }
+  return value
 }
 
 function strikeScore(state: GameState, battle: BattleState, attacker: BattleUnit, target: BattleUnit, profile: AiProfile, raised?: number) {
@@ -108,6 +123,10 @@ function cachedDistance(land: BuiltBattleland, from: string, to: string, distanc
   return distance
 }
 function policy(state: GameState, battle: BattleState, profile: AiProfile, held: Set<string>, budget: Budget, options: BattleRolloutOptions, distances: Map<string, number>): GameCommand | null {
+  if (battle.phase === 'Recruit' || battle.phase === 'Summon') {
+    budget.policyEvaluations++
+    return pickBattleSupport(state, battle)
+  }
   const land = battleLand(state, battle)
   if (battle.pendingCarry) {
     const carry = battle.pendingCarry
@@ -201,11 +220,13 @@ function apply(state: GameState, battle: BattleState, command: GameCommand, rng:
     const before = phasePosition(battle)
     advanceBattlePhase(state, battle)
     return Math.max(1, phasePosition(battle) - before + Number(battle.done))
-  } else throw new Error('Unsupported rollout command')
+  } else if (command.type === 'battleReinforce' || command.type === 'battleSkipReinforce' ||
+    command.type === 'battleSummon' || command.type === 'battleSkipSummon') applyBattleSupport(state, battle, command)
+  else throw new Error('Unsupported rollout command')
   return 1
 }
 
-export function battleRolloutUtility(state: GameState, battle: BattleState, playerId: string, profile: AiProfile) {
+export function battleRolloutUtility(state: GameState, battle: BattleState, playerId: string, profile: AiProfile, supportOrigin?: GameState) {
   if (battle.done) {
     // Time loss eliminates the entire attacker legion even though its Titan
     // need not have entered fallen or set endedByTitanKill yet.
@@ -218,7 +239,7 @@ export function battleRolloutUtility(state: GameState, battle: BattleState, play
     if (ownTitanLost) return -1000000
     if (enemyTitanLost) return 1000000
   }
-  let value = 0
+  let value = supportOrigin ? outsideMaterial(state, battle, playerId, profile) - outsideMaterial(supportOrigin, battle, playerId, profile) : 0
   for (const unit of battle.units) {
     if (!isUnitAlive(state, unit)) continue
     // The clock removes the whole attacking legion, even in a result snapshot
@@ -250,18 +271,24 @@ export function runBattleTrial(state: GameState, battle: BattleState, first: Gam
     }
     const nextDecision = current.phase === 'Move' || current.phase === 'Recruit' || current.phase === 'Summon'
     // A support choice at the requested next half is already beyond our combat
-    // horizon. Stop BEFORE that choice, but censor support inside the horizon.
+    // horizon. Stop BEFORE that choice; actual support inside it uses the same
+    // deterministic selector and engine transition as live play.
     if (current.done || (nextDecision && cycle(current) >= startCycle + options.horizonCycles)) {
-      return { complete: true, boundary: false, utility: battleRolloutUtility(sim, current, playerId, profile), cycles: cycle(current) - startCycle, battle: current }
+      return { complete: true, boundary: false, utility: battleRolloutUtility(sim, current, playerId, profile, state), cycles: cycle(current) - startCycle, battle: current }
     }
-    if (current.phase === 'Recruit' || current.phase === 'Summon') return { complete: false, boundary: true, utility: 0, cycles: cycle(current) - startCycle, battle: current }
     if (budget.transitionNodes + 3 > options.maxTransitionNodes || budget.policyEvaluations >= options.maxPolicyEvaluations) {
       return { complete: false, boundary: false, utility: 0, cycles: cycle(current) - startCycle, battle: current }
     }
     if (!command) {
+      // Support may reuse a battle-local ID for a DIFFERENT type in another
+      // root. Include identity, support rights, current stock/donor rosters and
+      // player powers, not only position/hits, before reusing a legal policy move.
       const key = JSON.stringify([current.turn, current.activeHalf, current.phase, current.activePlayerId, current.pendingCarry,
-        current.firstManeuverDone, current.attackerCommitted,
-        current.units.map(unit => [unit.id, unit.hex, unit.hits, unit.moved, unit.struck]), [...held]])
+        current.firstManeuverDone, current.attackerCommitted, current.attackerLegionId, current.defenderLegionId,
+        current.attackerSummoned, current.defenderReinforced, current.pendingSummon, current.summonState, current.denySummon,
+        current.units.map(unit => [unit.id, unit.creatureType, unit.playerId, unit.legionId, unit.hex, unit.hits, unit.moved, unit.struck]),
+        sim.players.map(player => [player.id, player.titanPower, player.dead]), sim.caretaker,
+        sim.legions.map(legion => [legion.id, legion.playerId, legion.hexLabel, legion.creatures.map(creature => creature.type)]), [...held]])
       const cached = policyCache.get(key)
       if (cached) {
         budget.policyEvaluations++; budget.policyCacheHits++
@@ -332,7 +359,7 @@ export function sampleBattleRoots(state: GameState, battle: BattleState, candida
       (!(terminalWins || terminalLosses) || (terminalWins >= 2 && terminalWins > terminalLosses)))
     return { rootId: root.id, command: root.command, completed: n, meanUtility: n ? sums[index] / n : 0, pairedAdvantage, pairedStdError: n > 1 ? pairedStdError : null, accepted }
   })
-  // Censored deployment/support boundaries or incomplete sampling retain Normal.
+  // Censored initial deployment or incomplete sampling retains Normal.
   if (boundary || work.creditedRounds < options.trialsPerCandidate) {
     work.reason = boundary ? 'boundary' : 'budget'
     return { command: fallback.command, rootId: fallback.id, work }
