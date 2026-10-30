@@ -2018,6 +2018,30 @@ button:disabled {
   .master-terrain-motion { animation: none; transform: none; opacity: 1; }
 }
 
+.music-volume {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--bone);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.music-volume input[type='range'],
+.setup .music-volume input[type='range'] {
+  width: 90px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--copper);
+  cursor: pointer;
+}
+
+.music-volume input[type='range']:focus-visible {
+  outline: 2px solid var(--copper);
+  outline-offset: 3px;
+}
+
 .music-error {
   color: #e8836b;
   font-size: 0.75rem;

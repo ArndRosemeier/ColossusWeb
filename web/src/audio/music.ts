@@ -2,12 +2,12 @@ import { useEffect, useSyncExternalStore } from 'react'
 import { MusicPlayer, type MusicScene } from './musicPlayer'
 
 /**
- * Application-wide LOCAL music preference (off by default), the current music
+ * Application-wide LOCAL music volume (0 to 100, default 0 = silent), the current music
  * scene and the last playback error. The one seam between the UI and the player.
  */
-const STORAGE_KEY = 'colossus.music'
+const STORAGE_KEY = 'colossus.musicVolume'
 const listeners = new Set<() => void>()
-let enabled: boolean | undefined
+let volume: number | undefined
 let scene: MusicScene = 'board'
 let error: string | null = null
 let player: MusicPlayer | null = null
@@ -18,21 +18,29 @@ export function isMusicSupported(): boolean {
   return typeof window !== 'undefined' && typeof window.Audio === 'function'
 }
 
-export function getMusicEnabled(): boolean {
-  if (enabled === undefined) {
-    let stored: unknown
+export function isMusicVolume(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 100
+}
+
+/** Slider value, 0 (silent, the default) to 100. */
+export function getMusicVolume(): number {
+  if (volume === undefined) {
+    let stored: string | null = null
     try { stored = localStorage.getItem(STORAGE_KEY) } catch { /* Optional preference unavailable. */ }
-    enabled = stored === 'on'
+    const parsed = stored === null || stored.trim() === '' ? NaN : Number(stored)
+    volume = isMusicVolume(parsed) ? parsed : 0
   }
-  return enabled
+  return volume
 }
 
 export function getMusicError(): string | null { return error }
 
-export function setMusicEnabled(on: boolean): void {
-  enabled = on
+export function setMusicVolume(next: number): void {
+  if (!isMusicVolume(next)) throw new Error(`Invalid music volume: ${next}`)
+  if (next === volume) return
+  volume = next
   error = null
-  try { localStorage.setItem(STORAGE_KEY, on ? 'on' : 'off') } catch { /* Still usable for this session. */ }
+  try { localStorage.setItem(STORAGE_KEY, String(next)) } catch { /* Still usable for this session. */ }
   notify()
   sync()
 }
@@ -44,8 +52,8 @@ export function subscribeMusic(listener: () => void): () => void {
   return () => { listeners.delete(listener) }
 }
 
-export function useMusicEnabled(): boolean {
-  return useSyncExternalStore(subscribeMusic, getMusicEnabled, getMusicEnabled)
+export function useMusicVolume(): number {
+  return useSyncExternalStore(subscribeMusic, getMusicVolume, getMusicVolume)
 }
 
 export function useMusicError(): string | null {
@@ -64,14 +72,17 @@ export function useMusicScene(next: MusicScene): void {
 }
 
 function sync(): void {
-  if (!getMusicEnabled()) {
+  const level = getMusicVolume()
+  if (level === 0) {
     player?.stop()
     return
   }
-  // Unsupported browsers show the Sound checkbox disabled with the reason.
+  // Unsupported browsers show the Music slider disabled with the reason.
   if (!isMusicSupported()) return
   installGestureUnlock()
   player ??= new MusicPlayer(message => { error = message; notify() })
+  // Squared so the slider feels even to the ear.
+  player.setLevel((level / 100) ** 2)
   player.play(scene)
 }
 
@@ -82,7 +93,7 @@ function sync(): void {
 function installGestureUnlock(): void {
   if (unlockInstalled) return
   unlockInstalled = true
-  const unlock = () => { if (getMusicEnabled()) player?.resume() }
+  const unlock = () => { if (getMusicVolume() > 0) player?.resume() }
   window.addEventListener('pointerdown', unlock)
   window.addEventListener('keydown', unlock)
 }
