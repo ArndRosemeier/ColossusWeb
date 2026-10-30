@@ -11,6 +11,7 @@ import type { HubSession } from '../net/session'
 import type { SavedGameMeta } from '../persistence/saveGame'
 import { KNOWN_VARIANTS } from '../variant/loadVariant'
 import { PresentationModeToggle } from './PresentationModeToggle'
+import { MusicToggle } from './MusicToggle'
 import { BackgroundAtmosphereSelect } from './BackgroundAtmosphere'
 import { CuedBadge } from './CuedBadge'
 import { LobbyPanel } from './LobbyPanel'
@@ -121,6 +122,7 @@ export function SetupScreen({
           <a className="setup-nav-link" href="#online-lobby">Online play</a>
           <div className="setup-preferences">
             <PresentationModeToggle />
+            <MusicToggle />
             <WhatsNewButton compact />
           </div>
           <CuedBadge cued={cued} compact />

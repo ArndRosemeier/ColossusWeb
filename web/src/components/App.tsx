@@ -53,6 +53,8 @@ import { GameControls } from './GameControls'
 import { phaseEndCommand, applyEnterKeyPhaseEnd } from './LegionActions'
 import { MasterBoardView } from './MasterBoardView'
 import { PresentationModeToggle } from './PresentationModeToggle'
+import { MusicToggle } from './MusicToggle'
+import { useMusicScene } from '../audio/music'
 import { CreatureAssetErrorContext } from '../ui/creaturePresentation'
 import { BackgroundAtmosphereSelect } from './BackgroundAtmosphere'
 import { CuedBadge } from './CuedBadge'
@@ -658,6 +660,8 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [interactive, state, apply, pendingStrike, commitPath])
 
+  useMusicScene(state?.battle && !state.battle.done ? 'battle' : 'board')
+
   if (loading) return <div className="boot">Loading Default variant…</div>
   if (error && !state) return <div className="boot error">Error: {error}</div>
   if (!state) {
@@ -728,6 +732,7 @@ export default function App() {
         <span className="topbar-spacer" />
         {saveFlash && <span className="save-flash">{saveFlash}</span>}
         <PresentationModeToggle className="ai-speed" />
+        <MusicToggle className="ai-speed" />
         <BackgroundAtmosphereSelect className="ai-speed bg-atmosphere-select" />
         {!gameOver && !online && (
           <label className="ai-speed">
