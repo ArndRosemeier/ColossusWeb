@@ -49,14 +49,14 @@ describe('exact strike distributions', () => {
 })
 
 describe('bounded battle response planning', () => {
-  it('uses the actual battle owner difficulty for measurable Easy/Normal/Hard planning work', () => {
+  it('uses actual battle owner difficulty for the explicit local-planner reference budgets', () => {
     const { state, battle, own, enemy } = fixture('Plains', ['Titan', 'Ogre', 'Centaur'], ['Ogre', 'Lion'])
     battle.turn = 5; state.activePlayerIndex = 0; state.players[0].aiDifficultyId = 'easy'
     own[0].hex = 'A3'; own[1].hex = 'B3'; own[2].hex = 'C5'; enemy[0].hex = 'D1'; enemy[1].hex = 'E2'
     const work = AI_DIFFICULTY_CHOICES.map(level => {
       state.players[1].aiDifficultyId = level.id
       const before = structuredClone(state)
-      const plan = planBattleManeuver(state, battle, AI_PROFILES.balanced)
+      const plan = planBattleManeuver(state, battle, AI_PROFILES.balanced, { maneuver: false })
       expect(state).toEqual(before)
       expect(plan.work.responseNodes).toBeLessThanOrEqual(level.battle.maxResponseNodes)
       expect(plan.work.candidatesEvaluated).toBeLessThanOrEqual(level.battle.candidateLimit + 1)

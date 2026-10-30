@@ -2,12 +2,13 @@ import { legalBattleMovesFor } from '../engine/battle'
 import { isUnitAlive } from '../engine/battleStrike'
 import type { BattleState, BattleUnit, GameCommand, GameState } from '../engine/types'
 import type { BattleRolloutWork } from './battleRollout'
+import { cloneFormation as clone, projectFormationMove as land, formationId, formationBeam, checkedFormationBudget } from './battleFormation'
 
 type EntryCommand = Extract<GameCommand, { type: 'battleMove' }>
 export interface BattleDeploymentOptions { beamWidth: number; maxNodes: number; maxResponseNodes: number }
 export const HARD_BATTLE_DEPLOYMENT: Readonly<BattleDeploymentOptions> = Object.freeze({ beamWidth: 6, maxNodes: 2000, maxResponseNodes: 4096 })
 export interface DeploymentWork {
-  nodes: number; legalQueries: number; completeFormations: number; responseNodes: number; entrySafetyChecks: number
+  nodes: number; legalQueries: number; destinationEvaluations: number; completeFormations: number; responseNodes: number; entrySafetyChecks: number
   baselineMoves: number; reachedDepth: number; exhausted: boolean; usedPlan: boolean; changedDecision: boolean
   mandatorySafety: 'not-needed' | 'certified' | 'unavailable'
   reason: 'complete' | 'mandatory-safety' | 'safety-not-needed' | 'budget' | 'boundary' | 'insufficient' | 'unsupported' | 'baseline' | 'no-improvement'
@@ -32,23 +33,11 @@ interface DeploymentPolicy {
   guaranteedTitanLoss: (battle: BattleState) => boolean
 }
 export function deploymentOptions(options: Partial<BattleDeploymentOptions> = {}): BattleDeploymentOptions {
-  const result = { ...HARD_BATTLE_DEPLOYMENT, ...options }
-  for (const [key, max] of [['beamWidth', 12], ['maxNodes', 4000], ['maxResponseNodes', 16384]] as const) {
-    if (!Number.isInteger(result[key]) || result[key] < 1 || result[key] > max) throw new Error(`Invalid battle deployment ${key}`)
-  }
-  return result
+  return checkedFormationBudget({ ...HARD_BATTLE_DEPLOYMENT, ...options }, ['beamWidth', 'maxNodes', 'maxResponseNodes'], 'battle deployment')
 }
-const clone = (battle: BattleState): BattleState => ({ ...battle, units: battle.units.map(unit => ({ ...unit })), moveStack: [...battle.moveStack] })
 function pending(state: GameState, battle: BattleState): BattleUnit[] {
   return battle.units.filter(unit => unit.playerId === battle.activePlayerId && !unit.hex && !unit.moved && isUnitAlive(state, unit))
 }
-function land(battle: BattleState, command: EntryCommand): BattleState {
-  const next = clone(battle), mover = next.units.find(unit => unit.id === command.unitId)!
-  mover.hex = command.toHex; mover.moved = true; next.moveStack.push(mover.id)
-  return next
-}
-const formationId = (battle: BattleState) => battle.units.map(unit => `${unit.id}:${unit.hex}`).join('|')
-
 /** Complete legal entry sequences only. No phase advance, dice, global IDs or caller mutation.
  * Callbacks keep the existing placement/formation/response model in evaluateBattle,
  * without a cyclic dependency or a second creature-strength formula.
@@ -56,7 +45,7 @@ const formationId = (battle: BattleState) => battle.units.map(unit => `${unit.id
 export function searchBattleDeployment(state: GameState, battle: BattleState, control: GameCommand,
   policy: DeploymentPolicy, overrides: Partial<BattleDeploymentOptions> = {}, mode: 'outcomes' | 'mandatory-safety' = 'outcomes'): DeploymentResult {
   const limits = deploymentOptions(overrides), firstHalf = battle.activeHalf === 'attacker' ? !battle.firstManeuverDone.attacker : !battle.firstManeuverDone.defender
-  const work: DeploymentWork = { nodes: 0, legalQueries: 0, completeFormations: 0, responseNodes: 0, entrySafetyChecks: 0, baselineMoves: 0,
+  const work: DeploymentWork = { nodes: 0, legalQueries: 0, destinationEvaluations: 0, completeFormations: 0, responseNodes: 0, entrySafetyChecks: 0, baselineMoves: 0,
     reachedDepth: 0, exhausted: false, usedPlan: false, changedDecision: false, mandatorySafety: mode === 'mandatory-safety' ? 'unavailable' : 'not-needed', reason: 'unsupported' }
   const result: DeploymentResult = { command: control, work, plan: [], baselinePlan: [], score: null, baselineScore: null }
   const count = pending(state, battle).length
@@ -86,28 +75,10 @@ export function searchBattleDeployment(state: GameState, battle: BattleState, co
   work.responseNodes = response.nodes; work.completeFormations++
   if (!base.complete) { work.exhausted = true; work.reason = 'budget'; return result }
   result.baselineScore = mode === 'mandatory-safety' ? null : base.score
-  type Node = { battle: BattleState; plan: EntryCommand[]; placement: number; score: number }
-  let beam: Node[] = [{ battle: clone(battle), plan: [], placement: 0, score: 0 }]
-  for (let depth = 0; depth < count; depth++) {
-    const children = new Map<string, Node>()
-    for (const node of beam) for (const unit of pending(state, node.battle)) {
-      work.legalQueries++
-      for (const toHex of legalBattleMovesFor(state, node.battle, unit)) {
-        if (!budget()) return result
-        const placement = node.placement + policy.placementScore(unit.id, toHex)
-        if (!Number.isFinite(placement)) continue
-        const move: EntryCommand = { type: 'battleMove', unitId: unit.id, toHex }
-        const next = land(node.battle, move)
-        const key = next.units.filter(unit => unit.playerId === battle.activePlayerId).map(unit => `${unit.id}:${unit.hex}`).join('|')
-        if (children.has(key)) continue // Same placements through another legal entry order.
-        const score = placement + policy.formationScore(next)
-        children.set(key, { battle: next, plan: [...node.plan, move], placement, score })
-      }
-    }
-    beam = [...children.values()].sort((a, b) => b.score - a.score).slice(0, limits.beamWidth)
-    work.reachedDepth = depth + 1
-    if (beam.length === 0) { work.reason = 'no-improvement'; return result }
-  }
+  const beam = formationBeam(state, battle, pending(state, battle).map(unit => unit.id), limits,
+    { allowHold: false, placementScore: policy.placementScore, formationScore: policy.formationScore }, work)
+  if (work.exhausted) { work.reason = 'budget'; return result }
+  if (beam.length === 0) { work.reason = 'no-improvement'; return result }
   const formations: DeploymentFormation[] = [{ id: formationId(normal), battle: normal, plan: result.baselinePlan, score: base.score }]
   for (const node of beam) {
     const value = mode === 'mandatory-safety' ? { score: policy.guaranteedTitanLoss(node.battle) ? -Infinity : node.score, titanRisk: 0, complete: true } : policy.completeScore(node.battle, response)
