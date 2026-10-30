@@ -1,0 +1,117 @@
+{
+  "stage": "final-old",
+  "label": "completed-proof-hard-old-v3",
+  "opponent": "old",
+  "groups": [
+    {
+      "profile": "balanced",
+      "seeds": [
+        900013,
+        909986,
+        919959,
+        929932,
+        939905,
+        949878,
+        959851,
+        969824,
+        979797,
+        989770,
+        999743,
+        1009716,
+        1019689,
+        1029662,
+        1039635,
+        1049608,
+        1059581,
+        1069554,
+        1079527,
+        1089500,
+        1099473,
+        1109446,
+        1119419,
+        1129392,
+        1139365
+      ],
+      "raw": "completed-proof-hard-old-v3-Default-balanced.json",
+      "summary": "completed-proof-hard-old-v3-Default-balanced-summary.json",
+      "result": {
+        "games": 50,
+        "wins": 35,
+        "losses": 14,
+        "draws": 1,
+        "unfinished": 0,
+        "failures": 0,
+        "normalChecks": 0,
+        "decisionTimes": {
+          "candidate": {
+            "commands": 17188,
+            "medianMs": 1.7629000000015367,
+            "p95Ms": 44.79910000000018,
+            "maxMs": 727.5005999999994
+          },
+          "baseline": {
+            "commands": 18683,
+            "medianMs": 0.15700000000651926,
+            "p95Ms": 1.522499999991851,
+            "maxMs": 18.670000000012806
+          }
+        }
+      }
+    },
+    {
+      "profile": "random",
+      "seeds": [
+        1200011,
+        1209984,
+        1219957,
+        1229930,
+        1239903,
+        1249876,
+        1259849,
+        1269822,
+        1279795,
+        1289768,
+        1299741,
+        1309714,
+        1319687,
+        1329660,
+        1339633,
+        1349606,
+        1359579,
+        1369552,
+        1379525,
+        1389498,
+        1399471,
+        1409444,
+        1419417,
+        1429390,
+        1439363
+      ],
+      "raw": "completed-proof-hard-old-v3-Default-random.json",
+      "summary": "completed-proof-hard-old-v3-Default-random-summary.json",
+      "result": {
+        "games": 50,
+        "wins": 31,
+        "losses": 18,
+        "draws": 1,
+        "unfinished": 0,
+        "failures": 0,
+        "normalChecks": 0,
+        "decisionTimes": {
+          "candidate": {
+            "commands": 19379,
+            "medianMs": 1.7106000000203494,
+            "p95Ms": 42.63210000001709,
+            "maxMs": 400.6030000000028
+          },
+          "baseline": {
+            "commands": 20683,
+            "medianMs": 0.15829999998095445,
+            "p95Ms": 1.3182999999989988,
+            "maxMs": 42.071100000001024
+          }
+        }
+      }
+    }
+  ]
+}

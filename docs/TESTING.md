@@ -966,3 +966,54 @@ and final cheap build. Incumbent's full700 tests and finished100 Normal/100 old
 comparisons remain the accepted evidence. No fresh expensive test is needed for
 restoring identical code. Experimental commitf6e61d3 remains reachable for future
 study; this row records closure, not adoption or an experimental strength result.
+
+## Dispatcher final AI verification — rows45–47, 2026-10-30
+
+COPIES: 1 — searchMasterMoves publishes complete action/control records; one existing
+actual chooser consumes them. Packaging retains the actual benchmark controller seam.
+
+Integrated e35192a full gate0 `.gate-logs/dispatcher-completed-proof-full/gate.log`:
+700passed/2todo,84passedfiles/1skip,16existing lint warnings/0errors,52.66s;
+Node1024/worker1,peak NOT MEASURED. Production build index-CFLOzI4Z.js under
+/ColossusWeb/. Actual public build/hash/setup/save/legacy/360/error/paused-step checks
+pass, as do the three bounded variant/multiplayer invariant checks. No Java execution.
+
+Independent completed-proof negative in `dispatcher-completed-proof-confirmation`:
+A/C evaluateMove physical SHA256cb4a2325e185d1177d26318aca73b33e8eafc3df3150b2d477e393a78ca93ea1;
+B337f8070a90eba5e321c1bbc1eb5d47a8d210bffe2aaf9566fd35384350b7bd1 restores
+only the old adapter-wide exhaustion rejection. It fails the named actual chooser
+pin: completed control142/value45.42745 vs completed42/value49.10125, cap94,
+partialthird excluded, exact input/checkout restored; incomplete control stillNormal.
+This isolated Default recruitment position is a mechanism regression, not a full-match
+strength estimate. Final source and HEAD stayed fixed for each endpoint.
+
+Final independent Normal100:60W37L3D,score61.5%,paired95CI54–69%; all finished,
+zero errors/caps,43039 exact frozenNormal command/RNG checks. Balanced32/17/1,
+Random28/20/2. Gate0 `dispatcher-completed-proof-confirmation`. Final old100:
+66W32L2D,score67%,paired95CI57.5–76%; Balanced35/14/1,Random31/18/1,
+zero errors/caps. Gate0 `dispatcher-completed-proof-old-confirmation`.
+Independent read-only audit rederived both counts/intervals and verified source-tree,
+harness hash and all186old/196Normal frozen files. Historical Normal-old55/39/6
+score58 uses the same seeds/seats; descriptive score gain9percentagepoints, not an
+ablation/Elo claim. Full protocol/raw data are now published under benchmarks/ai-1.08.
+
+Common-state census gate0 `dispatcher-master-budget-census`:26Normal trajectory
+positions, original vs4x budgets. Complete controls6→10, alternatives2→6,
+actualdifferentchoices2→6; chooser median17.17→55.47ms,max32.34→75.36ms.
+This is cost/completion evidence only. Incumbent32development gate0 gives18W13L1D,
+score57.8125%; its games are not pooled with final100. The isolated larger-budget
+full gate1 `worktrees/ai-strategy/.gate-logs/dispatcher-expanded-budget-study` has
+696pass/4fail, all four old budget-exhaustion diagnostic assertions at
+ easyCoordination.test.ts:48. No experimental study games ran. No assertion was
+weakened; user requested finish, so experiment46 was closed and its constants
+restored. Entire production web/src tree is byte-equivalent in Git to validated
+638566160f5d6b77329a58c47d744dfb47d80741. Raw red and experiment history remain.
+
+Final packaging gate `.gate-logs/dispatcher-ai-release-packaging` runs source-tree/
+manifest/count/harness-byte checks, exact published script syntax, version step and
+actual tsc/Vite. This is cheap-tier evidence only; product behavior is covered by the
+unchanged full700-test tree and actual production/outcome checks above. Source/Git
+attribute handling preserves the physical endpoint harness SHA597...a7d0d4 across
+checkouts. One1.08 entry, no manual app-host deployment.
+
+Final packaging completed cheap2: exact tested product-tree and Git-index harness-byte checks, all published dataset counts/paired seats/source metadata/links, six script syntax checks, version1.07→1.08, actual tsc/Vite all pass. Production asset names remain index-CFLOzI4Z.js/index-BauY8sXD.css. No product-source change after the full700-test gate.

@@ -1,0 +1,117 @@
+{
+  "stage": "confirmation-normal",
+  "label": "coordinated-support-hard-normal-v3",
+  "opponent": "frozen-normal",
+  "groups": [
+    {
+      "profile": "balanced",
+      "seeds": [
+        4400009,
+        4409982,
+        4419955,
+        4429928,
+        4439901,
+        4449874,
+        4459847,
+        4469820,
+        4479793,
+        4489766,
+        4499739,
+        4509712,
+        4519685,
+        4529658,
+        4539631,
+        4549604,
+        4559577,
+        4569550,
+        4579523,
+        4589496,
+        4599469,
+        4609442,
+        4619415,
+        4629388,
+        4639361
+      ],
+      "raw": "coordinated-support-hard-normal-v3-Default-balanced.json",
+      "summary": "coordinated-support-hard-normal-v3-Default-balanced-summary.json",
+      "result": {
+        "games": 50,
+        "wins": 25,
+        "losses": 24,
+        "draws": 1,
+        "unfinished": 0,
+        "failures": 0,
+        "normalChecks": 18383,
+        "decisionTimes": {
+          "candidate": {
+            "commands": 18623,
+            "medianMs": 2.18650000001071,
+            "p95Ms": 39.84279999999853,
+            "maxMs": 442.13400000000547
+          },
+          "baseline": {
+            "commands": 18383,
+            "medianMs": 0.6196000000345521,
+            "p95Ms": 13.520399999979418,
+            "maxMs": 259.01130000001285
+          }
+        }
+      }
+    },
+    {
+      "profile": "random",
+      "seeds": [
+        4700017,
+        4709990,
+        4719963,
+        4729936,
+        4739909,
+        4749882,
+        4759855,
+        4769828,
+        4779801,
+        4789774,
+        4799747,
+        4809720,
+        4819693,
+        4829666,
+        4839639,
+        4849612,
+        4859585,
+        4869558,
+        4879531,
+        4889504,
+        4899477,
+        4909450,
+        4919423,
+        4929396,
+        4939369
+      ],
+      "raw": "coordinated-support-hard-normal-v3-Default-random.json",
+      "summary": "coordinated-support-hard-normal-v3-Default-random-summary.json",
+      "result": {
+        "games": 50,
+        "wins": 26,
+        "losses": 24,
+        "draws": 0,
+        "unfinished": 0,
+        "failures": 0,
+        "normalChecks": 23901,
+        "decisionTimes": {
+          "candidate": {
+            "commands": 24948,
+            "medianMs": 2.2374999999883585,
+            "p95Ms": 41.028999999994994,
+            "maxMs": 413.28979999996955
+          },
+          "baseline": {
+            "commands": 23901,
+            "medianMs": 0.6563000000005559,
+            "p95Ms": 13.645000000018626,
+            "maxMs": 326.287599999996
+          }
+        }
+      }
+    }
+  ]
+}

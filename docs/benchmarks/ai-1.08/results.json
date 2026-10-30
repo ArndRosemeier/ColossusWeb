@@ -1,0 +1,182 @@
+{
+  "hard_normal": {
+    "games": 100,
+    "wins": 60,
+    "losses": 37,
+    "draws": 3,
+    "unfinished": 0,
+    "failures": 0,
+    "tournamentScorePercent": 61.5,
+    "approximate95PercentPairedBootstrapInterval": [
+      54,
+      69
+    ],
+    "method": "10000 stratified seed-pair bootstrap resamples; swapped seats remain paired. Diagnostic uncertainty for these seeds/profiles, not an Elo or universal variant claim.",
+    "sources": [
+      {
+        "file": "data/completed-proof-hard-normal-v3-Default-balanced.json",
+        "candidateCommit": "e35192ae4189f716f774f6b16f567a26ac929516",
+        "opponentCommit": "67bc699e4a6f4250abfa4b437b952115a60c2e26",
+        "engineCommit": "e35192ae4189f716f774f6b16f567a26ac929516",
+        "harnessRevision": "isolated-defender-v3"
+      },
+      {
+        "file": "data/completed-proof-hard-normal-v3-Default-random.json",
+        "candidateCommit": "e35192ae4189f716f774f6b16f567a26ac929516",
+        "opponentCommit": "67bc699e4a6f4250abfa4b437b952115a60c2e26",
+        "engineCommit": "e35192ae4189f716f774f6b16f567a26ac929516",
+        "harnessRevision": "isolated-defender-v3"
+      }
+    ]
+  },
+  "hard_old": {
+    "games": 100,
+    "wins": 66,
+    "losses": 32,
+    "draws": 2,
+    "unfinished": 0,
+    "failures": 0,
+    "tournamentScorePercent": 67,
+    "approximate95PercentPairedBootstrapInterval": [
+      57.49999999999999,
+      76
+    ],
+    "method": "10000 stratified seed-pair bootstrap resamples; swapped seats remain paired. Diagnostic uncertainty for these seeds/profiles, not an Elo or universal variant claim.",
+    "sources": [
+      {
+        "file": "data/completed-proof-hard-old-v3-Default-balanced.json",
+        "candidateCommit": "e35192ae4189f716f774f6b16f567a26ac929516",
+        "opponentCommit": "1c39d623dbe6beeb024e806af30b7a85026ee936",
+        "engineCommit": "e35192ae4189f716f774f6b16f567a26ac929516",
+        "harnessRevision": "isolated-defender-v3"
+      },
+      {
+        "file": "data/completed-proof-hard-old-v3-Default-random.json",
+        "candidateCommit": "e35192ae4189f716f774f6b16f567a26ac929516",
+        "opponentCommit": "1c39d623dbe6beeb024e806af30b7a85026ee936",
+        "engineCommit": "e35192ae4189f716f774f6b16f567a26ac929516",
+        "harnessRevision": "isolated-defender-v3"
+      }
+    ]
+  },
+  "normal_old": {
+    "games": 100,
+    "wins": 55,
+    "losses": 39,
+    "draws": 6,
+    "unfinished": 0,
+    "failures": 0,
+    "tournamentScorePercent": 58,
+    "approximate95PercentPairedBootstrapInterval": [
+      48,
+      68
+    ],
+    "method": "10000 stratified seed-pair bootstrap resamples; swapped seats remain paired. Diagnostic uncertainty for these seeds/profiles, not an Elo or universal variant claim.",
+    "sources": [
+      {
+        "file": "data/v2-controlled-normal-old-Default-balanced.json",
+        "candidateCommit": "67bc699e4a6f4250abfa4b437b952115a60c2e26",
+        "opponentCommit": "1c39d623dbe6beeb024e806af30b7a85026ee936",
+        "engineCommit": "67bc699e4a6f4250abfa4b437b952115a60c2e26",
+        "harnessRevision": "isolated-defender-v2"
+      },
+      {
+        "file": "data/v2-controlled-normal-old-Default-random.json",
+        "candidateCommit": "67bc699e4a6f4250abfa4b437b952115a60c2e26",
+        "opponentCommit": "1c39d623dbe6beeb024e806af30b7a85026ee936",
+        "engineCommit": "67bc699e4a6f4250abfa4b437b952115a60c2e26",
+        "harnessRevision": "isolated-defender-v2"
+      }
+    ]
+  },
+  "earlier_outcome": {
+    "games": 100,
+    "wins": 55,
+    "losses": 44,
+    "draws": 1,
+    "unfinished": 0,
+    "failures": 0,
+    "tournamentScorePercent": 55.5,
+    "approximate95PercentPairedBootstrapInterval": [
+      48.5,
+      62.5
+    ],
+    "method": "10000 stratified seed-pair bootstrap resamples; swapped seats remain paired. Diagnostic uncertainty for these seeds/profiles, not an Elo or universal variant claim.",
+    "sources": [
+      {
+        "file": "data/outcome-hard-normal-heldout-v3-Default-balanced.json",
+        "candidateCommit": "a6c46dea3926a33106ab3a39eb78f5eb38e785fd",
+        "opponentCommit": "67bc699e4a6f4250abfa4b437b952115a60c2e26",
+        "engineCommit": "a6c46dea3926a33106ab3a39eb78f5eb38e785fd",
+        "harnessRevision": "isolated-defender-v3"
+      },
+      {
+        "file": "data/outcome-hard-normal-heldout-v3-Default-random.json",
+        "candidateCommit": "a6c46dea3926a33106ab3a39eb78f5eb38e785fd",
+        "opponentCommit": "67bc699e4a6f4250abfa4b437b952115a60c2e26",
+        "engineCommit": "a6c46dea3926a33106ab3a39eb78f5eb38e785fd",
+        "harnessRevision": "isolated-defender-v3"
+      }
+    ]
+  },
+  "earlier_coordinated": {
+    "games": 100,
+    "wins": 51,
+    "losses": 48,
+    "draws": 1,
+    "unfinished": 0,
+    "failures": 0,
+    "tournamentScorePercent": 51.5,
+    "approximate95PercentPairedBootstrapInterval": [
+      43.5,
+      59.5
+    ],
+    "method": "10000 stratified seed-pair bootstrap resamples; swapped seats remain paired. Diagnostic uncertainty for these seeds/profiles, not an Elo or universal variant claim.",
+    "sources": [
+      {
+        "file": "data/coordinated-support-hard-normal-v3-Default-balanced.json",
+        "candidateCommit": "de6cdf15a93781e8ffa9a62d0824e30c1dd7e24c",
+        "opponentCommit": "67bc699e4a6f4250abfa4b437b952115a60c2e26",
+        "engineCommit": "de6cdf15a93781e8ffa9a62d0824e30c1dd7e24c",
+        "harnessRevision": "isolated-defender-v3"
+      },
+      {
+        "file": "data/coordinated-support-hard-normal-v3-Default-random.json",
+        "candidateCommit": "de6cdf15a93781e8ffa9a62d0824e30c1dd7e24c",
+        "opponentCommit": "67bc699e4a6f4250abfa4b437b952115a60c2e26",
+        "engineCommit": "de6cdf15a93781e8ffa9a62d0824e30c1dd7e24c",
+        "harnessRevision": "isolated-defender-v3"
+      }
+    ]
+  },
+  "development": {
+    "games": 32,
+    "wins": 18,
+    "losses": 13,
+    "draws": 1,
+    "unfinished": 0,
+    "failures": 0,
+    "tournamentScorePercent": 57.8125,
+    "approximate95PercentPairedBootstrapInterval": [
+      46.875,
+      70.3125
+    ],
+    "method": "10000 stratified seed-pair bootstrap resamples; swapped seats remain paired. Diagnostic uncertainty for these seeds/profiles, not an Elo or universal variant claim.",
+    "sources": [
+      {
+        "file": "data/incumbent-budget-study-v3-Default-balanced.json",
+        "candidateCommit": "e35192ae4189f716f774f6b16f567a26ac929516",
+        "opponentCommit": "67bc699e4a6f4250abfa4b437b952115a60c2e26",
+        "engineCommit": "e35192ae4189f716f774f6b16f567a26ac929516",
+        "harnessRevision": "isolated-defender-v3"
+      },
+      {
+        "file": "data/incumbent-budget-study-v3-Default-random.json",
+        "candidateCommit": "e35192ae4189f716f774f6b16f567a26ac929516",
+        "opponentCommit": "67bc699e4a6f4250abfa4b437b952115a60c2e26",
+        "engineCommit": "e35192ae4189f716f774f6b16f567a26ac929516",
+        "harnessRevision": "isolated-defender-v3"
+      }
+    ]
+  }
+}

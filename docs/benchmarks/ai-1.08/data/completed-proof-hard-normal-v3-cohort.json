@@ -1,0 +1,117 @@
+{
+  "stage": "confirmation-normal-next",
+  "label": "completed-proof-hard-normal-v3",
+  "opponent": "frozen-normal",
+  "groups": [
+    {
+      "profile": "balanced",
+      "seeds": [
+        5400013,
+        5409986,
+        5419959,
+        5429932,
+        5439905,
+        5449878,
+        5459851,
+        5469824,
+        5479797,
+        5489770,
+        5499743,
+        5509716,
+        5519689,
+        5529662,
+        5539635,
+        5549608,
+        5559581,
+        5569554,
+        5579527,
+        5589500,
+        5599473,
+        5609446,
+        5619419,
+        5629392,
+        5639365
+      ],
+      "raw": "completed-proof-hard-normal-v3-Default-balanced.json",
+      "summary": "completed-proof-hard-normal-v3-Default-balanced-summary.json",
+      "result": {
+        "games": 50,
+        "wins": 32,
+        "losses": 17,
+        "draws": 1,
+        "unfinished": 0,
+        "failures": 0,
+        "normalChecks": 21455,
+        "decisionTimes": {
+          "candidate": {
+            "commands": 21824,
+            "medianMs": 2.218800000002375,
+            "p95Ms": 29.100399999995716,
+            "maxMs": 292.1676999999909
+          },
+          "baseline": {
+            "commands": 21455,
+            "medianMs": 0.6159000000043306,
+            "p95Ms": 9.707800000003772,
+            "maxMs": 74.08669999998529
+          }
+        }
+      }
+    },
+    {
+      "profile": "random",
+      "seeds": [
+        5700023,
+        5709996,
+        5719969,
+        5729942,
+        5739915,
+        5749888,
+        5759861,
+        5769834,
+        5779807,
+        5789780,
+        5799753,
+        5809726,
+        5819699,
+        5829672,
+        5839645,
+        5849618,
+        5859591,
+        5869564,
+        5879537,
+        5889510,
+        5899483,
+        5909456,
+        5919429,
+        5929402,
+        5939375
+      ],
+      "raw": "completed-proof-hard-normal-v3-Default-random.json",
+      "summary": "completed-proof-hard-normal-v3-Default-random-summary.json",
+      "result": {
+        "games": 50,
+        "wins": 28,
+        "losses": 20,
+        "draws": 2,
+        "unfinished": 0,
+        "failures": 0,
+        "normalChecks": 21584,
+        "decisionTimes": {
+          "candidate": {
+            "commands": 22282,
+            "medianMs": 2.7185000000172295,
+            "p95Ms": 43.915500000002794,
+            "maxMs": 601.5731999999989
+          },
+          "baseline": {
+            "commands": 21584,
+            "medianMs": 0.652799999981653,
+            "p95Ms": 13.598599999968428,
+            "maxMs": 223.6490000000049
+          }
+        }
+      }
+    }
+  ]
+}

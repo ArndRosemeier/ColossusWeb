@@ -1,0 +1,23 @@
+{
+  "games": 50,
+  "wins": 29,
+  "losses": 20,
+  "draws": 1,
+  "unfinished": 0,
+  "failures": 0,
+  "normalChecks": 21483,
+  "decisionTimes": {
+    "candidate": {
+      "commands": 21318,
+      "medianMs": 2.0442000000039116,
+      "p95Ms": 31.062099999981,
+      "maxMs": 256.58580000000075
+    },
+    "baseline": {
+      "commands": 21483,
+      "medianMs": 0.5684999999939464,
+      "p95Ms": 9.122999999999593,
+      "maxMs": 126.399000000034
+    }
+  }
+}

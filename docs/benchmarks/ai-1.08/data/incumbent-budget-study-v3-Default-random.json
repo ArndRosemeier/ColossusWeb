@@ -1,0 +1,687 @@
+{
+  "harnessRevision": "isolated-defender-v3",
+  "verifyNormal": true,
+  "diagnosticHardTrace": false,
+  "harnessSha256": "5963181b5ac609fd0780a38ddead31e7f3c2f80f266e64c0cd2dfed47ca7d0d4",
+  "engineSourceTree": "638566160f5d6b77329a58c47d744dfb47d80741",
+  "candidateCommit": "e35192ae4189f716f774f6b16f567a26ac929516",
+  "opponentCommit": "67bc699e4a6f4250abfa4b437b952115a60c2e26",
+  "engineCommit": "e35192ae4189f716f774f6b16f567a26ac929516",
+  "maxTurns": 200,
+  "maxSteps": 20000,
+  "wallMs": 90000,
+  "results": [
+    {
+      "seed": 2700013,
+      "candidateSeat": 0,
+      "variant": "Default",
+      "profile": "random",
+      "difficulty": "hard",
+      "opponent": "frozen-normal",
+      "candidateSource": "current",
+      "calibrate": false,
+      "outcome": "winner",
+      "winner": "candidate",
+      "turns": 74,
+      "steps": 2489,
+      "elapsedMs": 24917.3392,
+      "metrics": {
+        "candidate": {
+          "commands": 1256,
+          "medianMs": 7.371800000000803,
+          "p95Ms": 52.432700000001205,
+          "maxMs": 193.6193999999996
+        },
+        "baseline": {
+          "commands": 1213,
+          "medianMs": 0.8614000000002306,
+          "p95Ms": 12.786299999999756,
+          "maxMs": 47.8849999999984
+        }
+      },
+      "failure": null,
+      "finalScores": [
+        {
+          "name": "candidate",
+          "score": 986,
+          "legions": 8
+        },
+        {
+          "name": "baseline",
+          "score": 557,
+          "legions": 0
+        }
+      ]
+    },
+    {
+      "seed": 2700013,
+      "candidateSeat": 1,
+      "variant": "Default",
+      "profile": "random",
+      "difficulty": "hard",
+      "opponent": "frozen-normal",
+      "candidateSource": "current",
+      "calibrate": false,
+      "outcome": "winner",
+      "winner": "baseline",
+      "turns": 26,
+      "steps": 786,
+      "elapsedMs": 5930.392499999998,
+      "metrics": {
+        "candidate": {
+          "commands": 416,
+          "medianMs": 2.230200000001787,
+          "p95Ms": 33.15269999999873,
+          "maxMs": 88.58810000000085
+        },
+        "baseline": {
+          "commands": 365,
+          "medianMs": 0.46379999999771826,
+          "p95Ms": 8.169599999997445,
+          "maxMs": 38.34509999999864
+        }
+      },
+      "failure": null,
+      "finalScores": [
+        {
+          "name": "baseline",
+          "score": 609,
+          "legions": 10
+        },
+        {
+          "name": "candidate",
+          "score": 120,
+          "legions": 0
+        }
+      ]
+    },
+    {
+      "seed": 2709986,
+      "candidateSeat": 0,
+      "variant": "Default",
+      "profile": "random",
+      "difficulty": "hard",
+      "opponent": "frozen-normal",
+      "candidateSource": "current",
+      "calibrate": false,
+      "outcome": "winner",
+      "winner": "candidate",
+      "turns": 18,
+      "steps": 522,
+      "elapsedMs": 2618.9194000000025,
+      "metrics": {
+        "candidate": {
+          "commands": 287,
+          "medianMs": 0.5835999999981141,
+          "p95Ms": 25.59440000000177,
+          "maxMs": 55.26810000000114
+        },
+        "baseline": {
+          "commands": 231,
+          "medianMs": 0.13620000000082655,
+          "p95Ms": 3.5720000000001164,
+          "maxMs": 20.51929999999993
+        }
+      },
+      "failure": null,
+      "finalScores": [
+        {
+          "name": "candidate",
+          "score": 278,
+          "legions": 9
+        },
+        {
+          "name": "baseline",
+          "score": 48,
+          "legions": 0
+        }
+      ]
+    },
+    {
+      "seed": 2709986,
+      "candidateSeat": 1,
+      "variant": "Default",
+      "profile": "random",
+      "difficulty": "hard",
+      "opponent": "frozen-normal",
+      "candidateSource": "current",
+      "calibrate": false,
+      "outcome": "winner",
+      "winner": "baseline",
+      "turns": 14,
+      "steps": 374,
+      "elapsedMs": 2259.964500000002,
+      "metrics": {
+        "candidate": {
+          "commands": 190,
+          "medianMs": 0.5148000000044703,
+          "p95Ms": 41.574000000000524,
+          "maxMs": 126.31240000000253
+        },
+        "baseline": {
+          "commands": 181,
+          "medianMs": 0.23479999999835854,
+          "p95Ms": 5.060100000002421,
+          "maxMs": 20.788399999997637
+        }
+      },
+      "failure": null,
+      "finalScores": [
+        {
+          "name": "baseline",
+          "score": 295,
+          "legions": 5
+        },
+        {
+          "name": "candidate",
+          "score": 42,
+          "legions": 0
+        }
+      ]
+    },
+    {
+      "seed": 2719959,
+      "candidateSeat": 0,
+      "variant": "Default",
+      "profile": "random",
+      "difficulty": "hard",
+      "opponent": "frozen-normal",
+      "candidateSource": "current",
+      "calibrate": false,
+      "outcome": "winner",
+      "winner": "candidate",
+      "turns": 21,
+      "steps": 533,
+      "elapsedMs": 3259.5979000000007,
+      "metrics": {
+        "candidate": {
+          "commands": 312,
+          "medianMs": 0.8548999999984517,
+          "p95Ms": 21.97769999999582,
+          "maxMs": 118.62370000000374
+        },
+        "baseline": {
+          "commands": 220,
+          "medianMs": 0.32259999999951106,
+          "p95Ms": 12.714599999999336,
+          "maxMs": 36.36540000000241
+        }
+      },
+      "failure": null,
+      "finalScores": [
+        {
+          "name": "candidate",
+          "score": 381,
+          "legions": 12
+        },
+        {
+          "name": "baseline",
+          "score": 104,
+          "legions": 0
+        }
+      ]
+    },
+    {
+      "seed": 2719959,
+      "candidateSeat": 1,
+      "variant": "Default",
+      "profile": "random",
+      "difficulty": "hard",
+      "opponent": "frozen-normal",
+      "candidateSource": "current",
+      "calibrate": false,
+      "outcome": "winner",
+      "winner": "baseline",
+      "turns": 21,
+      "steps": 534,
+      "elapsedMs": 2350.1543999999994,
+      "metrics": {
+        "candidate": {
+          "commands": 218,
+          "medianMs": 0.43920000000071013,
+          "p95Ms": 22.703999999997905,
+          "maxMs": 53.35150000000431
+        },
+        "baseline": {
+          "commands": 315,
+          "medianMs": 0.45059999999648426,
+          "p95Ms": 3.610000000000582,
+          "maxMs": 33.62289999999484
+        }
+      },
+      "failure": null,
+      "finalScores": [
+        {
+          "name": "baseline",
+          "score": 381,
+          "legions": 12
+        },
+        {
+          "name": "candidate",
+          "score": 104,
+          "legions": 0
+        }
+      ]
+    },
+    {
+      "seed": 2729932,
+      "candidateSeat": 0,
+      "variant": "Default",
+      "profile": "random",
+      "difficulty": "hard",
+      "opponent": "frozen-normal",
+      "candidateSource": "current",
+      "calibrate": false,
+      "outcome": "winner",
+      "winner": "baseline",
+      "turns": 35,
+      "steps": 827,
+      "elapsedMs": 5156.920600000005,
+      "metrics": {
+        "candidate": {
+          "commands": 457,
+          "medianMs": 1.0276000000012573,
+          "p95Ms": 19.51090000000113,
+          "maxMs": 96.54619999999704
+        },
+        "baseline": {
+          "commands": 369,
+          "medianMs": 0.5570000000006985,
+          "p95Ms": 7.697800000001735,
+          "maxMs": 30.34700000000157
+        }
+      },
+      "failure": null,
+      "finalScores": [
+        {
+          "name": "candidate",
+          "score": 230,
+          "legions": 0
+        },
+        {
+          "name": "baseline",
+          "score": 826,
+          "legions": 7
+        }
+      ]
+    },
+    {
+      "seed": 2729932,
+      "candidateSeat": 1,
+      "variant": "Default",
+      "profile": "random",
+      "difficulty": "hard",
+      "opponent": "frozen-normal",
+      "candidateSource": "current",
+      "calibrate": false,
+      "outcome": "winner",
+      "winner": "candidate",
+      "turns": 35,
+      "steps": 819,
+      "elapsedMs": 4209.687600000005,
+      "metrics": {
+        "candidate": {
+          "commands": 365,
+          "medianMs": 1.623700000003737,
+          "p95Ms": 20.18970000000263,
+          "maxMs": 84.30679999999847
+        },
+        "baseline": {
+          "commands": 453,
+          "medianMs": 0.5057999999989988,
+          "p95Ms": 3.5768000000025495,
+          "maxMs": 23.83679999999731
+        }
+      },
+      "failure": null,
+      "finalScores": [
+        {
+          "name": "baseline",
+          "score": 230,
+          "legions": 0
+        },
+        {
+          "name": "candidate",
+          "score": 826,
+          "legions": 7
+        }
+      ]
+    },
+    {
+      "seed": 2739905,
+      "candidateSeat": 0,
+      "variant": "Default",
+      "profile": "random",
+      "difficulty": "hard",
+      "opponent": "frozen-normal",
+      "candidateSource": "current",
+      "calibrate": false,
+      "outcome": "winner",
+      "winner": "candidate",
+      "turns": 43,
+      "steps": 1140,
+      "elapsedMs": 7048.129000000001,
+      "metrics": {
+        "candidate": {
+          "commands": 597,
+          "medianMs": 0.985899999999674,
+          "p95Ms": 22.90679999999702,
+          "maxMs": 83.73179999999411
+        },
+        "baseline": {
+          "commands": 536,
+          "medianMs": 0.6327000000019325,
+          "p95Ms": 7.9539999999979045,
+          "maxMs": 57.74790000000212
+        }
+      },
+      "failure": null,
+      "finalScores": [
+        {
+          "name": "candidate",
+          "score": 531,
+          "legions": 12
+        },
+        {
+          "name": "baseline",
+          "score": 149,
+          "legions": 0
+        }
+      ]
+    },
+    {
+      "seed": 2739905,
+      "candidateSeat": 1,
+      "variant": "Default",
+      "profile": "random",
+      "difficulty": "hard",
+      "opponent": "frozen-normal",
+      "candidateSource": "current",
+      "calibrate": false,
+      "outcome": "winner",
+      "winner": "baseline",
+      "turns": 33,
+      "steps": 836,
+      "elapsedMs": 4542.173800000004,
+      "metrics": {
+        "candidate": {
+          "commands": 381,
+          "medianMs": 2.513699999995879,
+          "p95Ms": 26.228100000000268,
+          "maxMs": 74.91100000000006
+        },
+        "baseline": {
+          "commands": 451,
+          "medianMs": 0.39699999999720603,
+          "p95Ms": 3.4513999999981024,
+          "maxMs": 19.98139999999694
+        }
+      },
+      "failure": null,
+      "finalScores": [
+        {
+          "name": "baseline",
+          "score": 468,
+          "legions": 12
+        },
+        {
+          "name": "candidate",
+          "score": 76,
+          "legions": 0
+        }
+      ]
+    },
+    {
+      "seed": 2749878,
+      "candidateSeat": 0,
+      "variant": "Default",
+      "profile": "random",
+      "difficulty": "hard",
+      "opponent": "frozen-normal",
+      "candidateSource": "current",
+      "calibrate": false,
+      "outcome": "winner",
+      "winner": "candidate",
+      "turns": 7,
+      "steps": 156,
+      "elapsedMs": 770.8784999999989,
+      "metrics": {
+        "candidate": {
+          "commands": 73,
+          "medianMs": 0.13600000000587897,
+          "p95Ms": 42.85670000000391,
+          "maxMs": 59.175900000002
+        },
+        "baseline": {
+          "commands": 82,
+          "medianMs": 0.11389999999664724,
+          "p95Ms": 4.684399999998277,
+          "maxMs": 13.35910000000149
+        }
+      },
+      "failure": null,
+      "finalScores": [
+        {
+          "name": "candidate",
+          "score": 153,
+          "legions": 4
+        },
+        {
+          "name": "baseline",
+          "score": 0,
+          "legions": 0
+        }
+      ]
+    },
+    {
+      "seed": 2749878,
+      "candidateSeat": 1,
+      "variant": "Default",
+      "profile": "random",
+      "difficulty": "hard",
+      "opponent": "frozen-normal",
+      "candidateSource": "current",
+      "calibrate": false,
+      "outcome": "winner",
+      "winner": "candidate",
+      "turns": 65,
+      "steps": 1541,
+      "elapsedMs": 10274.495500000005,
+      "metrics": {
+        "candidate": {
+          "commands": 731,
+          "medianMs": 4.986099999994622,
+          "p95Ms": 29.29090000000724,
+          "maxMs": 108.71869999999763
+        },
+        "baseline": {
+          "commands": 806,
+          "medianMs": 0.7670999999972992,
+          "p95Ms": 3.1873000000050524,
+          "maxMs": 18.93850000000384
+        }
+      },
+      "failure": null,
+      "finalScores": [
+        {
+          "name": "baseline",
+          "score": 499,
+          "legions": 0
+        },
+        {
+          "name": "candidate",
+          "score": 941,
+          "legions": 7
+        }
+      ]
+    },
+    {
+      "seed": 2759851,
+      "candidateSeat": 0,
+      "variant": "Default",
+      "profile": "random",
+      "difficulty": "hard",
+      "opponent": "frozen-normal",
+      "candidateSource": "current",
+      "calibrate": false,
+      "outcome": "winner",
+      "winner": "candidate",
+      "turns": 44,
+      "steps": 1097,
+      "elapsedMs": 8497.432,
+      "metrics": {
+        "candidate": {
+          "commands": 637,
+          "medianMs": 1.889999999999418,
+          "p95Ms": 23.87369999999646,
+          "maxMs": 136.13769999999204
+        },
+        "baseline": {
+          "commands": 457,
+          "medianMs": 0.6034999999974389,
+          "p95Ms": 10.637000000002445,
+          "maxMs": 32.767500000001746
+        }
+      },
+      "failure": null,
+      "finalScores": [
+        {
+          "name": "candidate",
+          "score": 530,
+          "legions": 12
+        },
+        {
+          "name": "baseline",
+          "score": 149,
+          "legions": 0
+        }
+      ]
+    },
+    {
+      "seed": 2759851,
+      "candidateSeat": 1,
+      "variant": "Default",
+      "profile": "random",
+      "difficulty": "hard",
+      "opponent": "frozen-normal",
+      "candidateSource": "current",
+      "calibrate": false,
+      "outcome": "draw",
+      "winner": null,
+      "turns": 68,
+      "steps": 1338,
+      "elapsedMs": 7322.923299999995,
+      "metrics": {
+        "candidate": {
+          "commands": 593,
+          "medianMs": 1.832299999994575,
+          "p95Ms": 20.81149999999616,
+          "maxMs": 48.18300000000454
+        },
+        "baseline": {
+          "commands": 743,
+          "medianMs": 0.8616000000038184,
+          "p95Ms": 8.464000000007218,
+          "maxMs": 15.161500000001979
+        }
+      },
+      "failure": null,
+      "finalScores": [
+        {
+          "name": "baseline",
+          "score": 440,
+          "legions": 0
+        },
+        {
+          "name": "candidate",
+          "score": 799,
+          "legions": 0
+        }
+      ]
+    },
+    {
+      "seed": 2769824,
+      "candidateSeat": 0,
+      "variant": "Default",
+      "profile": "random",
+      "difficulty": "hard",
+      "opponent": "frozen-normal",
+      "candidateSource": "current",
+      "calibrate": false,
+      "outcome": "winner",
+      "winner": "baseline",
+      "turns": 33,
+      "steps": 786,
+      "elapsedMs": 5624.8301000000065,
+      "metrics": {
+        "candidate": {
+          "commands": 391,
+          "medianMs": 1.4544000000023516,
+          "p95Ms": 25.44069999999192,
+          "maxMs": 174.59709999999905
+        },
+        "baseline": {
+          "commands": 394,
+          "medianMs": 0.5013999999937369,
+          "p95Ms": 8.959300000002258,
+          "maxMs": 52.50229999999283
+        }
+      },
+      "failure": null,
+      "finalScores": [
+        {
+          "name": "candidate",
+          "score": 158,
+          "legions": 0
+        },
+        {
+          "name": "baseline",
+          "score": 750,
+          "legions": 11
+        }
+      ]
+    },
+    {
+      "seed": 2769824,
+      "candidateSeat": 1,
+      "variant": "Default",
+      "profile": "random",
+      "difficulty": "hard",
+      "opponent": "frozen-normal",
+      "candidateSource": "current",
+      "calibrate": false,
+      "outcome": "winner",
+      "winner": "candidate",
+      "turns": 33,
+      "steps": 786,
+      "elapsedMs": 5012.651700000002,
+      "metrics": {
+        "candidate": {
+          "commands": 394,
+          "medianMs": 1.7078999999939697,
+          "p95Ms": 22.707099999999627,
+          "maxMs": 50.79110000000219
+        },
+        "baseline": {
+          "commands": 391,
+          "medianMs": 0.48589999999967404,
+          "p95Ms": 5.6485000000102445,
+          "maxMs": 32.705000000001746
+        }
+      },
+      "failure": null,
+      "finalScores": [
+        {
+          "name": "baseline",
+          "score": 158,
+          "legions": 0
+        },
+        {
+          "name": "candidate",
+          "score": 750,
+          "legions": 11
+        }
+      ]
+    }
+  ]
+}

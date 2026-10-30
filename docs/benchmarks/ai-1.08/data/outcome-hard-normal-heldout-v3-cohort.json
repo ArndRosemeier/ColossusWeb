@@ -1,0 +1,117 @@
+{
+  "stage": "final-normal",
+  "label": "outcome-hard-normal-heldout-v3",
+  "opponent": "frozen-normal",
+  "groups": [
+    {
+      "profile": "balanced",
+      "seeds": [
+        3400003,
+        3409976,
+        3419949,
+        3429922,
+        3439895,
+        3449868,
+        3459841,
+        3469814,
+        3479787,
+        3489760,
+        3499733,
+        3509706,
+        3519679,
+        3529652,
+        3539625,
+        3549598,
+        3559571,
+        3569544,
+        3579517,
+        3589490,
+        3599463,
+        3609436,
+        3619409,
+        3629382,
+        3639355
+      ],
+      "raw": "outcome-hard-normal-heldout-v3-Default-balanced.json",
+      "summary": "outcome-hard-normal-heldout-v3-Default-balanced-summary.json",
+      "result": {
+        "games": 50,
+        "wins": 26,
+        "losses": 24,
+        "draws": 0,
+        "unfinished": 0,
+        "failures": 0,
+        "normalChecks": 20637,
+        "decisionTimes": {
+          "candidate": {
+            "commands": 19960,
+            "medianMs": 2.419500000018161,
+            "p95Ms": 29.206100000010338,
+            "maxMs": 264.13269999999466
+          },
+          "baseline": {
+            "commands": 20637,
+            "medianMs": 0.705599999986589,
+            "p95Ms": 10.52970000001369,
+            "maxMs": 108.97469999999157
+          }
+        }
+      }
+    },
+    {
+      "profile": "random",
+      "seeds": [
+        3700007,
+        3709980,
+        3719953,
+        3729926,
+        3739899,
+        3749872,
+        3759845,
+        3769818,
+        3779791,
+        3789764,
+        3799737,
+        3809710,
+        3819683,
+        3829656,
+        3839629,
+        3849602,
+        3859575,
+        3869548,
+        3879521,
+        3889494,
+        3899467,
+        3909440,
+        3919413,
+        3929386,
+        3939359
+      ],
+      "raw": "outcome-hard-normal-heldout-v3-Default-random.json",
+      "summary": "outcome-hard-normal-heldout-v3-Default-random-summary.json",
+      "result": {
+        "games": 50,
+        "wins": 29,
+        "losses": 20,
+        "draws": 1,
+        "unfinished": 0,
+        "failures": 0,
+        "normalChecks": 21483,
+        "decisionTimes": {
+          "candidate": {
+            "commands": 21318,
+            "medianMs": 2.0442000000039116,
+            "p95Ms": 31.062099999981,
+            "maxMs": 256.58580000000075
+          },
+          "baseline": {
+            "commands": 21483,
+            "medianMs": 0.5684999999939464,
+            "p95Ms": 9.122999999999593,
+            "maxMs": 126.399000000034
+          }
+        }
+      }
+    }
+  ]
+}

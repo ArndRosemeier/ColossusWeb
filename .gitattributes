@@ -1,0 +1,2 @@
+# Preserve the exact benchmark harness bytes recorded in published results.
+scripts/ai-benchmark/matches.cjs -text whitespace=cr-at-eol

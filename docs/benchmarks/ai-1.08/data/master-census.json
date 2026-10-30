@@ -1,0 +1,1468 @@
+{
+  "source": "e35192ae4189f716f774f6b16f567a26ac929516",
+  "purpose": "Fixed common-state completion/cost census, not strength evidence; bounded games use Normal only",
+  "configs": {
+    "current": {
+      "maxNodes": 600,
+      "maxGeneratedMoves": 6000,
+      "maxMovementQueries": 4096
+    },
+    "expanded": {
+      "maxNodes": 2400,
+      "maxGeneratedMoves": 24000,
+      "maxMovementQueries": 16384
+    }
+  },
+  "summary": {
+    "current": {
+      "positions": 26,
+      "controlComplete": 6,
+      "withCompleteAlternative": 2,
+      "exhausted": 20,
+      "unsupportedOrIncomplete": 2,
+      "differentFromNormal": 2,
+      "chooserMedianMs": 17.16620000000148,
+      "chooserP95Ms": 28.877199999999903,
+      "chooserMaxMs": 32.33629999999994
+    },
+    "expanded": {
+      "positions": 26,
+      "controlComplete": 10,
+      "withCompleteAlternative": 6,
+      "exhausted": 16,
+      "unsupportedOrIncomplete": 2,
+      "differentFromNormal": 6,
+      "chooserMedianMs": 55.470900000000256,
+      "chooserP95Ms": 71.76490000000013,
+      "chooserMaxMs": 75.35599999999977
+    }
+  },
+  "newlyCompletedControl": 4,
+  "expandedNewChoices": 4,
+  "trajectories": [
+    {
+      "personality": "balanced",
+      "seed": 1511,
+      "steps": 386,
+      "round": 21,
+      "outcome": "bounded-stability-only"
+    },
+    {
+      "personality": "balanced",
+      "seed": 3253,
+      "steps": 523,
+      "round": 21,
+      "outcome": "bounded-stability-only"
+    },
+    {
+      "personality": "balanced",
+      "seed": 7109,
+      "steps": 450,
+      "round": 21,
+      "outcome": "bounded-stability-only"
+    },
+    {
+      "personality": "random",
+      "seed": 1511,
+      "steps": 451,
+      "round": 21,
+      "outcome": "bounded-stability-only"
+    },
+    {
+      "personality": "random",
+      "seed": 3253,
+      "steps": 445,
+      "round": 21,
+      "outcome": "bounded-stability-only"
+    },
+    {
+      "personality": "random",
+      "seed": 7109,
+      "steps": 427,
+      "round": 18,
+      "outcome": "winner"
+    }
+  ],
+  "rows": [
+    {
+      "personality": "balanced",
+      "seed": 1511,
+      "round": 2,
+      "seat": 1,
+      "legions": 4,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-4",
+        "toHex": "28",
+        "teleport": false
+      },
+      "settings": {
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-4",
+            "toHex": "28",
+            "teleport": false
+          },
+          "planningMs": 35.283300000000054,
+          "chooserMs": 32.33629999999994,
+          "controlComplete": true,
+          "completeCandidates": 1,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 286,
+          "queries": 4102,
+          "generated": 763,
+          "controlValue": 219.0134001736111,
+          "bestMoveValue": 219.0134001736111,
+          "differentFromNormal": false
+        },
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-2",
+            "toHex": "110",
+            "teleport": false
+          },
+          "planningMs": 27.418100000000095,
+          "chooserMs": 25.100200000000086,
+          "controlComplete": true,
+          "completeCandidates": 1,
+          "completedHolds": 1,
+          "exhausted": false,
+          "incomplete": false,
+          "nodes": 292,
+          "queries": 4158,
+          "generated": 775,
+          "controlValue": 219.0134001736111,
+          "bestMoveValue": 219.0134001736111,
+          "bestHoldValue": 223.9175245949074,
+          "differentFromNormal": true
+        }
+      }
+    },
+    {
+      "personality": "balanced",
+      "seed": 1511,
+      "round": 4,
+      "seat": 1,
+      "legions": 7,
+      "normal": {
+        "type": "doneMove"
+      },
+      "settings": {
+        "expanded": {
+          "command": {
+            "type": "doneMove"
+          },
+          "planningMs": 56.52389999999991,
+          "chooserMs": 71.76490000000013,
+          "controlComplete": true,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 210,
+          "queries": 16389,
+          "generated": 1012,
+          "controlValue": 270.88556076388886,
+          "differentFromNormal": false
+        },
+        "current": {
+          "command": {
+            "type": "doneMove"
+          },
+          "planningMs": 18.364399999999932,
+          "chooserMs": 14.007299999999987,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 51,
+          "queries": 4096,
+          "generated": 234,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "balanced",
+      "seed": 1511,
+      "round": 7,
+      "seat": 0,
+      "legions": 9,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-6",
+        "toHex": "131",
+        "teleport": false
+      },
+      "settings": {
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-6",
+            "toHex": "131",
+            "teleport": false
+          },
+          "planningMs": 16.248800000000074,
+          "chooserMs": 16.08719999999994,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 29,
+          "queries": 4101,
+          "generated": 176,
+          "differentFromNormal": false
+        },
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-6",
+            "toHex": "131",
+            "teleport": false
+          },
+          "planningMs": 58.13889999999992,
+          "chooserMs": 61.048899999999776,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 123,
+          "queries": 16387,
+          "generated": 732,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "balanced",
+      "seed": 1511,
+      "round": 12,
+      "seat": 1,
+      "legions": 11,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-11",
+        "toHex": "41",
+        "teleport": false
+      },
+      "settings": {
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-11",
+            "toHex": "41",
+            "teleport": false
+          },
+          "planningMs": 64.24389999999994,
+          "chooserMs": 69.66090000000031,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 106,
+          "queries": 16385,
+          "generated": 1096,
+          "differentFromNormal": false
+        },
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-11",
+            "toHex": "41",
+            "teleport": false
+          },
+          "planningMs": 19.93229999999994,
+          "chooserMs": 22.12990000000036,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 27,
+          "queries": 4100,
+          "generated": 416,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "balanced",
+      "seed": 1511,
+      "round": 18,
+      "seat": 1,
+      "legions": 12,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-4",
+        "toHex": "117",
+        "teleport": false
+      },
+      "settings": {
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-4",
+            "toHex": "117",
+            "teleport": false
+          },
+          "planningMs": 7.127500000000055,
+          "chooserMs": 9.920399999999972,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": false,
+          "incomplete": true,
+          "nodes": 13,
+          "queries": 2447,
+          "generated": 82,
+          "differentFromNormal": false
+        },
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-4",
+            "toHex": "117",
+            "teleport": false
+          },
+          "planningMs": 8.39370000000008,
+          "chooserMs": 8.107300000000123,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": false,
+          "incomplete": true,
+          "nodes": 13,
+          "queries": 2447,
+          "generated": 82,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "balanced",
+      "seed": 3253,
+      "round": 2,
+      "seat": 1,
+      "legions": 4,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-4",
+        "toHex": "106",
+        "teleport": false
+      },
+      "settings": {
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-2",
+            "toHex": "136",
+            "teleport": false
+          },
+          "planningMs": 27.828099999999722,
+          "chooserMs": 24.558599999999842,
+          "controlComplete": true,
+          "completeCandidates": 1,
+          "completedHolds": 1,
+          "exhausted": false,
+          "incomplete": false,
+          "nodes": 297,
+          "queries": 4498,
+          "generated": 1080,
+          "controlValue": 216.74345081018515,
+          "bestMoveValue": 216.74345081018515,
+          "bestHoldValue": 224.06919878472223,
+          "differentFromNormal": true
+        },
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-4",
+            "toHex": "106",
+            "teleport": false
+          },
+          "planningMs": 25.133699999999862,
+          "chooserMs": 28.877199999999903,
+          "controlComplete": true,
+          "completeCandidates": 1,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 255,
+          "queries": 4102,
+          "generated": 980,
+          "controlValue": 216.74345081018515,
+          "bestMoveValue": 216.74345081018515,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "balanced",
+      "seed": 3253,
+      "round": 4,
+      "seat": 1,
+      "legions": 6,
+      "normal": {
+        "type": "doneMove"
+      },
+      "settings": {
+        "current": {
+          "command": {
+            "type": "doneMove"
+          },
+          "planningMs": 0.017800000000079308,
+          "chooserMs": 0.09370000000035361,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": false,
+          "incomplete": false,
+          "nodes": 0,
+          "queries": 0,
+          "generated": 0,
+          "differentFromNormal": false
+        },
+        "expanded": {
+          "command": {
+            "type": "doneMove"
+          },
+          "planningMs": 0.0016000000000531145,
+          "chooserMs": 0.0805000000000291,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": false,
+          "incomplete": false,
+          "nodes": 0,
+          "queries": 0,
+          "generated": 0,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "balanced",
+      "seed": 3253,
+      "round": 7,
+      "seat": 0,
+      "legions": 8,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-1",
+        "toHex": "134",
+        "teleport": false
+      },
+      "settings": {
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-1",
+            "toHex": "134",
+            "teleport": false
+          },
+          "planningMs": 60.35159999999996,
+          "chooserMs": 61.421100000000024,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 134,
+          "queries": 16390,
+          "generated": 1013,
+          "differentFromNormal": false
+        },
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-1",
+            "toHex": "134",
+            "teleport": false
+          },
+          "planningMs": 22.45069999999987,
+          "chooserMs": 18.08759999999984,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 33,
+          "queries": 4099,
+          "generated": 262,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "balanced",
+      "seed": 3253,
+      "round": 12,
+      "seat": 1,
+      "legions": 16,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-2",
+        "toHex": "122",
+        "teleport": false
+      },
+      "settings": {
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-2",
+            "toHex": "122",
+            "teleport": false
+          },
+          "planningMs": 20.08510000000024,
+          "chooserMs": 23.04439999999977,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 8,
+          "queries": 4097,
+          "generated": 106,
+          "differentFromNormal": false
+        },
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-2",
+            "toHex": "122",
+            "teleport": false
+          },
+          "planningMs": 77.74800000000005,
+          "chooserMs": 71.32139999999981,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 30,
+          "queries": 16387,
+          "generated": 593,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "balanced",
+      "seed": 3253,
+      "round": 18,
+      "seat": 1,
+      "legions": 21,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-10",
+        "toHex": "106",
+        "teleport": false
+      },
+      "settings": {
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-10",
+            "toHex": "106",
+            "teleport": false
+          },
+          "planningMs": 73.77809999999954,
+          "chooserMs": 75.35599999999977,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 27,
+          "queries": 16389,
+          "generated": 499,
+          "differentFromNormal": false
+        },
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-10",
+            "toHex": "106",
+            "teleport": false
+          },
+          "planningMs": 16.535399999999754,
+          "chooserMs": 21.525499999999738,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 6,
+          "queries": 4097,
+          "generated": 112,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "balanced",
+      "seed": 7109,
+      "round": 2,
+      "seat": 1,
+      "legions": 4,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-4",
+        "toHex": "28",
+        "teleport": false
+      },
+      "settings": {
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-2",
+            "toHex": "110",
+            "teleport": false
+          },
+          "planningMs": 20.590799999999945,
+          "chooserMs": 20.303099999999176,
+          "controlComplete": true,
+          "completeCandidates": 1,
+          "completedHolds": 1,
+          "exhausted": false,
+          "incomplete": false,
+          "nodes": 294,
+          "queries": 3891,
+          "generated": 806,
+          "controlValue": 218.6290703125,
+          "bestMoveValue": 218.6290703125,
+          "bestHoldValue": 222.85833015046293,
+          "differentFromNormal": true
+        },
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-2",
+            "toHex": "110",
+            "teleport": false
+          },
+          "planningMs": 20.383600000000115,
+          "chooserMs": 26.810599999999795,
+          "controlComplete": true,
+          "completeCandidates": 1,
+          "completedHolds": 1,
+          "exhausted": false,
+          "incomplete": false,
+          "nodes": 294,
+          "queries": 3891,
+          "generated": 806,
+          "controlValue": 218.6290703125,
+          "bestMoveValue": 218.6290703125,
+          "bestHoldValue": 222.85833015046293,
+          "differentFromNormal": true
+        }
+      }
+    },
+    {
+      "personality": "balanced",
+      "seed": 7109,
+      "round": 7,
+      "seat": 0,
+      "legions": 9,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-8",
+        "toHex": "17",
+        "teleport": false
+      },
+      "settings": {
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-8",
+            "toHex": "17",
+            "teleport": false
+          },
+          "planningMs": 66.82629999999972,
+          "chooserMs": 56.70720000000074,
+          "controlComplete": true,
+          "completeCandidates": 1,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 201,
+          "queries": 16385,
+          "generated": 1083,
+          "controlValue": 331.642515625,
+          "bestMoveValue": 331.642515625,
+          "differentFromNormal": false
+        },
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-8",
+            "toHex": "17",
+            "teleport": false
+          },
+          "planningMs": 15.438600000000406,
+          "chooserMs": 15.714200000000346,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 50,
+          "queries": 4100,
+          "generated": 262,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "balanced",
+      "seed": 7109,
+      "round": 12,
+      "seat": 1,
+      "legions": 11,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-5",
+        "toHex": "40",
+        "teleport": false
+      },
+      "settings": {
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-5",
+            "toHex": "40",
+            "teleport": false
+          },
+          "planningMs": 5.020300000000134,
+          "chooserMs": 5.890400000000227,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": false,
+          "incomplete": true,
+          "nodes": 8,
+          "queries": 1485,
+          "generated": 59,
+          "differentFromNormal": false
+        },
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-5",
+            "toHex": "40",
+            "teleport": false
+          },
+          "planningMs": 4.984699999999975,
+          "chooserMs": 5.89429999999993,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": false,
+          "incomplete": true,
+          "nodes": 8,
+          "queries": 1485,
+          "generated": 59,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "balanced",
+      "seed": 7109,
+      "round": 18,
+      "seat": 1,
+      "legions": 16,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-6",
+        "toHex": "400",
+        "teleport": false
+      },
+      "settings": {
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-6",
+            "toHex": "400",
+            "teleport": false
+          },
+          "planningMs": 60.79620000000068,
+          "chooserMs": 64.91719999999987,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 43,
+          "queries": 16387,
+          "generated": 461,
+          "differentFromNormal": false
+        },
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-6",
+            "toHex": "400",
+            "teleport": false
+          },
+          "planningMs": 16.47949999999946,
+          "chooserMs": 18.010599999999613,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 10,
+          "queries": 4102,
+          "generated": 116,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "random",
+      "seed": 1511,
+      "round": 2,
+      "seat": 1,
+      "legions": 4,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-4",
+        "toHex": "28",
+        "teleport": false
+      },
+      "settings": {
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-4",
+            "toHex": "28",
+            "teleport": false
+          },
+          "planningMs": 21.107200000000375,
+          "chooserMs": 22.08300000000054,
+          "controlComplete": true,
+          "completeCandidates": 1,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 286,
+          "queries": 4102,
+          "generated": 763,
+          "controlValue": 219.0134001736111,
+          "bestMoveValue": 219.0134001736111,
+          "differentFromNormal": false
+        },
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-2",
+            "toHex": "110",
+            "teleport": false
+          },
+          "planningMs": 21.98030000000017,
+          "chooserMs": 31.420399999999972,
+          "controlComplete": true,
+          "completeCandidates": 1,
+          "completedHolds": 1,
+          "exhausted": false,
+          "incomplete": false,
+          "nodes": 292,
+          "queries": 4158,
+          "generated": 775,
+          "controlValue": 219.0134001736111,
+          "bestMoveValue": 219.0134001736111,
+          "bestHoldValue": 223.9175245949074,
+          "differentFromNormal": true
+        }
+      }
+    },
+    {
+      "personality": "random",
+      "seed": 1511,
+      "round": 4,
+      "seat": 1,
+      "legions": 7,
+      "normal": {
+        "type": "doneMove"
+      },
+      "settings": {
+        "expanded": {
+          "command": {
+            "type": "doneMove"
+          },
+          "planningMs": 67.83240000000023,
+          "chooserMs": 64.98769999999968,
+          "controlComplete": true,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 210,
+          "queries": 16389,
+          "generated": 1012,
+          "controlValue": 270.88556076388886,
+          "differentFromNormal": false
+        },
+        "current": {
+          "command": {
+            "type": "doneMove"
+          },
+          "planningMs": 16.087499999999636,
+          "chooserMs": 16.053399999999783,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 51,
+          "queries": 4096,
+          "generated": 234,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "random",
+      "seed": 1511,
+      "round": 7,
+      "seat": 0,
+      "legions": 9,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-6",
+        "toHex": "131",
+        "teleport": false
+      },
+      "settings": {
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-6",
+            "toHex": "131",
+            "teleport": false
+          },
+          "planningMs": 24.97609999999986,
+          "chooserMs": 15.959800000000541,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 29,
+          "queries": 4101,
+          "generated": 176,
+          "differentFromNormal": false
+        },
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-6",
+            "toHex": "131",
+            "teleport": false
+          },
+          "planningMs": 62.19710000000032,
+          "chooserMs": 62.02819999999974,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 123,
+          "queries": 16387,
+          "generated": 732,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "random",
+      "seed": 1511,
+      "round": 12,
+      "seat": 1,
+      "legions": 14,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-9",
+        "toHex": "27",
+        "teleport": false
+      },
+      "settings": {
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-9",
+            "toHex": "27",
+            "teleport": false
+          },
+          "planningMs": 52.111799999999675,
+          "chooserMs": 51.77969999999914,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 58,
+          "queries": 16386,
+          "generated": 643,
+          "differentFromNormal": false
+        },
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-9",
+            "toHex": "27",
+            "teleport": false
+          },
+          "planningMs": 13.454499999999825,
+          "chooserMs": 15.499900000000707,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 14,
+          "queries": 4099,
+          "generated": 211,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "random",
+      "seed": 1511,
+      "round": 18,
+      "seat": 1,
+      "legions": 18,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-7",
+        "toHex": "300",
+        "teleport": false
+      },
+      "settings": {
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-7",
+            "toHex": "300",
+            "teleport": false
+          },
+          "planningMs": 14.70219999999972,
+          "chooserMs": 17.36409999999978,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 6,
+          "queries": 4098,
+          "generated": 87,
+          "differentFromNormal": false
+        },
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-7",
+            "toHex": "300",
+            "teleport": false
+          },
+          "planningMs": 59.26260000000002,
+          "chooserMs": 62.62119999999959,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 30,
+          "queries": 16389,
+          "generated": 374,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "random",
+      "seed": 3253,
+      "round": 2,
+      "seat": 1,
+      "legions": 4,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-4",
+        "toHex": "106",
+        "teleport": false
+      },
+      "settings": {
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-2",
+            "toHex": "136",
+            "teleport": false
+          },
+          "planningMs": 22.725899999999456,
+          "chooserMs": 24.502299999999195,
+          "controlComplete": true,
+          "completeCandidates": 1,
+          "completedHolds": 1,
+          "exhausted": false,
+          "incomplete": false,
+          "nodes": 297,
+          "queries": 4498,
+          "generated": 1080,
+          "controlValue": 216.74345081018515,
+          "bestMoveValue": 216.74345081018515,
+          "bestHoldValue": 224.06919878472223,
+          "differentFromNormal": true
+        },
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-4",
+            "toHex": "106",
+            "teleport": false
+          },
+          "planningMs": 19.957699999999022,
+          "chooserMs": 21.03939999999966,
+          "controlComplete": true,
+          "completeCandidates": 1,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 255,
+          "queries": 4102,
+          "generated": 980,
+          "controlValue": 216.74345081018515,
+          "bestMoveValue": 216.74345081018515,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "random",
+      "seed": 3253,
+      "round": 4,
+      "seat": 1,
+      "legions": 6,
+      "normal": {
+        "type": "doneMove"
+      },
+      "settings": {
+        "current": {
+          "command": {
+            "type": "doneMove"
+          },
+          "planningMs": 0.012600000000020373,
+          "chooserMs": 0.10819999999876018,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": false,
+          "incomplete": false,
+          "nodes": 0,
+          "queries": 0,
+          "generated": 0,
+          "differentFromNormal": false
+        },
+        "expanded": {
+          "command": {
+            "type": "doneMove"
+          },
+          "planningMs": 0.0015000000003055902,
+          "chooserMs": 0.0871000000006461,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": false,
+          "incomplete": false,
+          "nodes": 0,
+          "queries": 0,
+          "generated": 0,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "random",
+      "seed": 3253,
+      "round": 7,
+      "seat": 0,
+      "legions": 9,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-1",
+        "toHex": "3",
+        "teleport": false
+      },
+      "settings": {
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-1",
+            "toHex": "3",
+            "teleport": false
+          },
+          "planningMs": 52.96360000000095,
+          "chooserMs": 55.470900000000256,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 121,
+          "queries": 16385,
+          "generated": 1069,
+          "differentFromNormal": false
+        },
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-1",
+            "toHex": "3",
+            "teleport": false
+          },
+          "planningMs": 13.925900000000183,
+          "chooserMs": 14.125200000000405,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 28,
+          "queries": 4098,
+          "generated": 255,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "random",
+      "seed": 3253,
+      "round": 12,
+      "seat": 1,
+      "legions": 13,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-10",
+        "toHex": "114",
+        "teleport": false
+      },
+      "settings": {
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-10",
+            "toHex": "114",
+            "teleport": false
+          },
+          "planningMs": 10.898999999999432,
+          "chooserMs": 10.602699999999459,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 12,
+          "queries": 4101,
+          "generated": 145,
+          "differentFromNormal": false
+        },
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-10",
+            "toHex": "114",
+            "teleport": false
+          },
+          "planningMs": 42.23840000000018,
+          "chooserMs": 42.49250000000029,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 53,
+          "queries": 16385,
+          "generated": 572,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "random",
+      "seed": 3253,
+      "round": 18,
+      "seat": 1,
+      "legions": 18,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-4",
+        "toHex": "124",
+        "teleport": false
+      },
+      "settings": {
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-4",
+            "toHex": "124",
+            "teleport": false
+          },
+          "planningMs": 58.63670000000093,
+          "chooserMs": 62.154599999999846,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 38,
+          "queries": 16389,
+          "generated": 251,
+          "differentFromNormal": false
+        },
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-4",
+            "toHex": "124",
+            "teleport": false
+          },
+          "planningMs": 15.061799999999494,
+          "chooserMs": 17.16620000000148,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 8,
+          "queries": 4097,
+          "generated": 56,
+          "differentFromNormal": false
+        }
+      }
+    },
+    {
+      "personality": "random",
+      "seed": 7109,
+      "round": 2,
+      "seat": 1,
+      "legions": 4,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-4",
+        "toHex": "28",
+        "teleport": false
+      },
+      "settings": {
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-2",
+            "toHex": "110",
+            "teleport": false
+          },
+          "planningMs": 19.59940000000097,
+          "chooserMs": 18.836299999999028,
+          "controlComplete": true,
+          "completeCandidates": 1,
+          "completedHolds": 1,
+          "exhausted": false,
+          "incomplete": false,
+          "nodes": 294,
+          "queries": 3891,
+          "generated": 806,
+          "controlValue": 218.6290703125,
+          "bestMoveValue": 218.6290703125,
+          "bestHoldValue": 222.85833015046293,
+          "differentFromNormal": true
+        },
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-2",
+            "toHex": "110",
+            "teleport": false
+          },
+          "planningMs": 19.021500000000742,
+          "chooserMs": 20.17239999999947,
+          "controlComplete": true,
+          "completeCandidates": 1,
+          "completedHolds": 1,
+          "exhausted": false,
+          "incomplete": false,
+          "nodes": 294,
+          "queries": 3891,
+          "generated": 806,
+          "controlValue": 218.6290703125,
+          "bestMoveValue": 218.6290703125,
+          "bestHoldValue": 222.85833015046293,
+          "differentFromNormal": true
+        }
+      }
+    },
+    {
+      "personality": "random",
+      "seed": 7109,
+      "round": 7,
+      "seat": 0,
+      "legions": 9,
+      "normal": {
+        "type": "move",
+        "legionId": "leg-8",
+        "toHex": "17",
+        "teleport": false
+      },
+      "settings": {
+        "expanded": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-8",
+            "toHex": "17",
+            "teleport": false
+          },
+          "planningMs": 52.73570000000109,
+          "chooserMs": 52.18050000000039,
+          "controlComplete": true,
+          "completeCandidates": 1,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 194,
+          "queries": 16385,
+          "generated": 957,
+          "controlValue": 324.35557783564815,
+          "bestMoveValue": 324.35557783564815,
+          "differentFromNormal": false
+        },
+        "current": {
+          "command": {
+            "type": "move",
+            "legionId": "leg-8",
+            "toHex": "17",
+            "teleport": false
+          },
+          "planningMs": 12.943600000000515,
+          "chooserMs": 14.179799999999886,
+          "controlComplete": false,
+          "completeCandidates": 0,
+          "completedHolds": 0,
+          "exhausted": true,
+          "incomplete": false,
+          "nodes": 51,
+          "queries": 4102,
+          "generated": 225,
+          "differentFromNormal": false
+        }
+      }
+    }
+  ]
+}
