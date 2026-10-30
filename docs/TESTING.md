@@ -1017,3 +1017,5 @@ attribute handling preserves the physical endpoint harness SHA597...a7d0d4 acros
 checkouts. One1.08 entry, no manual app-host deployment.
 
 Final packaging completed cheap2: exact tested product-tree and Git-index harness-byte checks, all published dataset counts/paired seats/source metadata/links, six script syntax checks, version1.07→1.08, actual tsc/Vite all pass. Production asset names remain index-CFLOzI4Z.js/index-BauY8sXD.css. No product-source change after the full700-test gate.
+
+Release25ec026 pushed to origin/master and exact remote SHA verified; GitHub README content independently fetched. Clean writer worktrees/branches retired only afterward; final strategy454files, tactics48files and difficulty407files archived before removal. Final lifecycle record changes documentation only; product tree stays638566160f5d6b77329a58c47d744dfb47d80741 and the same single1.08 entry.
