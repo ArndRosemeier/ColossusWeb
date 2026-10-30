@@ -861,3 +861,14 @@ initial: four Easy-coordination diagnostic assertions expected obsolete proof.be
 null after any later exhaustion. Dispatcher approved replacing only those diagnostics
 with retained control155.772925/best identity and HOLD150.804631 values; all actual
 Easy/Normal/Hard commands, safety and RNG expectations remain intact.
+
+Row45 final physical differential `.gate-logs/master-complete-actions-negative/gate.log`
+gate0 also runs real tsc/Vite120modules before injecting. Commit-first/trap-restored
+A/C masterLookahead SHAede711326ffbdb4acc3ffe33e4d5a7e970e5d1d52dc47bf4f6eb4856c540fc4d;
+evaluateMove unchanged SHA cb4a2325e185d1177d26318aca73b33e8eafc3df3150b2d477e393a78ca93ea1.
+A named complete-prefix fixture passes. B adds ONLY the old final global candidate
+clearing at SHA76d43b4d2e7cdfd235134780509cab3a153cef43c5989afefca343f983b5dd7f;
+that same pin fails naming the two missing complete142/42 candidate records. C restores
+exact A bytes from HEAD and passes; no source diff remains. Node1024/worker1;
+peakNOTMEASURED. Parent owns independent full suite, different physical negative,
+production interaction and outcome calibration. No match-strength claim by writer.
