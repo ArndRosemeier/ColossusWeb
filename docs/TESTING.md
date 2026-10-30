@@ -827,3 +827,57 @@ full red assertion is retained. Node1024/worker1; peakNOTMEASURED. Separate sour
 comparison confirms the four extracted handler bodies are byte-identical to a6c46de
 (normalized LF), preserving validation/error ordering. No whole-suite, production
 browser or strength claim by the writer; integrated dispatcher checks remain owed.
+
+## Dispatcher verification — rows43/44 integrated at de6cdf1
+
+COPIES: 2→1 — shared formation beam/projection and complete-position adapter; one
+unchanged support engine authority and one live/trial support selector. Independent
+read-only source reviews found no blocker in either seam. No strength claim follows
+from these regression checks.
+
+Full gate0 `.gate-logs/dispatcher-whole-support-full/gate.log`:696passed/2todo,
+84files+1skip,16existing lint warnings/0errors,67.05s,Node1024/worker1;peak NOT MEASURED.
+Real subpath build produced index-Cd83gt7A.js and index-BauY8sXD.css.
+
+Independent physical negative gate0 `.gate-logs/dispatcher-whole-support-negative-ui`:
+A/C evaluateBattle SHA2567f8c483a5e6b8a24feec04593240d5a6c69021e581308d5f6d7bda4c3493bf52;
+B6a04b91e479e4f855777f311a98fe86654db4a19536158691394ba946014bd88 disables
+only the live complete-maneuver adapter and fails the named blocker-first complete
+certificate assertion. A/C battleRollout SHA2569a0f4cebcbe213ab579af0a797c71493cfdb4429d82954c52de435b96d996b2d;
+D8d22b01a2c278da58fd4f071a400aeb8fb3eb0ded6e8056e1dac9bde2be613a9
+removes only donor material accounting and fails the named no-free-terminal-material
+assertion. Both exact checkout byte hashes restored from HEAD in trap under the lock.
+Parent probes are ../output/ai-strength/{maneuver-probe,support-probe}.cjs.
+
+Actual successive legal moves OgreC4→HydraB3→OgreC2 open the blocked Hydra strike.
+Independent fixed fixture seeds101/919/3001/7793/12007/19001/33013/61001 give7/8
+coordinated wins versus4/8 completed Normal wins, using actual strike/Strikeback/time-loss rules. This is one constructed position, not a tournament estimate.
+Turn-four reinforcement is resolved inside the trial with no live stock/input mutation.
+Full dispatch states for Reinforce/SkipReinforce/Summon/SkipSummon match the independent
+frozen67bc699 original engine. Mixed Angel/Archangel donor yields its first Angel;
+stock/public composition match; terminal surviving transfer utility52 equals52 without
+summoning. Shared obsolete support-censor assertions now require the actual existing
+safe skip and complete real reinforcement rather than unsupported boundaries.
+
+Six production Chrome checks pass: setup/per-seat difficulty/personality/save/resume,
+legacy migration, visible malformed-save error preserving bytes,360px bounds, actual
+opening split, small/7v7 physical strike,7v7 maneuver, turn-four reinforcement and
+initial deployment; no DEV dispatch hook. All saved resulting states equal independent
+engine dispatch (dice presentation timestamp alone normalized). Served JS/CSS SHA256
+match the built /ColossusWeb/ assets;0page errors. Observed browser longtasks: small
+strike none,7v7strike61ms,maneuver107ms,support none,entry134ms; these are samples,
+not worst-case guarantees. Node timings15.49/80.20/139.17/0.35/161.74ms respectively.
+Earlier writer7v7 maneuver130–466ms variance is retained in its evidence. All owned
+browsers/servers close in finally; user Vite/unrelated bundled browser preserved.
+
+Bounded Abyssal6/ExtTitan/Default4player stability checks each finish12rounds with
+258/216/361commands and no errors/invariant violations; their caps are not wins.
+Initial dispatcher probe/UI gate1 was a verification harness cwd error, not product
+behavior: browser output resolved under source/output and could not find its fixture.
+Fixed root-relative output, retained raw failure and moved misplaced artifacts into
+its gate archive. No product assertion was weakened.
+
+Portable benchmark preparation cheap2 recreates all186old/196Normal snapshot files
+exactly after LF normalization. Initial cheap1 exposed Git Bash tar treating C: as a
+remote host; relative archive plus explicit cwd fixes the published script. Raw cheap
+logs portable-benchmark-baselines and portable-benchmark-baselines-fixed retained.
