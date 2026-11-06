@@ -10,6 +10,19 @@ export const HOME_TURF_BONUS = 4
 /** Defenders in a Tower are treated as stronger (Colossus-style). */
 export const TOWER_DEFENSE_FACTOR = 1.2
 
+/**
+ * Defenders on an anti-tower land (Abyss: start list but no tower) are treated
+ * as weaker. They enter low in the central pit while the attacker holds the
+ * walled high ground, so mustering there is only safe when no one can attack.
+ */
+export const ABYSS_DEFENSE_FACTOR = 0.7
+
+/** Battleland with a defender start list that is not a real Tower (Abyss). */
+export function isAntiTowerTerrain(variant: LoadedVariant, terrainName: string): boolean {
+  const land = variant.data.battlelands[terrainName]
+  return Boolean(land && !land.tower && land.startlist?.length)
+}
+
 export const FLYER_BUMP = 1
 export const RANGESTRIKE_BUMP = 1
 
@@ -119,7 +132,8 @@ export function creatureCombatValue(
 }
 
 /**
- * Sum of creature combat values on `hexLabel`, with Tower defense inflation when role is defend.
+ * Sum of creature combat values on `hexLabel`, with Tower defense inflation (and Abyss
+ * defense deflation) when role is defend.
  * With `engagementExtras`, also folds in summon (attack) or reinforce (defend).
  */
 export function legionCombatValue(
@@ -154,6 +168,8 @@ export function legionCombatValue(
   const terrain = terrainAt(state, hexLabel)
   if (role === 'defend' && terrain === 'Tower') {
     total *= TOWER_DEFENSE_FACTOR
+  } else if (role === 'defend' && terrain && isAntiTowerTerrain(state.variant, terrain)) {
+    total *= ABYSS_DEFENSE_FACTOR
   }
 
   return total
