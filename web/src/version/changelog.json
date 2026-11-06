@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.11",
+    "date": "2026-11-06",
+    "changes": [
+      "Computer players now know the Abyss is a bad place to be attacked. They only go there to muster when no enemy can reach them next turn or they are strong enough to win anyway, and they are keener to attack enemies caught in an Abyss."
+    ]
+  },
+  {
     "version": "1.10",
     "date": "2026-10-30",
     "changes": [
